@@ -1305,6 +1305,20 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
     }
   }
   if (std::ranges::none_of(pieces, &Piece::english)) return {};
+  // English typed with no Japanese around it ("overcute", "printenv", "`doomscroll`") is one coined
+  // word or a command as typed: no space goes in, apart from a set phrase ("seeyou": see you).
+  // Inside a sentence two words typed together are spaced as before ("weeklyreport").
+  const bool any_japanese = std::ranges::any_of(pieces, [&](const Piece& piece) {
+    return !piece.english && std::ranges::any_of(std::string_view(raw).substr(piece.begin, piece.end - piece.begin),
+                                                 [](char c) { return std::isalpha(static_cast<unsigned char>(c)) != 0; });
+  });
+  if (!any_japanese) {
+    for (Piece& piece : pieces) {
+      if (piece.english && lexicon.FindPhrase(std::string_view(raw).substr(piece.begin, piece.end - piece.begin)) == nullptr) {
+        piece.spaces.clear();
+      }
+    }
+  }
   return pieces;
 }
 

@@ -275,6 +275,13 @@ int main() {
     const auto spaced = jaen::SplitEnglish(Parse("weeklyreportwokaku"), lexicon, Parse);
     Expect(spaced.size() == 2 && spaced[0].english && spaced[0].spaces == std::vector<size_t>{6},
            "a space between two words that are no word together");
+    const auto alone = jaen::SplitEnglish(Parse("weeklyreport"), lexicon, Parse);
+    Expect(alone.size() == 1 && alone[0].english && alone[0].spaces.empty(),
+           "English with no Japanese around it gets no space (overcute, printenv)");
+    const auto quoted = jaen::SplitEnglish(Parse("`weeklyreport`"), lexicon, Parse);
+    Expect(std::ranges::any_of(quoted, [](const jaen::Piece& p) { return p.english && p.spaces.empty(); }) &&
+               std::ranges::none_of(quoted, [](const jaen::Piece& p) { return !p.spaces.empty(); }),
+           "symbols around it are no Japanese");
     const auto joined = jaen::SplitEnglish(Parse("downloadshita"), lexicon, Parse);
     Expect(!joined.empty() && joined[0].english && joined[0].spaces.size() == 1,
            "down|load (no word 'download' in this lexicon) gets a space too");
@@ -320,7 +327,7 @@ int main() {
     Expect(decided_text("sametime") == "sametime|", "文脈: 読みが不自然な2語のつながりは英語");
     {
       const auto pieces = decided("sametime");
-      Expect(pieces.size() == 1 && pieces[0].spaces == std::vector<size_t>{4}, "文脈: つながりの語の間に空白");
+      Expect(pieces.size() == 1 && pieces[0].spaces.empty(), "文脈: 日本語のない2語のつながりは打ったとおり（空白なし）");
     }
     Expect(decided_text("kyouhasamegoogledesu") == "samegoogle|", "文脈: 英語の隣の same は英語（google の隣）");
     Expect(english("sametime").empty() && Text("sametime", jaen::SplitEnglish(Parse("sametime"), lexicon, Parse), true).empty(),
