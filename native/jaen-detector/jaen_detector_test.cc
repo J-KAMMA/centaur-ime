@@ -768,6 +768,12 @@ int main() {
                jaen::TypedSymbolSpans("huusoku6me-toru").empty() && jaen::TypedSymbolSpans("kore.appudeto").empty() &&
                jaen::TypedSymbolSpans("karenda-").empty(),
            "a sentence end and a long vowel stay kana");
+    using Span = std::optional<std::pair<size_t, size_t>>;
+    Expect(jaen::CapitalWord("Gemma4", Parse) == Span{{0, 6}} && jaen::CapitalWord("iZotope", Parse) == Span{{0, 7}} &&
+               jaen::CapitalWord("korewoGemmadetameshita", Parse) == Span{{6, 11}} &&
+               jaen::CapitalWord("Gemmaha", Parse) == Span{{0, 5}} &&
+               !jaen::CapitalWord("korewotameshita", Parse),
+           "the word holding a capital letter");
     Expect(jaen::ReadableTypoEdits("fidesuka", Parse).empty(),"a reading with a small vowel (ふぃ) is not edited");
     Expect(!jaen::ReadableTypoEdits("tsudukete", Parse).empty() && jaen::ReadableTypoEdits("tsud", Parse).empty(),
            "only keys that read as kana are edited");

@@ -68,6 +68,10 @@ std::optional<size_t> WordStartSokuon(std::string_view raw, const RomajiParser& 
 // joined by a hyphen after a consonant or a digit ("pt-query-digest", "v1.3.1-pre.3"). A dot that
 // ends a sentence ("ryoukaidesu.deha") and a long vowel ("pa-thisyon") are left to kana.
 std::vector<std::pair<size_t, size_t>> TypedSymbolSpans(std::string_view raw);
+// The span [begin, end) of the word holding the first capital letter of |raw| ("Gemma4": whole,
+// "iZotope": whole, "korewoGemmadetameshita": Gemma), from the start or the last particle before
+// it to the next particle after it (WordEnd), or nullopt when |raw| has no capital letter.
+std::optional<std::pair<size_t, size_t>> CapitalWord(std::string_view raw, const RomajiParser& parse);
 // The kana of |keys| from the chunk holding key |at| to the next particle or the end.
 std::string WordKana(std::string_view keys, size_t at, const RomajiParser& parse);
 // Where that word ends: the next particle after key |at|, or the end of |keys|.

@@ -246,6 +246,29 @@ std::vector<std::pair<size_t, size_t>> TypedSymbolSpans(std::string_view raw) {
   return spans;
 }
 
+std::optional<std::pair<size_t, size_t>> CapitalWord(std::string_view raw, const RomajiParser& parse) {
+  const size_t capital = static_cast<size_t>(
+      std::ranges::find_if(raw, [](char c) { return std::isupper(static_cast<unsigned char>(c)) != 0; }) - raw.begin());
+  if (capital == raw.size()) return std::nullopt;
+  const std::vector<Chunk> typed = parse(raw);
+  size_t begin = 0;
+  size_t at = 0;
+  for (size_t i = 0; i < typed.size() && at + typed[i].raw.size() <= capital; ++i) {
+    at += typed[i].raw.size();
+    if (i + 1 < typed.size() && StartsWord(typed, i + 1)) begin = at;
+  }
+  // The word ends at a particle followed by the end or by a word of 3 keys or more ("Gemmawotsukau",
+  // "Gemmaha"); a particle-like spelling with 1 or 2 keys after it is inside the name ("iZo|to|pe").
+  size_t offset = 0;
+  for (const Chunk& chunk : typed) {
+    offset += chunk.raw.size();
+    if (offset <= capital || !StartsWithParticleSpelling(raw.substr(offset))) continue;
+    const size_t tail = raw.size() - offset - 2;
+    if (tail == 0 || tail >= 3) return std::make_pair(begin, offset);
+  }
+  return std::make_pair(begin, raw.size());
+}
+
 std::optional<size_t> WordStartSokuon(std::string_view raw, const RomajiParser& parse) {
   const std::vector<Chunk> typed = parse(raw);
   size_t at = 0;
