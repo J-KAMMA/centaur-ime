@@ -5781,4 +5781,65 @@ edit("converter/converter.cc", _anchor, _anchor + """  for (size_t p = 0; p < pi
   }
 """)
 
+# 大文字: Mozc の既定（大文字を打つと、そこから先を英字の入力にする ASCII_INPUT_MODE）では、大文字のあとの
+# 日本語（Androidha、korewoiPhonedesatueisi）も英字のままで、英字と日本語の見分けが働かない。既定を OFF（大文字も
+# ローマ字として読む）にして見分けに任せ、見分けで英語にならなかった大文字入りの語（Gemma4、iZotope）は、
+# その語（前の助詞から次の助詞まで、jaen::CapitalWord）を打ったとおりの英字の部分にする。
+edit("protocol/config.proto", """  optional ShiftKeyModeSwitch shift_key_mode_switch = 59
+      [default = ASCII_INPUT_MODE];""", """  optional ShiftKeyModeSwitch shift_key_mode_switch = 59
+      [default = OFF];""")
+_anchor = """    pieces.insert(pieces.begin() + p, parts.begin(), parts.end());
+    p += parts.size() - 1;
+    split = true;
+  }
+"""
+edit("converter/converter.cc", _anchor, _anchor + """  for (size_t p = 0; p < pieces.size(); ++p) {
+    if (pieces[p].english) continue;
+    const jaen::Piece piece = pieces[p];
+    const std::string text = raw.substr(piece.begin, piece.end - piece.begin);
+    const std::optional<std::pair<size_t, size_t>> word = jaen::CapitalWord(text, parse);
+    if (!word) continue;
+    const auto [b, e] = *word;
+    std::vector<jaen::Piece> parts;
+    if (b > 0) parts.push_back(jaen::Piece{piece.begin, piece.begin + b, false});
+    parts.push_back(jaen::Piece{piece.begin + b, piece.begin + e, true});
+    if (e < text.size()) parts.push_back(jaen::Piece{piece.begin + e, piece.end, false});
+    pieces.erase(pieces.begin() + p);
+    pieces.insert(pieces.begin() + p, parts.begin(), parts.end());
+    p += b > 0 ? 1 : 0;  // the rest after the word is looked at next
+    split = true;
+  }
+""")
+
+# 打ったとおりに残す記号: 拡張子・ドメインの前の点（llama.cpp、.gitignore、zenn.dev）と、子音字か数字のあとの
+# ハイフン（pt-query-digest、v1.3.1-pre.3）を含む範囲を、打ったとおりの英字の部分にする（。や ー にしない）。
+# 文の終わりの点（ryoukaidesu.deha）と長音（pa-thisyon）はそのまま。点やハイフンのない入力では何もしない。
+_anchor = """    pieces.insert(pieces.begin() + p, parts.begin(), parts.end());
+    p += parts.size() - 1;
+    split = true;
+  }
+"""
+edit("converter/converter.cc", _anchor, _anchor + """  if (const std::vector<std::pair<size_t, size_t>> spans = jaen::TypedSymbolSpans(raw); !spans.empty()) {
+    std::vector<jaen::Piece> carved;
+    for (const jaen::Piece& piece : pieces) {
+      const bool touched = std::ranges::any_of(spans, [&](const auto& s) { return s.first < piece.end && s.second > piece.begin; });
+      if (!touched) {
+        carved.push_back(piece);
+        continue;
+      }
+      size_t at = piece.begin;
+      for (const auto& [b, e] : spans) {
+        if (e <= at || b >= piece.end) continue;
+        if (b > at) carved.push_back(jaen::Piece{at, b, piece.english});
+        at = std::min(e, piece.end);
+      }
+      if (at < piece.end) carved.push_back(jaen::Piece{at, piece.end, piece.english});
+    }
+    for (const auto& [b, e] : spans) carved.push_back(jaen::Piece{b, e, true});
+    std::ranges::sort(carved, {}, &jaen::Piece::begin);
+    pieces = std::move(carved);
+    split = true;
+  }
+""")
+
 print("applied")

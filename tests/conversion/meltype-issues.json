@@ -1,0 +1,1342 @@
+{
+ "source": "https://github.com/yksr-melt/Meltype/issues （[誤判定] の報告の「打ったもの」と「期待した結果」）",
+ "items": [
+  {
+   "id": "m1",
+   "category": "ja-became-english",
+   "romaji": "kyouhameetinggaarimasu",
+   "intended": "今日はmeetingがあります",
+   "note": "Meltype #1 (closed)"
+  },
+  {
+   "id": "m12",
+   "category": "english-became-kana",
+   "romaji": "feature",
+   "intended": "feature",
+   "note": "Meltype #12 (closed)"
+  },
+  {
+   "id": "m65",
+   "category": "ja-became-english",
+   "romaji": "anata",
+   "intended": "あなた",
+   "note": "Meltype #65 (closed)"
+  },
+  {
+   "id": "m77",
+   "category": "english-became-kana",
+   "romaji": "reflectsareta",
+   "intended": "reflectされた",
+   "note": "Meltype #77 (closed)"
+  },
+  {
+   "id": "m82",
+   "category": "ja-became-english",
+   "romaji": "ichiriaru",
+   "intended": "一理ある",
+   "note": "Meltype #82 (closed) 前後: 文頭"
+  },
+  {
+   "id": "m129",
+   "category": "ja-became-english",
+   "romaji": "AInituite",
+   "intended": "AIについて",
+   "note": "Meltype #129 (closed)"
+  },
+  {
+   "id": "m130",
+   "category": "english-became-kana",
+   "romaji": "50ccgenntuki",
+   "intended": "50cc原付",
+   "note": "Meltype #130 (closed) 前後: 50っc原付で登校した"
+  },
+  {
+   "id": "m131",
+   "category": "ja-became-english",
+   "romaji": "cyenn",
+   "intended": "チェン",
+   "note": "Meltype #131 (closed)"
+  },
+  {
+   "id": "m135",
+   "category": "ja-became-english",
+   "romaji": "I(4L)H",
+   "intended": "入力",
+   "note": "Meltype #135 (closed) 前後: 小文字以外の部分でshiftを使った場合の入力ミスが多い"
+  },
+  {
+   "id": "m145",
+   "category": "english-became-kana",
+   "romaji": "discode",
+   "intended": "discode",
+   "note": "Meltype #145 (closed) 前後: なし"
+  },
+  {
+   "id": "m147",
+   "category": "ja-became-english",
+   "romaji": "ageashitoruna",
+   "intended": "揚げ足取るな",
+   "note": "Meltype #147 (closed)"
+  },
+  {
+   "id": "m153",
+   "category": "ja-became-english",
+   "romaji": "hosuthingu",
+   "intended": "ホスティング",
+   "note": "Meltype #153 (closed)"
+  },
+  {
+   "id": "m154",
+   "category": "ja-became-english",
+   "romaji": "abctodef",
+   "intended": "abcとdef",
+   "note": "Meltype #154 (closed)"
+  },
+  {
+   "id": "m196",
+   "category": "other",
+   "romaji": "syotakonn",
+   "intended": "ショタコン",
+   "note": "Meltype #196 (closed)"
+  },
+  {
+   "id": "m207",
+   "category": "english-became-kana",
+   "romaji": "pedia",
+   "intended": "pedia",
+   "note": "Meltype #207 (closed) 前後: 「wikipedia」はそのまま入力できる。 / 「protopedia」は 「protoぺぢあ」となる。 / 「pedia」単体は「ぺぢあ」とそのまま日本語として出力される。 / 先頭大文字の「Pedia」は正常に「Pedia」と入力される。"
+  },
+  {
+   "id": "m218",
+   "category": "ja-became-english",
+   "romaji": "hotelltu",
+   "intended": "hotelっ",
+   "note": "Meltype #218 (closed) 前後: #104 (`moraltute` → moralつて) を直す中 (#217) で見つけたものです。実際の文を打っていて起きたのではなく、調べるために作った入力で確かめました。 /  / 英単語の後ろで、っ をわざわざ `ltu` / `ltsu` と打っても、`l` が前の英字と合わさって別の英単語 (te|l + l = tell、ki|l + l = kill) として固定され、っ になりません。#217 は「英単語の最後の l + tu」(moral|tu) だけを直していて、この「l が 2 つ続く」場合は範囲の外にしています。 /  / `--repro` (Enter で確定) の結果: /  / | 打ったもの | 出たもの | / |---|---| / | `hotelltu` | hotellつ | / | `hotelltsu` | hotellつ | / | `totalltute` | totallつて | / | `sukilltute` | すkillつて | / | `kanaltute` (比較: 前が英単語でない) | かなって | /  / 原因は #104 と同じく `CompositionText.cs` の、英単語の最後の `l` / `x` を次の文字と合わせない処理 (英単語の判定に `EndsWithEnglishWordFromUnit` を使う所) だと思います。 / ふだん `ll` と続けて打つことは少ないので、優先度は低いと思います。"
+  },
+  {
+   "id": "m220",
+   "category": "ja-became-english",
+   "romaji": "tabde",
+   "intended": "tabで",
+   "note": "Meltype #220 (closed) 前後: 打っている途中の変換ボックスでは「tabで」と正しく見えているのに、Enter で確定すると「たべ」になります (Space で変換しても「たべ」になります)。 / 「種類」の選択肢にちょうど合うものが無いので、いちばん近いものを選びました (英字に見えていたのが、確定でかなになる)。 /  / `--repro` (Windows のスペルチェッカーあり) の結果: /  / | 打ったもの | 表示 (確定前) | 確定 (Enter) | / |---|---|---| / | `tabde` | tabで | **たべ** | / | `tabga` | tabが | **たば** | / | `tabwo` | tabを | tabを | / | `tabni` | tabに | tabに | / | `hubde` / `pubde` / `labde` | hubで など | hubで など | / | `jobde` | jobで | jobで | /  / 調べたこと (見当): /  / - 確定前の表示で `tab` が英字になるのは、Windows のスペルチェッカーが `tab` を英単語と言うから (`CompositionDetector.IsEnglishSpan` の「読めない英字を含む 3 文字以上のスペルチェッカーの語」)。`tab` は同梱の `dictionaries/english.txt` には無く、`english-words.txt` (スペルチェッカーの代わりの一覧) にだけあります。 / - Enter・Space の直前に呼ぶローマ字の打ち間違いの直し (`CompositionText.FixTypos`) が、`tabde` を `tabe` (たべ)、`tabga` を `taba` (たば) に直しています。 / - `FixTypos` は「今の表示で英字に見えている所は直さない」ようにしていますが (`EnglishMask`)、2〜4 文字の語は同梱の辞書の語 (`IsListedEnglishWord`) だけを英語として守り、スペルチェッカーだけが知っている 3 文字の語 (`tab`) は守っていません。表示 (スペルチェッカーを使う) と確定 (使わない) で、英語かどうかの基準が食い違っているように見えます。 / - `hub`・`pub`・`lab` は、打ち間違いとして直す先が見つからないので、表示どおり確定されます。 /  / 直し方の案: /  / 1. `tab` を `dictionaries/english.txt` に足す (この語だけ直る) / 2. `EnglishMask` で、表示で英字にした 3 文字以上のスペルチェッカーの語 (読めない英字を含むもの) も守る (同じ食い違いの語がまとめて直る)"
+  },
+  {
+   "id": "m253",
+   "category": "english-became-kana",
+   "romaji": "url",
+   "intended": "URL",
+   "note": "Meltype #253 (open) 前後: 「確認はうtl直接打って」 / 「確認はURLtyokusetuutte」 / URLをshiftで打つと後ろの文字はそのまま半角で出力されます。"
+  },
+  {
+   "id": "m254",
+   "category": "ja-became-english",
+   "romaji": "MeltypeTip.dll",
+   "intended": "MeltypeTip.dll",
+   "note": "Meltype #254 (closed) 前後: なし"
+  },
+  {
+   "id": "m263",
+   "category": "english-became-kana",
+   "romaji": "lo-fi",
+   "intended": "lo-fi",
+   "note": "Meltype #263 (closed)"
+  },
+  {
+   "id": "m266",
+   "category": "english-became-kana",
+   "romaji": "McAfeeto",
+   "intended": "McAfeeと",
+   "note": "Meltype #266 (closed)"
+  },
+  {
+   "id": "m268",
+   "category": "english-became-kana",
+   "romaji": "DeVitode",
+   "intended": "DeVitoで",
+   "note": "Meltype #268 (closed) 前後: #266 (McAfeeto) を調べるときに、同じ「短い頭 + 大文字」の形の名前として作った入力で見つけました。実際に使っていて出会ったものではありません。 /  / `main` (b60ca34) の `--repro` の結果: /  / | 打ったもの | 最後のキー | 結果 | / |---|---|---| / | `DeVitode` | Enter | `でゔぃとで` | / | `DeVitode` | 打っている途中 | `でゔぃとで` | / | `DeVito` | Enter | `でVito` | /  / `--segments DeVitode` は `units: De=で Vi=ゔぃ to=と de=で` / `segments: JA:DeVitode` でした。頭の `De` が日本語の「で」として読まれていて、#266 で直した `CapitalizedWordEnd` の「大文字で終わる略語」とは別の経路のようです。"
+  },
+  {
+   "id": "m296",
+   "category": "english-became-kana",
+   "romaji": "isyu-",
+   "intended": "issues",
+   "note": "Meltype #296 (closed)"
+  },
+  {
+   "id": "m300",
+   "category": "english-became-kana",
+   "romaji": "`buy me a coffee`",
+   "intended": "`buy me a coffee`",
+   "note": "Meltype #300 (closed) 前後: 未確認"
+  },
+  {
+   "id": "m301",
+   "category": "english-became-kana",
+   "romaji": "`opencode`",
+   "intended": "`opencode`",
+   "note": "Meltype #301 (closed) 前後: 未確認"
+  },
+  {
+   "id": "m303",
+   "category": "english-became-kana",
+   "romaji": "Wiz Khalifa",
+   "intended": "Wiz Khalifa",
+   "note": "Meltype #303 (closed) 前後: なし"
+  },
+  {
+   "id": "m316",
+   "category": "english-became-kana",
+   "romaji": "Claudenokiougogamenntokadehennkannsarenaikotoaru.",
+   "intended": "Claudeの起動後の画面とかで変換されないことある。",
+   "note": "Meltype #316 (open) 前後: `Claude` と日本語の間に空白を入れず、続けて打ちました。大文字の `C` だけ英字のまま残り、残りの `laude` がローマ字として読まれたように見えます。"
+  },
+  {
+   "id": "m346",
+   "category": "ja-became-english",
+   "romaji": "fusion",
+   "intended": "fusion",
+   "note": "Meltype #346 (closed)"
+  },
+  {
+   "id": "m347",
+   "category": "english-became-kana",
+   "romaji": "deepseek",
+   "intended": "deepseek (英字のまま)",
+   "note": "Meltype #347 (closed) 前後: 未確認"
+  },
+  {
+   "id": "m357",
+   "category": "english-became-kana",
+   "romaji": "handanwodelegatesuru",
+   "intended": "判断をdelegateする",
+   "note": "Meltype #357 (closed)"
+  },
+  {
+   "id": "m365",
+   "category": "english-became-kana",
+   "romaji": "buia-rutyatto",
+   "intended": "VRChat",
+   "note": "Meltype #365 (open)"
+  },
+  {
+   "id": "m368",
+   "category": "other",
+   "romaji": "sha-nashi",
+   "intended": "しゃーなし",
+   "note": "Meltype #368 (closed) 前後: なし"
+  },
+  {
+   "id": "m369",
+   "category": "english-became-kana",
+   "romaji": "huihui",
+   "intended": "huihui",
+   "note": "Meltype #369 (closed) 前後: なし。 /  / なお、特に期待した結果はないが、Ablitrated GGUFを出しているhuihui AIのことを指したつもりだったのでそのままEnterで確定できると良かった。「回」にfui/huiという読みはないため、なぜこの結果になったのか謎。"
+  },
+  {
+   "id": "m375",
+   "category": "ja-became-english",
+   "romaji": "cwdde",
+   "intended": "cwdで",
+   "note": "Meltype #375 (closed) 前後: なし。cwd(Enter)de(Enter)なら正しくcwdで になる"
+  },
+  {
+   "id": "m377",
+   "category": "english-became-kana",
+   "romaji": "`gameover`",
+   "intended": "`gameover`",
+   "note": "Meltype #377 (closed) 前後: 未記載"
+  },
+  {
+   "id": "m378",
+   "category": "english-became-kana",
+   "romaji": "`memoirs`",
+   "intended": "`memoirs`",
+   "note": "Meltype #378 (closed) 前後: 未記載"
+  },
+  {
+   "id": "m404",
+   "category": "english-became-kana",
+   "romaji": "Gemma4",
+   "intended": "Gemma4",
+   "note": "Meltype #404 (closed) 前後: ナシ"
+  },
+  {
+   "id": "m405",
+   "category": "english-became-kana",
+   "romaji": "`overcute`",
+   "intended": "`overcute`",
+   "note": "Meltype #405 (closed) 前後: 未記載"
+  },
+  {
+   "id": "m406",
+   "category": "english-became-kana",
+   "romaji": "overcute",
+   "intended": "overcute",
+   "note": "Meltype #406 (closed) 前後: nasi"
+  },
+  {
+   "id": "m407",
+   "category": "ja-became-english",
+   "romaji": "tuidenifetch upstream",
+   "intended": "ついでにfetch upstream",
+   "note": "Meltype #407 (closed)"
+  },
+  {
+   "id": "m408",
+   "category": "ja-became-english",
+   "romaji": "featuresno",
+   "intended": "featuresの",
+   "note": "Meltype #408 (closed)"
+  },
+  {
+   "id": "m413",
+   "category": "english-became-kana",
+   "romaji": "`vibecoding`",
+   "intended": "`vibecoding`",
+   "note": "Meltype #413 (closed) 前後: 未記載"
+  },
+  {
+   "id": "m414",
+   "category": "other",
+   "romaji": "/",
+   "intended": "/ ／ ・",
+   "note": "Meltype #414 (closed) 前後: 再現手順：  / 1. たとえば「ABC」「DEF」の英単語のあいだにカーソルを置く / 2. 「/」を入力 / 3. 変換キーで再変換すると、候補に「/」「／」のみが表示され、「・」がない /  / 要望： / 英文中と判定されるコンテキストで、中黒を入力したいときに不便なため、「・」を候補に表示してほしい"
+  },
+  {
+   "id": "m419",
+   "category": "english-became-kana",
+   "romaji": "mondaiwodefusesuru",
+   "intended": "問題をdefuseする",
+   "note": "Meltype #419 (closed)"
+  },
+  {
+   "id": "m421",
+   "category": "english-became-kana",
+   "romaji": "kachiwodefinesuru",
+   "intended": "価値をdefineする",
+   "note": "Meltype #421 (closed)"
+  },
+  {
+   "id": "m422",
+   "category": "english-became-kana",
+   "romaji": "mudawodecluttersuru",
+   "intended": "無駄をdeclutterする",
+   "note": "Meltype #422 (closed)"
+  },
+  {
+   "id": "m424",
+   "category": "other",
+   "romaji": "yahoyaho",
+   "intended": "やほやほ",
+   "note": "Meltype #424 (closed)"
+  },
+  {
+   "id": "m431",
+   "category": "english-became-kana",
+   "romaji": ".gitignore",
+   "intended": ".gitignore",
+   "note": "Meltype #431 (closed)"
+  },
+  {
+   "id": "m434",
+   "category": "ja-became-english",
+   "romaji": "i18n",
+   "intended": "i18n",
+   "note": "Meltype #434 (closed)"
+  },
+  {
+   "id": "m435",
+   "category": "english-became-kana",
+   "romaji": "Blu-ray",
+   "intended": "Blu-ray",
+   "note": "Meltype #435 (closed)"
+  },
+  {
+   "id": "m440",
+   "category": "ja-became-english",
+   "romaji": "githubya",
+   "intended": "githubや",
+   "note": "Meltype #440 (closed) 前後: 同じ系の例: / - `githubya` → githubや（拗音「びゃ」に飲み込まれる） / - `yagithub` → やgithub / - `yapython` → やpython / - `yaplay` → やplay /  / `yamada` / `yasai` / `yappari` / `yaml` / `yarn` / `yahoo` など「や」で始まる語は壊さない。 /  / 関連: #207（-pedia 側）。修正 PR: #225"
+  },
+  {
+   "id": "m455",
+   "category": "english-became-kana",
+   "romaji": "oemnopasokonn",
+   "intended": "OEMのパソコン",
+   "note": "Meltype #455 (closed)"
+  },
+  {
+   "id": "m457",
+   "category": "english-became-kana",
+   "romaji": "tmux",
+   "intended": "tmux",
+   "note": "Meltype #457 (closed) 前後: なし"
+  },
+  {
+   "id": "m462",
+   "category": "english-became-kana",
+   "romaji": "llama.cpp",
+   "intended": "llama.cpp",
+   "note": "Meltype #462 (closed)"
+  },
+  {
+   "id": "m469",
+   "category": "english-became-kana",
+   "romaji": "holoX",
+   "intended": "holoX",
+   "note": "Meltype #469 (closed)"
+  },
+  {
+   "id": "m485",
+   "category": "ja-became-english",
+   "romaji": "imaopenno",
+   "intended": "今openの",
+   "note": "Meltype #485 (closed)"
+  },
+  {
+   "id": "m498",
+   "category": "other",
+   "romaji": "watasiha,",
+   "intended": "私は，",
+   "note": "Meltype #498 (open)"
+  },
+  {
+   "id": "m499",
+   "category": "english-became-kana",
+   "romaji": "sbisinnseiginnkou",
+   "intended": "SBI新生銀行",
+   "note": "Meltype #499 (open) 前後: なし"
+  },
+  {
+   "id": "m505",
+   "category": "kanji",
+   "romaji": "na~~~",
+   "intended": "な～～～",
+   "note": "Meltype #505 (closed) 前後: 前後の文脈を渡さない独立した入力セッションで再現しました。"
+  },
+  {
+   "id": "m506",
+   "category": "ja-became-english",
+   "romaji": "enumerate",
+   "intended": "enumerate",
+   "note": "Meltype #506 (closed)"
+  },
+  {
+   "id": "m519",
+   "category": "other",
+   "romaji": "omosiroine!nihongo?",
+   "intended": "!,?が全角で出てほしい",
+   "note": "Meltype #519 (open) 前後: 日本語のあとは全角の！、？で英語のあとは!、?ってできますか？"
+  },
+  {
+   "id": "m533",
+   "category": "english-became-kana",
+   "romaji": "bio-break",
+   "intended": "`bio-break`",
+   "note": "Meltype #533 (closed)"
+  },
+  {
+   "id": "m535",
+   "category": "english-became-kana",
+   "romaji": "overchoice",
+   "intended": "`overchoice`",
+   "note": "Meltype #535 (closed)"
+  },
+  {
+   "id": "m536",
+   "category": "english-became-kana",
+   "romaji": "fatigue",
+   "intended": "`fatigue`",
+   "note": "Meltype #536 (closed)"
+  },
+  {
+   "id": "m537",
+   "category": "ja-became-english",
+   "romaji": "procrasticle",
+   "intended": "`procrasticle`",
+   "note": "Meltype #537 (closed)"
+  },
+  {
+   "id": "m538",
+   "category": "english-became-kana",
+   "romaji": "infobesity",
+   "intended": "`infobesity`",
+   "note": "Meltype #538 (closed)"
+  },
+  {
+   "id": "m543",
+   "category": "ja-became-english",
+   "romaji": "kedomala",
+   "intended": "けどまぁ",
+   "note": "Meltype #543 (closed) 前後: 文脈にあまり関係なくdomalaになる。 \"時間による毛domala\" になることも確認。"
+  },
+  {
+   "id": "m544",
+   "category": "ja-became-english",
+   "romaji": "mendokuseena",
+   "intended": "めんどくせえな",
+   "note": "Meltype #544 (closed)"
+  },
+  {
+   "id": "m546",
+   "category": "ja-became-english",
+   "romaji": "betunisoreGitHubdeii",
+   "intended": "別にそれGitHubでいい",
+   "note": "Meltype #546 (closed)"
+  },
+  {
+   "id": "m594",
+   "category": "ja-became-english",
+   "romaji": "shatsu",
+   "intended": "しゃつ",
+   "note": "Meltype #594 (closed)"
+  },
+  {
+   "id": "m597",
+   "category": "english-became-kana",
+   "romaji": "opencode",
+   "intended": "opencode",
+   "note": "Meltype #597 (closed)"
+  },
+  {
+   "id": "m602",
+   "category": "english-became-kana",
+   "romaji": "data",
+   "intended": "data",
+   "note": "Meltype #602 (closed)"
+  },
+  {
+   "id": "m616",
+   "category": "english-became-kana",
+   "romaji": "whois",
+   "intended": "whois",
+   "note": "Meltype #616 (closed)"
+  },
+  {
+   "id": "m637",
+   "category": "other",
+   "romaji": "tasuku:1kenn",
+   "intended": "タスク：1件",
+   "note": "Meltype #637 (open)"
+  },
+  {
+   "id": "m641",
+   "category": "other",
+   "romaji": "Windowswotachiageru",
+   "intended": "Windows を立ち上げる",
+   "note": "Meltype #641 (open) 前後: 英字はなんでもいいのですが，改行した後に英字から入力すると度々先頭に空白が入ってしまいます。 / 『英単語の前後に半角スペース』は ON です。 /  / 例： / Windows を立ち上げた /  Windows を立ち上げる /  / 改行前に句読点を入れると空白は出てこない。 /  / <img width=\"487\" height=\"281\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/c919189d-4267-4629-9d3c-6a8ccf9843c4\" />"
+  },
+  {
+   "id": "m654",
+   "category": "ja-became-english",
+   "romaji": "ratelisu",
+   "intended": "ラティス",
+   "note": "Meltype #654 (closed) 前後: Unityでラティス変形を行う"
+  },
+  {
+   "id": "m674",
+   "category": "ja-became-english",
+   "romaji": "fyu",
+   "intended": "ふゅ",
+   "note": "Meltype #674 (closed)"
+  },
+  {
+   "id": "m683",
+   "category": "english-became-kana",
+   "romaji": "guesstimation",
+   "intended": "`guesstimation`",
+   "note": "Meltype #683 (closed)"
+  },
+  {
+   "id": "m689",
+   "category": "english-became-kana",
+   "romaji": "Finfluencer",
+   "intended": "`Finfluencer`",
+   "note": "Meltype #689 (closed)"
+  },
+  {
+   "id": "m690",
+   "category": "english-became-kana",
+   "romaji": "datamation",
+   "intended": "`datamation`",
+   "note": "Meltype #690 (closed)"
+  },
+  {
+   "id": "m691",
+   "category": "english-became-kana",
+   "romaji": "adware",
+   "intended": "`adware`",
+   "note": "Meltype #691 (closed)"
+  },
+  {
+   "id": "m692",
+   "category": "english-became-kana",
+   "romaji": "greedflation",
+   "intended": "`greedflation`",
+   "note": "Meltype #692 (closed)"
+  },
+  {
+   "id": "m705",
+   "category": "ja-became-english",
+   "romaji": "re-torimitto",
+   "intended": "レートリミット",
+   "note": "Meltype #705 (open)"
+  },
+  {
+   "id": "m712",
+   "category": "english-became-kana",
+   "romaji": "englishtojapanesewomazeteuteru",
+   "intended": "EnglishとJapaneseを混ぜて打てる",
+   "note": "Meltype #712 (closed) 前後: 「切り替えないで打つだけでenglishとジャパねせを変換してくれるんだけど日本語はだめみたい」 /  / と打っている途中で気づきました"
+  },
+  {
+   "id": "m714",
+   "category": "ja-became-english",
+   "romaji": "cattodoghakenkasuru",
+   "intended": "catとdogは喧嘩する",
+   "note": "Meltype #714 (closed)"
+  },
+  {
+   "id": "m717",
+   "category": "english-became-kana",
+   "romaji": "zenn.dev",
+   "intended": "zenn.dev",
+   "note": "Meltype #717 (closed)"
+  },
+  {
+   "id": "m718",
+   "category": "english-became-kana",
+   "romaji": "enshittification",
+   "intended": "enshittification",
+   "note": "Meltype #718 (closed)"
+  },
+  {
+   "id": "m723",
+   "category": "english-became-kana",
+   "romaji": "tonewochouseisuru",
+   "intended": "toneを調整する",
+   "note": "Meltype #723 (closed)"
+  },
+  {
+   "id": "m724",
+   "category": "english-became-kana",
+   "romaji": "binge-watch",
+   "intended": "`binge-watch`",
+   "note": "Meltype #724 (closed)"
+  },
+  {
+   "id": "m725",
+   "category": "english-became-kana",
+   "romaji": "openstreetmap",
+   "intended": "openstreetmap",
+   "note": "Meltype #725 (closed)"
+  },
+  {
+   "id": "m726",
+   "category": "english-became-kana",
+   "romaji": "malvertising",
+   "intended": "`malvertising`",
+   "note": "Meltype #726 (closed)"
+  },
+  {
+   "id": "m727",
+   "category": "english-became-kana",
+   "romaji": "ad-blocker",
+   "intended": "`ad-blocker`",
+   "note": "Meltype #727 (closed)"
+  },
+  {
+   "id": "m730",
+   "category": "english-became-kana",
+   "romaji": "adtech",
+   "intended": "`adtech`",
+   "note": "Meltype #730 (closed)"
+  },
+  {
+   "id": "m731",
+   "category": "english-became-kana",
+   "romaji": "robonomics",
+   "intended": "`robonomics`",
+   "note": "Meltype #731 (closed)"
+  },
+  {
+   "id": "m732",
+   "category": "english-became-kana",
+   "romaji": "mobisode",
+   "intended": "`mobisode`",
+   "note": "Meltype #732 (closed)"
+  },
+  {
+   "id": "m733",
+   "category": "english-became-kana",
+   "romaji": "netizenry",
+   "intended": "`netizenry`",
+   "note": "Meltype #733 (closed)"
+  },
+  {
+   "id": "m735",
+   "category": "english-became-kana",
+   "romaji": "tver",
+   "intended": "tver",
+   "note": "Meltype #735 (closed)"
+  },
+  {
+   "id": "m812",
+   "category": "ja-became-english",
+   "romaji": "cwdniha",
+   "intended": "cwdには",
+   "note": "Meltype #812 (closed)"
+  },
+  {
+   "id": "m820",
+   "category": "ja-became-english",
+   "romaji": "korewoiPhonedesatueisi,YouTubeniappuro-dosiyou",
+   "intended": "これをiPhoneで撮影し、YouTubeにアップロードしよう",
+   "note": "Meltype #820 (closed)"
+  },
+  {
+   "id": "m822",
+   "category": "english-became-kana",
+   "romaji": "autoclicker",
+   "intended": "autoclicker",
+   "note": "Meltype #822 (closed) 前後: 前には「Python3で」後には「メソッドを作ります」"
+  },
+  {
+   "id": "m823",
+   "category": "kanji",
+   "romaji": "ishokujoutai",
+   "intended": "移植状態",
+   "note": "Meltype #823 (open) 前後: 特になし(なくても再現するため)"
+  },
+  {
+   "id": "m825",
+   "category": "ja-became-english",
+   "romaji": "nasasou",
+   "intended": "なさそう",
+   "note": "Meltype #825 (closed) 前後: strataの高速化に寄与することはなさそう？"
+  },
+  {
+   "id": "m844",
+   "category": "english-became-kana",
+   "romaji": ".env",
+   "intended": ".env",
+   "note": "Meltype #844 (closed)"
+  },
+  {
+   "id": "m852",
+   "category": "english-became-kana",
+   "romaji": "image",
+   "intended": "image",
+   "note": "Meltype #852 (closed)"
+  },
+  {
+   "id": "m853",
+   "category": "other",
+   "romaji": "siri-zu",
+   "intended": "シリーズ",
+   "note": "Meltype #853 (closed)"
+  },
+  {
+   "id": "m872",
+   "category": "kanji",
+   "romaji": "kyouhisasiburi",
+   "intended": "今日久しぶり",
+   "note": "Meltype #872 (closed)"
+  },
+  {
+   "id": "m876",
+   "category": "english-became-kana",
+   "romaji": "doomscroll",
+   "intended": "`doomscroll`",
+   "note": "Meltype #876 (closed)"
+  },
+  {
+   "id": "m880",
+   "category": "ja-became-english",
+   "romaji": "meado",
+   "intended": "メアド",
+   "note": "Meltype #880 (closed) 前後: meado教えて"
+  },
+  {
+   "id": "m885",
+   "category": "ja-became-english",
+   "romaji": "suityoku",
+   "intended": "垂直",
+   "note": "Meltype #885 (closed)"
+  },
+  {
+   "id": "m886",
+   "category": "ja-became-english",
+   "romaji": "dlsite",
+   "intended": "dlして",
+   "note": "Meltype #886 (closed)"
+  },
+  {
+   "id": "m887",
+   "category": "english-became-kana",
+   "romaji": "exe",
+   "intended": "exe",
+   "note": "Meltype #887 (closed)"
+  },
+  {
+   "id": "m914",
+   "category": "english-became-kana",
+   "romaji": "mainnipushsuru",
+   "intended": "mainにpushする",
+   "note": "Meltype #914 (closed)"
+  },
+  {
+   "id": "m915",
+   "category": "english-became-kana",
+   "romaji": "printenv",
+   "intended": "printenv",
+   "note": "Meltype #915 (closed)"
+  },
+  {
+   "id": "m917",
+   "category": "other",
+   "romaji": "ninatta",
+   "intended": "になった",
+   "note": "Meltype #917 (closed) 前後: `printenv` が `p輪転v` [になった]"
+  },
+  {
+   "id": "m918",
+   "category": "ja-became-english",
+   "romaji": "pure",
+   "intended": "pure",
+   "note": "Meltype #918 (open)"
+  },
+  {
+   "id": "m926",
+   "category": "ja-became-english",
+   "romaji": "youryou",
+   "intended": "容量",
+   "note": "Meltype #926 (closed) 前後: - 「（2つのファイルを比較していて、その前後で）両方とも、容量が増えた」と書きたかったが、「youryou が」となってしまった / - 前後に文章はなし / - キーボードは US 配列 / - WezTerm はアプリ別設定で「コード」から「一般」に変更している / - 「your よう」になることもある / - 「空き容量」なら安定して入力できる"
+  },
+  {
+   "id": "m928",
+   "category": "other",
+   "romaji": "funyaosu",
+   "intended": "ふにゃオス",
+   "note": "Meltype #928 (closed)"
+  },
+  {
+   "id": "m960",
+   "category": "ja-became-english",
+   "romaji": "kwo",
+   "intended": "くぉ",
+   "note": "Meltype #960 (closed) 前後: 期待した結果はひらがなカタカナどちらも。 /  / \"kwo-to\" と打つと \"k をーと\" が出る (\"クォート\" が正解)。 / \"bakkukwo-to\" と打つと \"バックかオート\" が出る (\"バッククォート\" が正解)。 /  / \"kwa\" \"kwi\" \"kwe\" \"kwu\" を打つと それぞれ \"くぁ\" \"くぃ\" \"くぇ\" \"くぅ\" と期待通りの文字列が出てくる。カタカナもしかり。 / \"kwo\" だけ期待外れ。"
+  },
+  {
+   "id": "m981",
+   "category": "english-became-kana",
+   "romaji": "sengetuhatubainoapplenoiphonehatakai",
+   "intended": "先月発売のappleのiphoneは高い",
+   "note": "Meltype #981 (closed)"
+  },
+  {
+   "id": "m982",
+   "category": "other",
+   "romaji": "applenoiphonehakanaritakai",
+   "intended": "appleのiphoneはかなり高い",
+   "note": "Meltype #982 (closed)"
+  },
+  {
+   "id": "m1001",
+   "category": "english-became-kana",
+   "romaji": "claudecode",
+   "intended": "claudecode",
+   "note": "Meltype #1001 (closed)"
+  },
+  {
+   "id": "m1003",
+   "category": "ja-became-english",
+   "romaji": "meta",
+   "intended": "meta",
+   "note": "Meltype #1003 (closed)"
+  },
+  {
+   "id": "m1004",
+   "category": "kanji",
+   "romaji": "aitikenritu",
+   "intended": "愛知県立",
+   "note": "Meltype #1004 (closed) 前後: 様々な県のあとに県立を入れたところ発生"
+  },
+  {
+   "id": "m1005",
+   "category": "ja-became-english",
+   "romaji": "sonodokyumentowoA4saizudeinsatushitekudasai",
+   "intended": "そのドキュメントをA4サイズで印刷してください",
+   "note": "Meltype #1005 (closed)"
+  },
+  {
+   "id": "m1011",
+   "category": "other",
+   "romaji": "hennkannkouritugayokunai",
+   "intended": "変換効率が良くない",
+   "note": "Meltype #1011 (open)"
+  },
+  {
+   "id": "m1014",
+   "category": "other",
+   "romaji": "doshitano",
+   "intended": "`どしたの`",
+   "note": "Meltype #1014 (closed)"
+  },
+  {
+   "id": "m1017",
+   "category": "other",
+   "romaji": "huusoku6me-toru",
+   "intended": "`風速6メートル`",
+   "note": "Meltype #1017 (closed)"
+  },
+  {
+   "id": "m1019",
+   "category": "kanji",
+   "romaji": "sitanode",
+   "intended": "したので",
+   "note": "Meltype #1019 (closed)"
+  },
+  {
+   "id": "m1028",
+   "category": "english-became-kana",
+   "romaji": "todorisuto",
+   "intended": "todoリスト",
+   "note": "Meltype #1028 (closed) 前後: 行頭"
+  },
+  {
+   "id": "m1030",
+   "category": "ja-became-english",
+   "romaji": "nottotte",
+   "intended": "則って",
+   "note": "Meltype #1030 (closed) 前後: 慣例に則って"
+  },
+  {
+   "id": "m1037",
+   "category": "kanji",
+   "romaji": "nigakkityuukann",
+   "intended": "二学期中間",
+   "note": "Meltype #1037 (closed)"
+  },
+  {
+   "id": "m1041",
+   "category": "other",
+   "romaji": "ryokai",
+   "intended": "りょかい",
+   "note": "Meltype #1041 (closed) 前後: 最初の文。LINEを返す際に「りょかい」と打ちたかった。"
+  },
+  {
+   "id": "m1044",
+   "category": "english-became-kana",
+   "romaji": "Androidha",
+   "intended": "Androidは",
+   "note": "Meltype #1044 (closed)"
+  },
+  {
+   "id": "m1045",
+   "category": "ja-became-english",
+   "romaji": "nagasimasupa-rando",
+   "intended": "ナガシマスパーランド",
+   "note": "Meltype #1045 (closed)"
+  },
+  {
+   "id": "m1075",
+   "category": "ja-became-english",
+   "romaji": "indexiana",
+   "intended": "インディアナ",
+   "note": "Meltype #1075 (closed) 前後: indexイアナ州の顧客サポート"
+  },
+  {
+   "id": "m1088",
+   "category": "ja-became-english",
+   "romaji": "go",
+   "intended": "後",
+   "note": "Meltype #1088 (closed)"
+  },
+  {
+   "id": "m1091",
+   "category": "other",
+   "romaji": "pa-thisyon",
+   "intended": "パーティション",
+   "note": "Meltype #1091 (closed) 前後: なし"
+  },
+  {
+   "id": "m1114",
+   "category": "ja-became-english",
+   "romaji": "garagewokiku",
+   "intended": "garageを聴く",
+   "note": "Meltype #1114 (closed)"
+  },
+  {
+   "id": "m1117",
+   "category": "english-became-kana",
+   "romaji": "nohup",
+   "intended": "nohup",
+   "note": "Meltype #1117 (closed)"
+  },
+  {
+   "id": "m1121",
+   "category": "english-became-kana",
+   "romaji": "vocaloid",
+   "intended": "vocaloid",
+   "note": "Meltype #1121 (closed)"
+  },
+  {
+   "id": "m1122",
+   "category": "english-became-kana",
+   "romaji": "midi",
+   "intended": "midi",
+   "note": "Meltype #1122 (closed)"
+  },
+  {
+   "id": "m1123",
+   "category": "english-became-kana",
+   "romaji": "ost",
+   "intended": "ost",
+   "note": "Meltype #1123 (closed)"
+  },
+  {
+   "id": "m1125",
+   "category": "english-became-kana",
+   "romaji": "dive into summer",
+   "intended": "dive into summer",
+   "note": "Meltype #1125 (closed)"
+  },
+  {
+   "id": "m1131",
+   "category": "english-became-kana",
+   "romaji": "adbyuukounisuru",
+   "intended": "adb有効にする",
+   "note": "Meltype #1131 (closed) 前後: 行頭"
+  },
+  {
+   "id": "m1132",
+   "category": "english-became-kana",
+   "romaji": "usbtunaide",
+   "intended": "usb繋いで",
+   "note": "Meltype #1132 (closed) 前後: 行頭"
+  },
+  {
+   "id": "m1143",
+   "category": "english-became-kana",
+   "romaji": "ClaudeCode",
+   "intended": "ClaudeCode",
+   "note": "Meltype #1143 (closed)"
+  },
+  {
+   "id": "m1147",
+   "category": "ja-became-english",
+   "romaji": "whettothissyu",
+   "intended": "ウェットティッシュ",
+   "note": "Meltype #1147 (closed)"
+  },
+  {
+   "id": "m1158",
+   "category": "ja-became-english",
+   "romaji": "eqgatyottonigate",
+   "intended": "eqがちょっと苦手",
+   "note": "Meltype #1158 (open)"
+  },
+  {
+   "id": "m1165",
+   "category": "other",
+   "romaji": "jstohtml",
+   "intended": "jsとhtml",
+   "note": "Meltype #1165 (closed)"
+  },
+  {
+   "id": "m1175",
+   "category": "ja-became-english",
+   "romaji": "imagemzai",
+   "intended": "今現在",
+   "note": "Meltype #1175 (closed)"
+  },
+  {
+   "id": "m1179",
+   "category": "ja-became-english",
+   "romaji": "midika",
+   "intended": "身近",
+   "note": "Meltype #1179 (closed)"
+  },
+  {
+   "id": "m1191",
+   "category": "english-became-kana",
+   "romaji": "bookoff",
+   "intended": "bookoff",
+   "note": "Meltype #1191 (closed)"
+  },
+  {
+   "id": "m1192",
+   "category": "other",
+   "romaji": "gooddane",
+   "intended": "goodだね",
+   "note": "Meltype #1192 (closed)"
+  },
+  {
+   "id": "m1193",
+   "category": "english-became-kana",
+   "romaji": "env",
+   "intended": "env",
+   "note": "Meltype #1193 (closed)"
+  },
+  {
+   "id": "m1194",
+   "category": "ja-became-english",
+   "romaji": "v1.3.1-pre.3",
+   "intended": "v1.3.1-pre.3",
+   "note": "Meltype #1194 (open)"
+  },
+  {
+   "id": "m1204",
+   "category": "ja-became-english",
+   "romaji": "metyakutyagokaiunndeta",
+   "intended": "めちゃくちゃ誤解生んでた",
+   "note": "Meltype #1204 (open)"
+  },
+  {
+   "id": "m1216",
+   "category": "ja-became-english",
+   "romaji": "`nottotteiru`",
+   "intended": "`則っている`",
+   "note": "Meltype #1216 (closed) 前後: 未確認"
+  },
+  {
+   "id": "m1251",
+   "category": "other",
+   "romaji": "akaunnto",
+   "intended": "アカウント",
+   "note": "Meltype #1251 (open) 前後: 後ろの文は「連携すると、便利にログインできます。」"
+  },
+  {
+   "id": "m1261",
+   "category": "ja-became-english",
+   "romaji": "watasinopcdemo",
+   "intended": "私のPCでも",
+   "note": "Meltype #1261 (closed) 前後: 私のPCdemo"
+  },
+  {
+   "id": "m1267",
+   "category": "ja-became-english",
+   "romaji": "bunnkasai",
+   "intended": "文化祭",
+   "note": "Meltype #1267 (open) 前後: ＜例＞if  文化祭向けの企画案"
+  },
+  {
+   "id": "m1273",
+   "category": "ja-became-english",
+   "romaji": "ver1.4.0",
+   "intended": "`ver1.4.0`",
+   "note": "Meltype #1273 (closed) 前後: ヴェr1.4.0で記号もユーザ辞書に登録できるようになったから活用したいところ"
+  },
+  {
+   "id": "m1277",
+   "category": "ja-became-english",
+   "romaji": "kwo-to",
+   "intended": "クォート",
+   "note": "Meltype #1277 (closed)"
+  },
+  {
+   "id": "m1278",
+   "category": "kanji",
+   "romaji": "kyuukurarinn",
+   "intended": "きゅうくらりん",
+   "note": "Meltype #1278 (closed)"
+  },
+  {
+   "id": "m1283",
+   "category": "ja-became-english",
+   "romaji": "karenda-",
+   "intended": "カレンダー",
+   "note": "Meltype #1283 (closed) 前後: 前後の文章無しで、Googleの検索窓に、\"karenダー\"とにゅ... / 文脈中でもkarenだーになってしまうようです..."
+  },
+  {
+   "id": "m1287",
+   "category": "ja-became-english",
+   "romaji": "rinngo_mikann_momo",
+   "intended": "りんご_みかん_もも",
+   "note": "Meltype #1287 (open)"
+  },
+  {
+   "id": "m1298",
+   "category": "ja-became-english",
+   "romaji": "touryou",
+   "intended": "当量",
+   "note": "Meltype #1298 (closed)"
+  },
+  {
+   "id": "m1302",
+   "category": "ja-became-english",
+   "romaji": "makuro-rinn",
+   "intended": "マクローリン",
+   "note": "Meltype #1302 (open) 前後: 「英数状態でもローマ字を検知」にて、"
+  },
+  {
+   "id": "m1304",
+   "category": "kanji",
+   "romaji": "syaberu",
+   "intended": "喋る",
+   "note": "Meltype #1304 (open)"
+  },
+  {
+   "id": "m1315",
+   "category": "kanji",
+   "romaji": "juubu",
+   "intended": "じゅうぶ",
+   "note": "Meltype #1315 (open)"
+  },
+  {
+   "id": "m1317",
+   "category": "ja-became-english",
+   "romaji": "harouxin",
+   "intended": "ハロウィン",
+   "note": "Meltype #1317 (closed)"
+  },
+  {
+   "id": "m1319",
+   "category": "english-became-kana",
+   "romaji": "iZotope",
+   "intended": "iZotope",
+   "note": "Meltype #1319 (open)"
+  },
+  {
+   "id": "m1320",
+   "category": "ja-became-english",
+   "romaji": "mitemite",
+   "intended": "見てみて",
+   "note": "Meltype #1320 (closed)"
+  },
+  {
+   "id": "m1321",
+   "category": "ja-became-english",
+   "romaji": ".envfairu",
+   "intended": ".envファイル",
+   "note": "Meltype #1321 (closed)"
+  },
+  {
+   "id": "m1322",
+   "category": "kanji",
+   "romaji": "dounikasitaisunee",
+   "intended": "どうにかしたいすねえ",
+   "note": "Meltype #1322 (open)"
+  },
+  {
+   "id": "m1332",
+   "category": "ja-became-english",
+   "romaji": "ryoukaidesu.deha",
+   "intended": "了解です。では",
+   "note": "Meltype #1332 (closed) 前後: 了解です。では行きましょう。"
+  },
+  {
+   "id": "m1347",
+   "category": "ja-became-english",
+   "romaji": "hitomebore",
+   "intended": "一目惚れ",
+   "note": "Meltype #1347 (open)"
+  },
+  {
+   "id": "m1349",
+   "category": "english-became-kana",
+   "romaji": "pt-query-digest",
+   "intended": "pt-query-digest",
+   "note": "Meltype #1349 (closed) 前後: 単体で打ちました (前に日本語はありません)。 /  / 最初の `-` だけが長音の `ー` になり、2 つ目の `-` (query-digest) は半角のままでした。Enter を押す前の表示から `ptーquery-digest` になっています。 /  / `dotnet run --project src/Meltype.Core.Tests -- --repro` で確かめたところ、単体の `pt-query-digest` は v1.4.0 では再現し、v1.4.1-pre.1 と main (4633f64) では直っていました。 / ただ、前に日本語があるときは main でもまだ起きます。 /  / | 打ったもの | 出たもの (main) | 期待した結果 | / |---|---|---| / | kyouhapt-query-digest | きょうはptーquery-digest | きょうはpt-query-digest | / | kyouhals-files | きょうはlsーfiles | きょうはls-files |"
+  },
+  {
+   "id": "m1356",
+   "category": "english-became-kana",
+   "romaji": "meltype.moe",
+   "intended": "meltype.moe",
+   "note": "Meltype #1356 (open)"
+  },
+  {
+   "id": "m1360",
+   "category": "kanji",
+   "romaji": "hasimotosanai",
+   "intended": "橋本左内",
+   "note": "Meltype #1360 (open)"
+  },
+  {
+   "id": "m1361",
+   "category": "other",
+   "romaji": "nn",
+   "intended": "ん",
+   "note": "Meltype #1361 (closed)"
+  },
+  {
+   "id": "m1365",
+   "category": "english-became-kana",
+   "romaji": "metadata",
+   "intended": "metadata",
+   "note": "Meltype #1365 (open)"
+  },
+  {
+   "id": "m1367",
+   "category": "other",
+   "romaji": "issuekakuka",
+   "intended": "`issue書くか`",
+   "note": "Meltype #1367 (open)"
+  },
+  {
+   "id": "m1369",
+   "category": "ja-became-english",
+   "romaji": "patti",
+   "intended": "パッチ",
+   "note": "Meltype #1369 (open)"
+  },
+  {
+   "id": "m1377",
+   "category": "ja-became-english",
+   "romaji": "beepon",
+   "intended": "beep音",
+   "note": "Meltype #1377 (open)"
+  },
+  {
+   "id": "m1388",
+   "category": "ja-became-english",
+   "romaji": ".jsonnikakikondatoki",
+   "intended": ".jsonに書き込んだとき",
+   "note": "Meltype #1388 (open) 前後: config.jsonni書き込んだとき"
+  },
+  {
+   "id": "m1389",
+   "category": "ja-became-english",
+   "romaji": "inotify",
+   "intended": "inotify",
+   "note": "Meltype #1389 (open)"
+  },
+  {
+   "id": "m1390",
+   "category": "ja-became-english",
+   "romaji": "statsuruno",
+   "intended": "statするの",
+   "note": "Meltype #1390 (open)"
+  },
+  {
+   "id": "m1391",
+   "category": "english-became-kana",
+   "romaji": "american megatrends",
+   "intended": "american megatrends",
+   "note": "Meltype #1391 (open)"
+  },
+  {
+   "id": "m1393",
+   "category": "ja-became-english",
+   "romaji": "touhokuchihou",
+   "intended": "東北地方",
+   "note": "Meltype #1393 (open)"
+  },
+  {
+   "id": "m1417",
+   "category": "ja-became-english",
+   "romaji": "4o",
+   "intended": "4o",
+   "note": "Meltype #1417 (open) 前後: GPT 4o"
+  },
+  {
+   "id": "m1423",
+   "category": "ja-became-english",
+   "romaji": "huttonnda",
+   "intended": "ふっ飛んだ",
+   "note": "Meltype #1423 (open)"
+  }
+ ]
+}
