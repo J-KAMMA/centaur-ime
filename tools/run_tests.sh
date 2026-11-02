@@ -171,6 +171,10 @@ b)
   MYIME_TYPO_MARGIN=off MYIME_TYPO_UNREAD=off $BATCH $W/reported.txt $OUT/reported-typo-off.tsv 1
   bash $REPO/tools/batch_convert.sh $E/session_handler_main $E /nonexistent.gguf $W/reported.txt $OUT/reported-no-ai.tsv 1 || true
   python3 $REPO/tools/score_categories.py $OUT/reported.tsv $T/reported.json
+  # 似た日本語入力（Meltype）の利用者が報告した誤判定（tests/conversion/meltype-issues.json）
+  romaji $T/meltype-issues.json > $W/meltype-issues.txt
+  $BATCH $W/meltype-issues.txt $OUT/meltype-issues.tsv 4
+  python3 $REPO/tools/score_categories.py $OUT/meltype-issues.tsv $T/meltype-issues.json | tee $OUT/meltype-issues-score.txt
   # 正しく打った文で、推測（打ち間違いの直し・英語の見分け）が壊した数と直した数（止めたときとの比べ）。話し言葉の表も
   GUESS_OFF="env MYIME_TYPO=off MYIME_ALL_ENGLISH=off"
   for n in clean-typing colloquial; do

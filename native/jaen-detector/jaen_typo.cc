@@ -198,6 +198,77 @@ std::optional<size_t> WordStartUnread(std::string_view raw, const RomajiParser& 
   return std::nullopt;
 }
 
+std::vector<std::pair<size_t, size_t>> TypedSymbolSpans(std::string_view raw) {
+  // Extensions and domains that are no romaji word (no "go", "de", "no").
+  static const std::array<std::string_view, 60> kExtensions = {
+      "cpp", "hpp", "cc", "py", "js", "ts", "tsx", "jsx", "mjs", "json", "md", "txt", "env", "dll", "exe",
+      "sh", "ps1", "bat", "yml", "yaml", "toml", "xml", "html", "htm", "css", "scss", "csv", "log", "zip",
+      "gz", "tar", "rs", "java", "kt", "swift", "rb", "php", "lock", "ini", "cfg", "conf", "pdf", "png",
+      "jpg", "jpeg", "gif", "svg", "webp", "mp3", "mp4", "wav", "dev", "com", "org", "net", "io", "jp",
+      "moe", "gitignore", "sql"};
+  const auto alnum = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) != 0; };
+  const auto alpha = [](char c) { return std::isalpha(static_cast<unsigned char>(c)) != 0; };
+  const auto token = [&](char c) { return alnum(c) || c == '_' || c == '-' || c == '.'; };
+  const auto starts_with = [&](size_t at, std::string_view word) {
+    if (raw.size() - at < word.size()) return false;
+    for (size_t k = 0; k < word.size(); ++k) {
+      if (std::tolower(static_cast<unsigned char>(raw[at + k])) != word[k]) return false;
+    }
+    return true;
+  };
+  std::vector<std::pair<size_t, size_t>> spans;
+  for (size_t i = 0; i + 1 < raw.size(); ++i) {
+    size_t end = 0;
+    if (raw[i] == '.') {
+      for (const std::string_view ext : kExtensions) {
+        const size_t after = i + 1 + ext.size();
+        if (starts_with(i + 1, ext) &&
+            (after == raw.size() || !alpha(raw[after]) || StartsWithParticleSpelling(raw.substr(after)))) {
+          end = std::max(end, after);
+        }
+      }
+    } else if (raw[i] == '-' && i > 0 && alnum(raw[i + 1]) &&
+               (std::isdigit(static_cast<unsigned char>(raw[i - 1])) ||
+                (alpha(raw[i - 1]) && std::string_view("aeiouAEIOUnN").find(raw[i - 1]) == std::string_view::npos))) {
+      end = i + 1;
+      while (end < raw.size() && token(raw[end])) ++end;
+    }
+    if (end == 0) continue;
+    size_t begin = i;
+    while (begin > 0 && token(raw[begin - 1])) --begin;
+    if (!spans.empty() && begin <= spans.back().second) {
+      spans.back().second = std::max(spans.back().second, end);
+    } else {
+      spans.emplace_back(begin, end);
+    }
+    i = end - 1;
+  }
+  return spans;
+}
+
+std::optional<std::pair<size_t, size_t>> CapitalWord(std::string_view raw, const RomajiParser& parse) {
+  const size_t capital = static_cast<size_t>(
+      std::ranges::find_if(raw, [](char c) { return std::isupper(static_cast<unsigned char>(c)) != 0; }) - raw.begin());
+  if (capital == raw.size()) return std::nullopt;
+  const std::vector<Chunk> typed = parse(raw);
+  size_t begin = 0;
+  size_t at = 0;
+  for (size_t i = 0; i < typed.size() && at + typed[i].raw.size() <= capital; ++i) {
+    at += typed[i].raw.size();
+    if (i + 1 < typed.size() && StartsWord(typed, i + 1)) begin = at;
+  }
+  // The word ends at a particle followed by the end or by a word of 3 keys or more ("Gemmawotsukau",
+  // "Gemmaha"); a particle-like spelling with 1 or 2 keys after it is inside the name ("iZo|to|pe").
+  size_t offset = 0;
+  for (const Chunk& chunk : typed) {
+    offset += chunk.raw.size();
+    if (offset <= capital || !StartsWithParticleSpelling(raw.substr(offset))) continue;
+    const size_t tail = raw.size() - offset - 2;
+    if (tail == 0 || tail >= 3) return std::make_pair(begin, offset);
+  }
+  return std::make_pair(begin, raw.size());
+}
+
 std::optional<size_t> WordStartSokuon(std::string_view raw, const RomajiParser& parse) {
   const std::vector<Chunk> typed = parse(raw);
   size_t at = 0;
