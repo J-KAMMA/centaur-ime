@@ -1,110 +1,66 @@
-"""Draw the CompoundIME icons: a compound bow with an arrow pointing up.
+"""Make the CompoundIME icons from the centaur archer drawing (tools/data/compound-icon.png).
 
   python tools/make_compound_icon.py <out-dir>
 Writes
-  compound_ime.ico          product icon (installer, Apps list, settings tool):
-                            black lines with a white halo, cams at the limb tips
-  compound_ime_langbar.ico  input-mode icon on the taskbar: a black bow on a
-                            white rounded square, so it reads on dark and light
-                            taskbars; no cams and bolder lines for 16-24 px
+  compound_ime.ico          product icon (installer, Apps list, settings tool)
+  compound_ime_langbar.ico  input-mode icon on the taskbar
   compound_ime-256.png      preview of the product icon
-  compound_ime.svg          product icon as SVG (Linux)
+  compound_ime.svg          product icon as SVG (Linux; the 256 px picture inside)
   compound_ime_langbar-64.png  the input-mode icon as PNG (Linux)
+Both icons are the black drawing on a light rounded square, so they read on dark and light
+taskbars. The drawing's lines are thin for small icons, so each size thickens them first
+(at 16 px a line is about 1.3 px wide instead of vanishing).
 """
 import argparse
-import math
+import base64
+import io
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 LANGBAR_SIZES = (16, 20, 24, 32, 40, 48, 64)
-BLACK, WHITE = (17, 17, 17, 255), (255, 255, 255, 255)
+INK = (17, 17, 17)
 BADGE = (245, 245, 245, 255)
+SOURCE = Path(__file__).with_name("data") / "compound-icon.png"
+LINE = 11  # the drawing's line width in SOURCE pixels (1024 px picture)
 
 
-def cubic(p0, p1, p2, p3, n=200):
-    for i in range(n + 1):
-        t = i / n
-        u = 1 - t
-        yield (u ** 3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t ** 3 * p3[0],
-               u ** 3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t ** 3 * p3[1])
+def ink_mask():
+    """The drawing as a mask (255 = ink), cropped to the drawing and made square."""
+    gray = Image.open(SOURCE).convert("L")
+    mask = gray.point(lambda v: 255 if v < 128 else 0)
+    left, top, right, bottom = mask.getbbox()
+    side = max(right - left, bottom - top)
+    square = Image.new("L", (side, side), 0)
+    square.paste(mask.crop((left, top, right, bottom)), ((side - (right - left)) // 2, (side - (bottom - top)) // 2))
+    return square
 
 
-def segment(a, b, n=80):
-    for i in range(n + 1):
-        t = i / n
-        yield (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
-
-
-def ring(c, r, n=120):
-    for i in range(n + 1):
-        a = 2 * math.pi * i / n
-        yield (c[0] + r * math.cos(a), c[1] + r * math.sin(a))
-
-
-def strokes():
-    """(points, relative width) in a 24-unit box."""
-    yield list(cubic((3.5, 13), (7, 8.5), (17, 8.5), (20.5, 13))), 1.0           # limbs
-    yield list(ring((3.6, 13.7), 1.5)), 0.8                                       # cams
-    yield list(ring((20.4, 13.7), 1.5)), 0.8
-    yield list(segment((4.6, 15.2), (12, 18))) + list(segment((12, 18), (19.4, 15.2))), 0.6  # string
-    yield list(segment((12, 21), (12, 3.5))), 1.0                                 # arrow
-    yield list(segment((9.6, 6.5), (12, 3.5))) + list(segment((12, 3.5), (14.4, 6.5))), 1.0
-
-
-def small_strokes():
-    """The taskbar shape: limbs low and wide, V string, a clear arrow head."""
-    yield list(cubic((2.2, 15.5), (5.5, 9.5), (18.5, 9.5), (21.8, 15.5))), 1.0
-    yield list(segment((2.6, 15.6), (12, 19.5))) + list(segment((12, 19.5), (21.4, 15.6))), 0.55
-    yield list(segment((12, 22.5), (12, 2.5))), 1.0
-    yield list(segment((8.6, 6.2), (12, 2.5))) + list(segment((12, 2.5), (15.4, 6.2))), 1.0
-
-
-def stamp(d, points, r, unit, color, shrink=1.0, centre=12):
-    for x, y in points:
-        if shrink != 1.0:
-            x, y = centre + (x - centre) * shrink, centre + (y - centre) * shrink
-        x, y = x * unit, y * unit
-        d.ellipse((x - r, y - r, x + r, y + r), fill=color)
-
-
-def draw(size, scale=8):
+def draw(size, mask, scale=8):
+    """The icon at |size| px: a light rounded square with the drawing, lines thickened for small sizes."""
     s = size * scale
-    unit = s / 24
+    inner = round(s * 0.80)
+    drawing = mask.resize((inner, inner), Image.LANCZOS).point(lambda v: 255 if v >= 96 else 0)
+    have = LINE * inner / mask.width
+    want = (1.3 if size <= 24 else 1.1) * scale  # the thinnest line at |size|, in the 8x picture
+    grow = int(round(want - have))
+    if grow >= 2:
+        drawing = drawing.filter(ImageFilter.MaxFilter(grow | 1))
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    line = (2.3 if size <= 20 else 1.9) * unit
-    halo = line + (2.2 if size <= 20 else 2.0) * unit
-    for color in (WHITE, BLACK):
-        for points, rel in strokes():
-            r = (line * rel + (halo - line)) / 2 if color == WHITE else line * rel / 2
-            stamp(d, points, r, unit, color)
+    ImageDraw.Draw(img).rounded_rectangle((scale // 2, scale // 2, s - scale // 2, s - scale // 2),
+                                          radius=round(s * 0.19), fill=BADGE)
+    ink = Image.new("RGBA", (inner, inner), INK + (255,))
+    offset = (s - inner) // 2
+    img.paste(ink, (offset, offset), drawing)
     return img.resize((size, size), Image.LANCZOS)
 
 
-def draw_langbar(size, scale=8):
-    s = size * scale
-    unit = s / 24
-    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    d.rounded_rectangle((0.5 * unit, 0.5 * unit, s - 0.5 * unit, s - 0.5 * unit), radius=4.5 * unit, fill=BADGE)
-    line = (2.6 if size <= 24 else 2.2) * unit
-    for points, rel in small_strokes():
-        stamp(d, points, line * rel / 2, unit, BLACK, shrink=0.78)
-    return img.resize((size, size), Image.LANCZOS)
-
-
-def svg():
-    """The product icon as SVG (Linux icon themes): the same strokes, halo then line."""
-    paths = []
-    for color, extra in (("#ffffff", 2.0), ("#111111", 0.0)):
-        for points, rel in strokes():
-            width = 1.9 * rel + extra
-            d = "M" + " L".join(f"{x:.2f},{y:.2f}" for x, y in points[::4] + [points[-1]])
-            paths.append(f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width:.2f}" '
-                         'stroke-linecap="round" stroke-linejoin="round"/>')
-    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' + "".join(paths) + "</svg>\n")
+def svg(png):
+    data = base64.b64encode(png).decode("ascii")
+    return ('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+            'viewBox="0 0 256 256"><image width="256" height="256" '
+            f'xlink:href="data:image/png;base64,{data}"/></svg>\n')
 
 
 def save_ico(images, path):
@@ -116,12 +72,15 @@ def main():
     parser.add_argument("out", type=Path)
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
-    images = [draw(size) for size in SIZES]
+    mask = ink_mask()
+    images = [draw(size, mask) for size in SIZES]
     images[-1].save(args.out / "compound_ime-256.png")
     save_ico(images, args.out / "compound_ime.ico")
-    save_ico([draw_langbar(size) for size in LANGBAR_SIZES], args.out / "compound_ime_langbar.ico")
-    (args.out / "compound_ime.svg").write_text(svg(), encoding="utf-8")
-    draw_langbar(64).save(args.out / "compound_ime_langbar-64.png")
+    save_ico([draw(size, mask) for size in LANGBAR_SIZES], args.out / "compound_ime_langbar.ico")
+    png = io.BytesIO()
+    images[-1].save(png, format="PNG")
+    (args.out / "compound_ime.svg").write_text(svg(png.getvalue()), encoding="utf-8")
+    draw(64, mask).save(args.out / "compound_ime_langbar-64.png")
     print("icon", args.out / "compound_ime.ico")
 
 
