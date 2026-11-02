@@ -63,6 +63,11 @@ std::optional<size_t> WordStartUnread(std::string_view raw, const RomajiParser& 
 // whose first word also reads as no word (っかっま) is kept as typed. After a particle-like kana
 // っ starts many words (もっと, がっこう), so only the start of the input is taken.
 std::optional<size_t> WordStartSokuon(std::string_view raw, const RomajiParser& parse);
+// Spans [begin, end) of |raw| whose dots and hyphens are kept as typed: a name with a file
+// extension or a domain ("llama.cpp", ".gitignore", "zenn.dev", ".jsonni": .json), and letters
+// joined by a hyphen after a consonant or a digit ("pt-query-digest", "v1.3.1-pre.3"). A dot that
+// ends a sentence ("ryoukaidesu.deha") and a long vowel ("pa-thisyon") are left to kana.
+std::vector<std::pair<size_t, size_t>> TypedSymbolSpans(std::string_view raw);
 // The kana of |keys| from the chunk holding key |at| to the next particle or the end.
 std::string WordKana(std::string_view keys, size_t at, const RomajiParser& parse);
 // Where that word ends: the next particle after key |at|, or the end of |keys|.

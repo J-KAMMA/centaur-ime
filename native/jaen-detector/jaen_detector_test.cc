@@ -758,6 +758,16 @@ int main() {
     Expect(jaen::WordStartSokuon("kkamma", Parse) == 0 && !jaen::WordStartSokuon("watashihakkammadesu", Parse) &&
                !jaen::WordStartSokuon("mottookiku", Parse) && !jaen::WordStartSokuon("kitte", Parse),
            "an input that starts with a small tsu");
+    using Spans = std::vector<std::pair<size_t, size_t>>;
+    Expect(jaen::TypedSymbolSpans("llama.cpp") == Spans{{0, 9}} && jaen::TypedSymbolSpans(".gitignore") == Spans{{0, 10}} &&
+               jaen::TypedSymbolSpans(".jsonnikakikonda") == Spans{{0, 5}} && jaen::TypedSymbolSpans("zenn.dev") == Spans{{0, 8}} &&
+               jaen::TypedSymbolSpans("pt-query-digest") == Spans{{0, 15}} &&
+               jaen::TypedSymbolSpans("v1.3.1-pre.3") == Spans{{0, 12}},
+           "dots and hyphens kept as typed");
+    Expect(jaen::TypedSymbolSpans("ryoukaidesu.deha").empty() && jaen::TypedSymbolSpans("pa-thisyon").empty() &&
+               jaen::TypedSymbolSpans("huusoku6me-toru").empty() && jaen::TypedSymbolSpans("kore.appudeto").empty() &&
+               jaen::TypedSymbolSpans("karenda-").empty(),
+           "a sentence end and a long vowel stay kana");
     Expect(jaen::ReadableTypoEdits("fidesuka", Parse).empty(),"a reading with a small vowel (ふぃ) is not edited");
     Expect(!jaen::ReadableTypoEdits("tsudukete", Parse).empty() && jaen::ReadableTypoEdits("tsud", Parse).empty(),
            "only keys that read as kana are edited");

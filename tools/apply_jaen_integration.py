@@ -5781,4 +5781,35 @@ edit("converter/converter.cc", _anchor, _anchor + """  for (size_t p = 0; p < pi
   }
 """)
 
+# 打ったとおりに残す記号: 拡張子・ドメインの前の点（llama.cpp、.gitignore、zenn.dev）と、子音字か数字のあとの
+# ハイフン（pt-query-digest、v1.3.1-pre.3）を含む範囲を、打ったとおりの英字の部分にする（。や ー にしない）。
+# 文の終わりの点（ryoukaidesu.deha）と長音（pa-thisyon）はそのまま。点やハイフンのない入力では何もしない。
+_anchor = """    pieces.insert(pieces.begin() + p, parts.begin(), parts.end());
+    p += parts.size() - 1;
+    split = true;
+  }
+"""
+edit("converter/converter.cc", _anchor, _anchor + """  if (const std::vector<std::pair<size_t, size_t>> spans = jaen::TypedSymbolSpans(raw); !spans.empty()) {
+    std::vector<jaen::Piece> carved;
+    for (const jaen::Piece& piece : pieces) {
+      const bool touched = std::ranges::any_of(spans, [&](const auto& s) { return s.first < piece.end && s.second > piece.begin; });
+      if (!touched) {
+        carved.push_back(piece);
+        continue;
+      }
+      size_t at = piece.begin;
+      for (const auto& [b, e] : spans) {
+        if (e <= at || b >= piece.end) continue;
+        if (b > at) carved.push_back(jaen::Piece{at, b, piece.english});
+        at = std::min(e, piece.end);
+      }
+      if (at < piece.end) carved.push_back(jaen::Piece{at, piece.end, piece.english});
+    }
+    for (const auto& [b, e] : spans) carved.push_back(jaen::Piece{b, e, true});
+    std::ranges::sort(carved, {}, &jaen::Piece::begin);
+    pieces = std::move(carved);
+    split = true;
+  }
+""")
+
 print("applied")
