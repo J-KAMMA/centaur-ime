@@ -5,6 +5,9 @@
 name: Mine mistakes
 
 on:
+  # main に入れる前は、この枝に push したときに既定の値で動く
+  push:
+    branches: [work/mine-homophones]
   workflow_dispatch:
     inputs:
       bin_run:
@@ -39,7 +42,7 @@ jobs:
           set -eo pipefail
           mkdir -p out
           venv/bin/python tools/wiki_typing_test.py --wiki wiki.parquet --table romanji-hiragana.tsv \
-            --out out/all.tsv --count ${{ inputs.count }} --seed 20261104
+            --out out/all.tsv --count ${{ inputs.count || '20000' }} --seed 20261104
           grep -v '^#' out/all.tsv > out/body.tsv
           wc -l out/body.tsv
           split -n l/16 -d -a 2 out/body.tsv out/shard-
@@ -67,7 +70,7 @@ jobs:
         with:
           name: linux-bin
           path: bin
-          run-id: ${{ inputs.bin_run }}
+          run-id: ${{ inputs.bin_run || '41680623588' }}
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@v4
         with:
