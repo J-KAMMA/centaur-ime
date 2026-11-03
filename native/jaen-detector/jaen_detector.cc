@@ -479,6 +479,8 @@ ChunkMarks MarkChunks(const std::vector<Chunk>& chunks) {
     } else if (r.size() == 3 && consonant(r[0]) && Lower(r[0]) != 's' && Lower(r[0]) != 'c' &&
                Lower(r[1]) == 'h' && IsVowel(r[2])) {
       boundary[start + 1] = true;  // "dhe" read as でぇ: "madrid|he"
+    } else if (r.size() == 3 && consonant(r[0]) && Lower(r[0]) != 'y' && Lower(r[1]) == 'y' && Lower(r[2]) == 'a') {
+      boundary[start + 1] = true;  // "bya" read as びゃ: the particle や after "github|ya"
     } else if (r.size() == 2 && Lower(r[0]) == 'x' && Lower(r[1]) == 'n' && chunk.conversion == "ん") {
       boundary[start + 1] = true;  // "xn" read as ん: "codex|ni", "tmux|ni"
       no_start[start + 1] = true;
@@ -998,6 +1000,15 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
         // exe を切り出して ん + EXE にしない。強い印（日本語の打ち方にない形）の語は
         // 今までどおり区切りの途中からも取る（seat|wo の two）。
         if (sign >= kForeignCost || (boundary[i] && boundary[j])) cost = kSpanCost - length;
+        // The word's last key read with the particle や as one kana ("github|ya": びゃ): the Japanese
+        // reading no longer shows the key no Japanese typing makes, so the word is taken as listed.
+        // Only a word of 4+ letters with nothing typed after the や but symbols: kunrei typing makes
+        // such kana inside Japanese words (metyakutya: めちゃくちゃ, isya: 医者, not is|ya).
+        if (cost && sign >= kForeignCost && word.size() >= 4 && j + 2 <= n && Lower(raw[j]) == 'y' && Lower(raw[j + 1]) == 'a' &&
+            !marks.edge[j] && particle_at(j) &&
+            std::none_of(raw.begin() + static_cast<std::ptrdiff_t>(j + 2), raw.end(), IsAsciiAlpha)) {
+          cost = -length;
+        }
       } else if (word.size() >= kMinPlainWordLength &&
                  (lexicon.IsCurated(word) ||
                   // Unvetted words: only on the typed chunk edges.
