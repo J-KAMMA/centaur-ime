@@ -413,6 +413,36 @@
     "Kkamma"
    ],
    "note": "2026-11-02 報告: っかっま になった（語の頭の っ のあとも語として読めないものは打ったとおりの英字にする）"
+  },
+  {
+   "id": "r048",
+   "category": "reported",
+   "romaji": "meishininanntoka",
+   "intended": "名詞になんとか",
+   "alternatives": [
+    "名詞に何とか"
+   ],
+   "note": "2026-11-04 報告: 名詞のあとの「に」+「なんとか」が 二何とか になった（助詞の に が数の 二 に）"
+  },
+  {
+   "id": "r049",
+   "category": "reported",
+   "romaji": "kaishaninanntokashite",
+   "intended": "会社になんとかして",
+   "alternatives": [
+    "会社に何とかして"
+   ],
+   "note": "2026-11-04 報告: 名詞のあとの「に」+「なんとか」が 二何とか になった（助詞の に が数の 二 に）"
+  },
+  {
+   "id": "r050",
+   "category": "reported",
+   "romaji": "ieninanntokakaetta",
+   "intended": "家になんとか帰った",
+   "alternatives": [
+    "家に何とか帰った"
+   ],
+   "note": "2026-11-04 報告: 名詞のあとの「に」+「なんとか」が 二何とか になった（助詞の に が数の 二 に）"
   }
  ]
 }
