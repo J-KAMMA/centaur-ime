@@ -1313,9 +1313,22 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
     return !piece.english && std::ranges::any_of(std::string_view(raw).substr(piece.begin, piece.end - piece.begin),
                                                  [](char c) { return std::isalpha(static_cast<unsigned char>(c)) != 0; });
   });
+  // Three or more words are one coined word too when a short piece is no common word: the split
+  // only found spellings in a longer word ("guesstimation": guess tim at ion, "datamation").
+  const auto rare_short_piece = [&](const Piece& piece) {
+    std::vector<size_t> bounds{piece.begin};
+    bounds.insert(bounds.end(), piece.spaces.rbegin(), piece.spaces.rend());
+    bounds.push_back(piece.end);
+    for (size_t w = 0; w + 1 < bounds.size(); ++w) {
+      const std::string_view word = std::string_view(raw).substr(bounds[w], bounds[w + 1] - bounds[w]);
+      if (word.size() <= 3 && !lexicon.IsCommon(word)) return true;
+    }
+    return false;
+  };
   if (!any_japanese) {
     for (Piece& piece : pieces) {
-      if (piece.english && piece.spaces.size() == 1 && lexicon.FindPhrase(std::string_view(raw).substr(piece.begin, piece.end - piece.begin)) == nullptr) {
+      if (piece.english && !piece.spaces.empty() && lexicon.FindPhrase(std::string_view(raw).substr(piece.begin, piece.end - piece.begin)) == nullptr &&
+          (piece.spaces.size() == 1 || rare_short_piece(piece))) {
         piece.spaces.clear();
       }
     }
