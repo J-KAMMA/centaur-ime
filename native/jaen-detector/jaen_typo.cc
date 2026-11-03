@@ -217,7 +217,18 @@ std::vector<std::pair<size_t, size_t>> TypedSymbolSpans(std::string_view raw) {
     return true;
   };
   std::vector<std::pair<size_t, size_t>> spans;
-  for (size_t i = 0; i + 1 < raw.size(); ++i) {
+  for (size_t i = 0; i < raw.size(); ++i) {
+    // A backquote marks code in chat and Markdown ("`overcute`"): kept half-width, the text
+    // between is read as usual.
+    if (raw[i] == '`') {
+      if (!spans.empty() && spans.back().second == i) {
+        spans.back().second = i + 1;
+      } else {
+        spans.emplace_back(i, i + 1);
+      }
+      continue;
+    }
+    if (i + 1 == raw.size()) break;
     size_t end = 0;
     if (raw[i] == '.') {
       for (const std::string_view ext : kExtensions) {

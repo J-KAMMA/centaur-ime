@@ -201,7 +201,7 @@
    "id": "m347",
    "category": "english-became-kana",
    "romaji": "deepseek",
-   "intended": "deepseek (英字のまま)",
+   "intended": "deepseek",
    "note": "Meltype #347 (closed) 前後: 未確認"
   },
   {
@@ -432,35 +432,35 @@
    "id": "m533",
    "category": "english-became-kana",
    "romaji": "bio-break",
-   "intended": "`bio-break`",
+   "intended": "bio-break",
    "note": "Meltype #533 (closed)"
   },
   {
    "id": "m535",
    "category": "english-became-kana",
    "romaji": "overchoice",
-   "intended": "`overchoice`",
+   "intended": "overchoice",
    "note": "Meltype #535 (closed)"
   },
   {
    "id": "m536",
    "category": "english-became-kana",
    "romaji": "fatigue",
-   "intended": "`fatigue`",
+   "intended": "fatigue",
    "note": "Meltype #536 (closed)"
   },
   {
    "id": "m537",
    "category": "ja-became-english",
    "romaji": "procrasticle",
-   "intended": "`procrasticle`",
+   "intended": "procrasticle",
    "note": "Meltype #537 (closed)"
   },
   {
    "id": "m538",
    "category": "english-became-kana",
    "romaji": "infobesity",
-   "intended": "`infobesity`",
+   "intended": "infobesity",
    "note": "Meltype #538 (closed)"
   },
   {
@@ -544,35 +544,35 @@
    "id": "m683",
    "category": "english-became-kana",
    "romaji": "guesstimation",
-   "intended": "`guesstimation`",
+   "intended": "guesstimation",
    "note": "Meltype #683 (closed)"
   },
   {
    "id": "m689",
    "category": "english-became-kana",
    "romaji": "Finfluencer",
-   "intended": "`Finfluencer`",
+   "intended": "Finfluencer",
    "note": "Meltype #689 (closed)"
   },
   {
    "id": "m690",
    "category": "english-became-kana",
    "romaji": "datamation",
-   "intended": "`datamation`",
+   "intended": "datamation",
    "note": "Meltype #690 (closed)"
   },
   {
    "id": "m691",
    "category": "english-became-kana",
    "romaji": "adware",
-   "intended": "`adware`",
+   "intended": "adware",
    "note": "Meltype #691 (closed)"
   },
   {
    "id": "m692",
    "category": "english-became-kana",
    "romaji": "greedflation",
-   "intended": "`greedflation`",
+   "intended": "greedflation",
    "note": "Meltype #692 (closed)"
   },
   {
@@ -621,7 +621,7 @@
    "id": "m724",
    "category": "english-became-kana",
    "romaji": "binge-watch",
-   "intended": "`binge-watch`",
+   "intended": "binge-watch",
    "note": "Meltype #724 (closed)"
   },
   {
@@ -635,42 +635,42 @@
    "id": "m726",
    "category": "english-became-kana",
    "romaji": "malvertising",
-   "intended": "`malvertising`",
+   "intended": "malvertising",
    "note": "Meltype #726 (closed)"
   },
   {
    "id": "m727",
    "category": "english-became-kana",
    "romaji": "ad-blocker",
-   "intended": "`ad-blocker`",
+   "intended": "ad-blocker",
    "note": "Meltype #727 (closed)"
   },
   {
    "id": "m730",
    "category": "english-became-kana",
    "romaji": "adtech",
-   "intended": "`adtech`",
+   "intended": "adtech",
    "note": "Meltype #730 (closed)"
   },
   {
    "id": "m731",
    "category": "english-became-kana",
    "romaji": "robonomics",
-   "intended": "`robonomics`",
+   "intended": "robonomics",
    "note": "Meltype #731 (closed)"
   },
   {
    "id": "m732",
    "category": "english-became-kana",
    "romaji": "mobisode",
-   "intended": "`mobisode`",
+   "intended": "mobisode",
    "note": "Meltype #732 (closed)"
   },
   {
    "id": "m733",
    "category": "english-became-kana",
    "romaji": "netizenry",
-   "intended": "`netizenry`",
+   "intended": "netizenry",
    "note": "Meltype #733 (closed)"
   },
   {
@@ -747,7 +747,7 @@
    "id": "m876",
    "category": "english-became-kana",
    "romaji": "doomscroll",
-   "intended": "`doomscroll`",
+   "intended": "doomscroll",
    "note": "Meltype #876 (closed)"
   },
   {
@@ -880,14 +880,14 @@
    "id": "m1014",
    "category": "other",
    "romaji": "doshitano",
-   "intended": "`どしたの`",
+   "intended": "どしたの",
    "note": "Meltype #1014 (closed)"
   },
   {
    "id": "m1017",
    "category": "other",
    "romaji": "huusoku6me-toru",
-   "intended": "`風速6メートル`",
+   "intended": "風速6メートル",
    "note": "Meltype #1017 (closed)"
   },
   {
@@ -1125,7 +1125,7 @@
    "id": "m1273",
    "category": "ja-became-english",
    "romaji": "ver1.4.0",
-   "intended": "`ver1.4.0`",
+   "intended": "ver1.4.0",
    "note": "Meltype #1273 (closed) 前後: ヴェr1.4.0で記号もユーザ辞書に登録できるようになったから活用したいところ"
   },
   {
@@ -1272,7 +1272,7 @@
    "id": "m1367",
    "category": "other",
    "romaji": "issuekakuka",
-   "intended": "`issue書くか`",
+   "intended": "issue書くか",
    "note": "Meltype #1367 (open)"
   },
   {
