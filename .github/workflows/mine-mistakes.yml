@@ -1,0 +1,120 @@
+# 今の変換が取り違える文を集める（人工知能の学び直しの材料。手動で動く）。
+# ウィキペディアの文（tests/conversion の文は除く）をローマ字で打ち込み、元の文と違った文を残す。
+# 変換の一式は、試験の流れ（linux-test.yml）の成果物 linux-bin を、その run の番号で借りる。
+# できたファイルは成果物 mistakes に残る（文はウィキペディア、CC BY-SA 4.0）。
+name: Mine mistakes
+
+on:
+  workflow_dispatch:
+    inputs:
+      bin_run:
+        description: 成果物 linux-bin を借りる試験の run の番号（main の試験）
+        required: true
+      count:
+        description: 文の数
+        default: '20000'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sentences:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: 材料（版と SHA256 を固定）
+        run: |
+          set -eo pipefail
+          python3 -m venv venv && venv/bin/pip -q install "sudachipy==0.6.11" "sudachidict-core==20260428" "pyarrow==21.0.0"
+          curl -fsSL -o wiki.parquet \
+            https://huggingface.co/datasets/wikimedia/wikipedia/resolve/b04c8d1ceb2f5cd4588862100d08de323dccfbaa/20231101.ja/train-00011-of-00015.parquet
+          echo "271165db78420d9286c82c2b9b93ac520925b41187537ef12bc9ff7ec1a1dca4  wiki.parquet" | sha256sum -c
+          curl -fsSL -o romanji-hiragana.tsv \
+            https://raw.githubusercontent.com/unok/mozc/2d993fd532c0df849ff3a5f6c7851b3757471ed6/src/data/preedit/romanji-hiragana.tsv
+          echo "fcb900e311d32ced05499c86e236d1084fb0c0937398deb6311fc6c7287a7821  romanji-hiragana.tsv" | sha256sum -c
+      - name: 文を作って16に分ける
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          venv/bin/python tools/wiki_typing_test.py --wiki wiki.parquet --table romanji-hiragana.tsv \
+            --out out/all.tsv --count ${{ inputs.count }} --seed 20261104
+          grep -v '^#' out/all.tsv > out/body.tsv
+          wc -l out/body.tsv
+          split -n l/16 -d -a 2 out/body.tsv out/shard-
+          ls out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mine-sentences
+          path: out/
+          retention-days: 7
+
+  convert:
+    needs: sentences
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 16
+      matrix:
+        shard: ["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-bin
+          path: bin
+          run-id: ${{ inputs.bin_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: mine-sentences
+          path: sentences
+      - name: 変換（組 ${{ matrix.shard }}）
+        run: |
+          set -eo pipefail
+          W=$GITHUB_WORKSPACE; E=$W/bin/engine
+          chmod +x $E/session_handler_main
+          curl -fsSL -o $W/model.gguf \
+            https://github.com/J-KAMMA/compound-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
+          echo "2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff  $W/model.gguf" | sha256sum -c
+          export LD_LIBRARY_PATH="$E${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          mkdir -p out
+          cut -f1 sentences/shard-${{ matrix.shard }} > in.txt
+          bash repo/tools/batch_convert.sh $E/session_handler_main $E $W/model.gguf in.txt out/conv-${{ matrix.shard }}.tsv 4
+          wc -l out/conv-${{ matrix.shard }}.tsv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mine-conv-${{ matrix.shard }}
+          path: out/
+          retention-days: 7
+
+  collect:
+    needs: convert
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mine-sentences
+          path: sentences
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mine-conv-*
+          path: conv
+          merge-multiple: true
+      - name: 元の文と違った文を集める
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          cat conv/conv-*.tsv > out/converted.tsv
+          python3 tools/mine_mistakes.py sentences/body.tsv out/converted.tsv out/mistakes.tsv | tee out/summary.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mistakes
+          path: out/
+          retention-days: 14
