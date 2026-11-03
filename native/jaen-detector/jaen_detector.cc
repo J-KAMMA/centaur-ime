@@ -1002,8 +1002,11 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
         if (sign >= kForeignCost || (boundary[i] && boundary[j])) cost = kSpanCost - length;
         // The word's last key read with the particle や as one kana ("github|ya": びゃ): the Japanese
         // reading no longer shows the key no Japanese typing makes, so the word is taken as listed.
-        if (cost && sign >= kForeignCost && j + 2 <= n && Lower(raw[j]) == 'y' && Lower(raw[j + 1]) == 'a' &&
-            !marks.edge[j] && particle_at(j)) {
+        // Only a word of 4+ letters with nothing typed after the や but symbols: kunrei typing makes
+        // such kana inside Japanese words (metyakutya: めちゃくちゃ, isya: 医者, not is|ya).
+        if (cost && sign >= kForeignCost && word.size() >= 4 && j + 2 <= n && Lower(raw[j]) == 'y' && Lower(raw[j + 1]) == 'a' &&
+            !marks.edge[j] && particle_at(j) &&
+            std::none_of(raw.begin() + static_cast<std::ptrdiff_t>(j + 2), raw.end(), IsAsciiAlpha)) {
           cost = -length;
         }
       } else if (word.size() >= kMinPlainWordLength &&

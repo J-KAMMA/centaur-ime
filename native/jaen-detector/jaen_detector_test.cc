@@ -39,7 +39,7 @@ const std::map<std::string, std::string> kTable = {
     {"q", "く"}, {"qa", "くぁ"}, {"qi", "くぃ"}, {"qe", "くぇ"}, {"qo", "くぉ"}, {"qu", "く"}, {"qwe", "くぇ"},
     {"nu", "ぬ"}, {"xn", "ん"}, {"ga", "が"}, {"ri", "り"}, {"so", "そ"}, {"wa", "わ"}, {"yo", "よ"}, {"gu", "ぐ"}, {"du", "づ"},
     {"lo", "ぉ"}, {"he", "へ"}, {"two", "とぉ"}, {"ji", "じ"}, {"ja", "じゃ"}, {"pa", "ぱ"}, {"ba", "ば"}, {"bi", "び"}, {"ru", "る"}, {"fu", "ふ"}, {"la", "ぁ"}, {"n'", "ん"}, {"va", "ゔぁ"}, {"vi", "ゔぃ"}, {"xe", "ぇ"},
-    {",", "、"}, {".", "。"}, {"!", "！"}, {"?", "？"}, {"-", "ー"}, {"dhi", "でぃ"}, {"bya", "びゃ"}, {"thu", "てゅ"}};
+    {",", "、"}, {".", "。"}, {"!", "！"}, {"?", "？"}, {"-", "ー"}, {"dhi", "でぃ"}, {"bya", "びゃ"}, {"thu", "てゅ"}, {"tya", "ちゃ"}};
 
 // Greedy longest match; "n" before a consonant becomes ん; unknown keys pend.
 std::vector<Chunk> Parse(std::string_view raw) {
@@ -88,6 +88,7 @@ int main() {
   lexicon.AddPlace("osaka", "大阪", "oosaka");
   lexicon.Add("slack", true);
   lexicon.Add("github");
+  lexicon.Add("met");
   lexicon.Add("nec", true);
   lexicon.Add("chatgpt", true);
   lexicon.Add("ntt", true);
@@ -174,7 +175,8 @@ int main() {
   Expect(english("linuxnokoma") == "linux|", "xn is ん, not a small kana: it may be cut");
   Expect(english("meetinggaarimasu") == "meeting|", "-ng before ga: んっ is not Japanese");
   Expect(english("seatwokau") == "seat|", "a word before the particle wo, not \"two\" (sea|two)");
-  Expect(english("githubyagitlab").starts_with("github|"), "a word before the particle ya, not \"bya\" (github|ya)");
+  Expect(english("githubya") == "github|", "a word before the particle ya at the end, not \"bya\" (github|ya)");
+  Expect(english("metyakutya").empty(), "kunrei tya inside a Japanese word stays Japanese (met|ya)");
   Expect(english("testshita") == "test|", "no word ends inside shi (tests|hita)");
   Expect(english("setshita") == "set|", "set|shita, not sets|hita");
   Expect(english("campushahiroi") == "campus|", "campus|ha stays: campu is no word");
