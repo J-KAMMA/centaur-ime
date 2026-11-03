@@ -775,6 +775,9 @@ int main() {
                jaen::TypedSymbolSpans("huusoku6me-toru").empty() && jaen::TypedSymbolSpans("kore.appudeto").empty() &&
                jaen::TypedSymbolSpans("karenda-").empty(),
            "a sentence end and a long vowel stay kana");
+    Expect(jaen::TypedSymbolSpans("`overcute`") == Spans{{0, 1}, {9, 10}} &&
+               jaen::TypedSymbolSpans("`llama.cpp`") == Spans{{0, 11}},
+           "backquotes stay half-width");
     using Span = std::optional<std::pair<size_t, size_t>>;
     Expect(jaen::CapitalWord("Gemma4", Parse) == Span{{0, 6}} && jaen::CapitalWord("iZotope", Parse) == Span{{0, 7}} &&
                jaen::CapitalWord("korewoGemmadetameshita", Parse) == Span{{6, 11}} &&
