@@ -5255,58 +5255,6 @@ edit(C, '''    if (segment->segment_type() == Segment::FIXED_VALUE) {
     }
 
     if (IsPunctuation(*segment, segment->candidate(0))) {''')
-# 1語で「かなで書く」と覚えた語（全部 → ぜんぶ、時 → とき）は、長い文節の中（ぜんぶ食べた、そのときは）でも
-# かなで書く。読みと同じかなの書き方だけで、同音の別の語には替えない。
-edit(C, '''    size_t max_candidates_size = 0;
-    if (HistoryTrace()) {''', '''    // A word the user wrote in kana on its own (ぜんぶ for 全部, とき for 時)
-    // is written in kana inside a longer segment too (ぜんぶ食べた,
-    // そのときは): the pieces of the first candidate whose reading was
-    // learned as its own kana spelling are spelled in kana. Only a spelling
-    // equal to the reading is applied, never another word of the same sound.
-    if (!(segment->candidate(0).attributes &
-          converter::Attribute::USER_SEGMENT_HISTORY_REWRITER)) {
-      const converter::Candidate& top = segment->candidate(0);
-      std::string value;
-      std::string content_value = top.content_value;
-      converter::InnerSegmentBoundaryBuilder builder;
-      bool changed = false;
-      for (const auto& piece : top.inner_segments()) {
-        const absl::string_view ck = piece.GetContentKey();
-        const absl::string_view cv = piece.GetContentValue();
-        const absl::string_view functional = piece.GetFunctionalValue();
-        if (ck.size() >= 6 && cv != ck &&
-            Util::ContainsScriptType(cv, Util::KANJI) &&
-            Util::GetScriptType(ck) == Util::HIRAGANA &&
-            Fetch(StrJoinWithTabs("S", ck, ck), 1).score > 0) {
-          if (const size_t at = content_value.find(cv); at != std::string::npos) {
-            content_value.replace(at, cv.size(), ck);
-          }
-          absl::StrAppend(&value, ck, functional);
-          builder.Add(piece.GetKey().size(), ck.size() + functional.size(),
-                      ck.size(), ck.size());
-          changed = true;
-        } else {
-          absl::StrAppend(&value, piece.GetValue());
-          builder.Add(piece);
-        }
-      }
-      if (changed && value != top.value) {
-        converter::Candidate* kana = segment->insert_candidate(0);
-        *kana = segment->candidate(1);
-        kana->value = value;
-        kana->content_value = content_value;
-        kana->inner_segment_boundary = builder.Build(kana->key, kana->value);
-        kana->attributes |= converter::Attribute::USER_SEGMENT_HISTORY_REWRITER;
-        modified = true;
-        if (HistoryTrace()) {
-          std::fprintf(stderr, "history kana spelling: key=%s value=%s\\n",
-                       std::string(segment->key()).c_str(), kana->value.c_str());
-        }
-      }
-    }
-
-    size_t max_candidates_size = 0;
-    if (HistoryTrace()) {''')
 # 英字の書き方（ail と AIL）は同じ音の別の語ではないので、文の中でも覚えた形を先頭にする。
 edit(C, '''    const bool keep_first =
         segments->conversion_segments_size() >= 2 && !scores[0].context &&
@@ -5895,6 +5843,158 @@ edit("converter/converter.cc", _anchor, _anchor + """  if (const std::vector<std
     std::ranges::sort(carved, {}, &jaen::Piece::begin);
     pieces = std::move(carved);
     split = true;
+  }
+""")
+
+# かなで書く語（native/jaen-detector/kana_spellings.h）: 漢字の候補があるのに1語でかなを選んで確定した語
+# （ぜんぶ、とき）を覚え、単語登録の辞書「かなで書く語（自動）」に入れる。辞書に入れば Mozc も人工知能も、
+# 長い文節の中（ぜんぶ食べた）でかなを使う（学習の鍵は文節ごとなので、1語で覚えた選びは届かない）。
+# 漢字を選び直すと忘れる。学習を消すと一緒に消す。品詞は漢字の候補の品詞から（名詞・副詞だけ）。
+write("converter/kana_spellings.h", (REPO / "native/jaen-detector/kana_spellings.h").read_text(encoding="utf-8"))
+edit("converter/BUILD.bazel", """        "jaen_choices.h",
+        "jaen_detector.h",
+    ],""", """        "jaen_choices.h",
+        "jaen_detector.h",
+        "kana_spellings.h",
+    ],""")
+edit("converter/english_lexicon.h", """#include "converter/jaen_choices.h"
+#include "converter/jaen_detector.h"
+""", """#include <cstdint>
+#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "converter/jaen_choices.h"
+#include "converter/jaen_detector.h"
+#include "converter/kana_spellings.h"
+""")
+edit("converter/english_lexicon.h", """jaen::ChoiceStore& EnglishChoices();
+""", """jaen::ChoiceStore& EnglishChoices();
+
+// The words the user writes in kana (jaen::KanaSpellings), in the user profile.
+jaen::KanaSpellings& KanaSpellingStore();
+// |sink| gets the whole list (hiragana, part of speech id) whenever it changes;
+// engine.cc puts it in the user dictionary.
+void SetKanaSpellingSink(
+    std::function<void(const std::vector<std::pair<std::string, uint16_t>>&)> sink);
+void NotifyKanaSpellings();
+""")
+edit("converter/english_lexicon.cc", """#include <filesystem>
+#include <string>
+""", """#include <filesystem>
+#include <mutex>
+#include <string>
+""")
+edit("converter/english_lexicon.cc", """  return *store;
+}
+""", """  return *store;
+}
+
+jaen::KanaSpellings& KanaSpellingStore() {
+  static jaen::KanaSpellings* const store = [] {
+    const std::string dir = SystemUtil::GetUserProfileDirectory();  // UTF-8
+    return new jaen::KanaSpellings(
+        std::filesystem::path(std::u8string(dir.begin(), dir.end())) / "kana_spellings.txt");
+  }();
+  return *store;
+}
+
+namespace {
+using KanaSink = std::function<void(const std::vector<std::pair<std::string, uint16_t>>&)>;
+std::mutex& KanaSinkMutex() {
+  static std::mutex* const mutex = new std::mutex;
+  return *mutex;
+}
+KanaSink& KanaSinkSlot() {
+  static KanaSink* const sink = new KanaSink;
+  return *sink;
+}
+}  // namespace
+
+void SetKanaSpellingSink(KanaSink sink) {
+  std::lock_guard<std::mutex> lock(KanaSinkMutex());
+  KanaSinkSlot() = std::move(sink);
+}
+
+void NotifyKanaSpellings() {
+  KanaSink sink;
+  {
+    std::lock_guard<std::mutex> lock(KanaSinkMutex());
+    sink = KanaSinkSlot();
+  }
+  if (sink) sink(KanaSpellingStore().Words());
+}
+""")
+edit("converter/converter.cc", """  for (const Segment& segment : segments.conversion_segments()) {
+    if (segment.candidates_size() == 0) continue;
+    std::string word;
+    const jaen::Choice choice =
+        jaen::ClassifyCommit(raw, segment.key(), segment.candidate(0).value, &word);
+    if (choice != jaen::Choice::kNone) EnglishChoices().Record(choice, word);
+  }
+}""", """  bool kana_changed = false;
+  for (const Segment& segment : segments.conversion_segments()) {
+    if (segment.candidates_size() == 0) continue;
+    std::string word;
+    const jaen::Choice choice =
+        jaen::ClassifyCommit(raw, segment.key(), segment.candidate(0).value, &word);
+    if (choice != jaen::Choice::kNone) EnglishChoices().Record(choice, word);
+    // A word picked in kana over a kanji spelling of the same reading (ぜんぶ
+    // for 全部) is remembered as written in kana; picking the kanji again
+    // forgets it. Only a whole segment that is one word, of two kana or more.
+    const Candidate& picked = segment.candidate(0);
+    if ((picked.attributes & Attribute::RERANKED) == 0 || picked.key != picked.content_key ||
+        picked.value != picked.content_value || Util::CharsLen(picked.key) < 2) {
+      continue;
+    }
+    if (picked.value == picked.key && Util::GetScriptType(picked.value) == Util::HIRAGANA) {
+      for (size_t c = 1; c < segment.candidates_size(); ++c) {
+        const Candidate& kanji = segment.candidate(c);
+        if (kanji.key == picked.key && kanji.content_key == kanji.key &&
+            Util::ContainsScriptType(kanji.value, Util::KANJI)) {
+          kana_changed |= KanaSpellingStore().Add(picked.key, kanji.lid);
+          break;
+        }
+      }
+    } else if (Util::ContainsScriptType(picked.value, Util::KANJI)) {
+      kana_changed |= KanaSpellingStore().Remove(picked.key);
+    }
+  }
+  if (kana_changed) NotifyKanaSpellings();
+}""")
+edit("engine/engine.cc", """  converter::EnglishChoices().Clear();
+""", """  converter::EnglishChoices().Clear();
+  converter::KanaSpellingStore().Clear();
+  converter::NotifyKanaSpellings();
+""")
+edit("engine/engine.cc", """  async_user_dictionary_importer_ =
+      std::make_unique<user_dictionary::AsyncUserDictionaryImporter>(
+          modules->GetUserDictionary());
+""", """  async_user_dictionary_importer_ =
+      std::make_unique<user_dictionary::AsyncUserDictionaryImporter>(
+          modules->GetUserDictionary());
+  // myime: the words the user writes in kana (converter::KanaSpellingStore)
+  // go to the user dictionary 「かなで書く語（自動）」 and on to the AI's copy.
+  {
+    const engine::Modules* const kana_modules = modules.get();
+    converter::SetKanaSpellingSink(
+        [this, kana_modules](const std::vector<std::pair<std::string, uint16_t>>& words) {
+          const dictionary::PosMatcher& pos = kana_modules->GetPosMatcher();
+          std::string tsv;
+          for (const auto& [key, id] : words) {
+            const char* name = pos.IsAdverb(id) ? "副詞"
+                               : (pos.IsGeneralNoun(id) || pos.IsContentNoun(id) || pos.IsPronoun(id))
+                                   ? "名詞"
+                                   : nullptr;
+            if (name != nullptr) tsv += key + "\\t" + key + "\\t" + name + "\\n";
+          }
+          if (!async_user_dictionary_importer_) return;
+          async_user_dictionary_importer_->Import("かなで書く語（自動）", tsv);
+          async_user_dictionary_importer_->Wait();
+          PushMozcUserDictionaryToAzooKey(kana_modules->GetUserDictionary(),
+                                          kana_modules->GetDataManager());
+        });
   }
 """)
 

@@ -115,6 +115,8 @@ b)
   # 「えもじ」: 直前の文に合う絵文字が2番目から並ぶか（tools/apply_emoji_context.py）。合わせ方の単体試験は g++ で動く
   g++ -std=c++20 -O2 -I $REPO/native/jaen-detector $REPO/native/jaen-detector/emoji_context_test.cc -o $W/emoji_context_test
   $W/emoji_context_test | tee $OUT/emoji-context.txt
+  g++ -std=c++20 -O2 -I $REPO/native/jaen-detector $REPO/native/jaen-detector/kana_spellings_test.cc -o $W/kana_spellings_test
+  $W/kana_spellings_test | tee $OUT/kana-spellings.txt
   # 列: 直前の文（- はなし）<TAB>上位5つに入ってほしい絵文字
   printf '%s\t%s\n' 猫が寝てる 💤 今日はありがとう 🙏 誕生日おめでとう 🎂 すみませんでした 🙇 ラーメン食べた 🍜 - 😊 \
     > $W/emoji-cases.tsv
