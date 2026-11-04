@@ -1,0 +1,7 @@
+# 1回選んだだけで次から効くかを見る（tools/learn_sticky_convert.sh を LEARN_ONCE=1 で流す。組 l、失敗にしない）。列は learn-sticky.tsv と同じ。
+word	u-ba-	Uber	u-ba-	Uber
+word	adobi	Adobe	adobi	Adobe
+sentence	u-ba-deyobu	Uberで	u-ba-wotsukau	Uber
+sentence	adobinoseihin	Adobeの	adobigahappyousita	Adobe
+sentence	kuro-dowotsukau	Claudeを	kuro-dogakaita	Claude
+sentence	kouennnikiita	講演に	kouenngaowatta	講演

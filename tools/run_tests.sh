@@ -340,6 +340,11 @@ l)
     python3 $REPO/tools/score_learn_sticky.py $OUT/learn-sticky-on.tsv $OUT/learn-sticky-off.tsv \
       | tee $OUT/learn-sticky-score.txt
   fi
+  # 1回選んだだけで次から効くか（learn-once.tsv）。調べるためで、効かなくても失敗にしない。
+  if [ -f $T/learn-once.tsv ]; then
+    LEARN_ONCE=1 bash $REPO/tools/learn_sticky_convert.sh $E/session_handler_main $E $MODEL $T/learn-once.tsv $OUT/learn-once
+    LEARN_ONCE=1 python3 $REPO/tools/score_learn_sticky.py $OUT/learn-once-on.tsv $OUT/learn-once-off.tsv       | tee $OUT/learn-once-score.txt || true
+  fi
   ;;
 m)
   # 英単語と重なるローマ字: ローマ字として日本語に読める英単語（made、take、same、one）を日本語の文にはさんだ文と英語だけの文（英語に
