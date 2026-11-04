@@ -5943,6 +5943,12 @@ edit("converter/converter.cc", """    if (choice != jaen::Choice::kNone) English
     // for 全部) is remembered as written in kana; picking the kanji again
     // forgets it. Only a whole segment that is one word, of two kana or more.
     const Candidate& picked = segment.candidate(0);
+    if (std::getenv("MYIME_HISTORY_TRACE") != nullptr) {
+      std::fprintf(stderr, "history kana check: key=%s value=%s content_key=%s content_value=%s reranked=%d candidates=%zu\\n",
+                   picked.key.c_str(), picked.value.c_str(), picked.content_key.c_str(),
+                   picked.content_value.c_str(), (picked.attributes & Attribute::RERANKED) != 0,
+                   static_cast<size_t>(segment.candidates_size()));
+    }
     if ((picked.attributes & Attribute::RERANKED) == 0 || picked.key != picked.content_key ||
         picked.value != picked.content_value || Util::CharsLen(picked.key) < 2) {
       continue;
@@ -5987,6 +5993,10 @@ edit("engine/engine.cc", """  async_user_dictionary_importer_ =
                                    ? "名詞"
                                    : nullptr;
             if (name != nullptr) tsv += key + "\\t" + key + "\\t" + name + "\\n";
+          }
+          if (std::getenv("MYIME_HISTORY_TRACE") != nullptr) {
+            std::fprintf(stderr, "history kana words: %zu, dictionary lines %zu\\n", words.size(),
+                         static_cast<size_t>(std::count(tsv.begin(), tsv.end(), '\\n')));
           }
           if (!async_user_dictionary_importer_) return;
           async_user_dictionary_importer_->Import("かなで書く語（自動）", tsv);
