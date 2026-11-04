@@ -2009,9 +2009,13 @@ edit(C, '''    std::stable_sort(scores.begin(), scores.end(),
     // A word learned only on its own, never next to these neighbours, does
     // not override the first candidate of a sentence: it becomes second
     // (one isolated choice of 公演 must not turn 公園で散歩 into 公演で散歩).
+    // A word written in kana as it reads (ぜんぶ for 全部, すべて for 全て) is
+    // a way of writing, not another word: it goes first in sentences too.
+    const bool kana_spelling = scores[0].candidate != nullptr &&
+                               scores[0].candidate->value == scores[0].candidate->key;
     const bool keep_first =
         segments->conversion_segments_size() >= 2 && !scores[0].context &&
-        scores[0].candidate != &segment->candidate(0);
+        !kana_spelling && scores[0].candidate != &segment->candidate(0);
     modified |= SortCandidates(scores, segment, keep_first);
     // Mark the winner even when it was already first: the AI stages below
     // (whole phrase, selector, homophone cues) never replace a learned
