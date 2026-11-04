@@ -1259,7 +1259,12 @@ edit("converter/converter.cc", """    const jaen::Choice choice =
     if (choice != jaen::Choice::kNone) EnglishChoices().Record(choice, word);""", """    const jaen::Choice choice =
         jaen::ClassifyCommit(raw, segment.key(), segment.candidate(0).value, &word);
     // The typed-as-is candidate (AddTypedAsIs) teaches nothing.
-    if (segment.candidate(0).attributes & Attribute::NO_LEARNING) continue;
+    // A Japanese spelling chosen over it (F6/F7 on the typed English) is a
+    // choice: only the ASCII value itself is skipped.
+    if ((segment.candidate(0).attributes & Attribute::NO_LEARNING) &&
+        choice != jaen::Choice::kJapanese) {
+      continue;
+    }
     // Choosing 東京 for a typed place name is not "never English".
     if (const jaen::Lexicon::Place* place = EnglishLexicon().FindPlace(segment.key());
         choice == jaen::Choice::kJapanese && place && place->surface == segment.candidate(0).value) {
