@@ -51,8 +51,11 @@ jobs:
           set -eo pipefail
           mkdir -p out
           if [ -f jpn_sentences.tsv.bz2 ]; then
+            # 枝への push のときの設定（.github/mine-push.env: PART、CONTAINS、COUNT）
+            PART=pool; CONTAINS=""; COUNT=0
+            [ -f .github/mine-push.env ] && . .github/mine-push.env
             venv/bin/python tools/tatoeba_pool_typing.py --tatoeba jpn_sentences.tsv.bz2 --table romanji-hiragana.tsv \
-              --out out/all.tsv
+              --out out/all.tsv --part $PART --count $COUNT ${CONTAINS:+--contains $CONTAINS}
           else
             venv/bin/python tools/wiki_typing_test.py --wiki wiki.parquet --table romanji-hiragana.tsv \
               --out out/all.tsv --count ${{ inputs.count || '20000' }} --seed 20261104
@@ -76,6 +79,8 @@ jobs:
       max-parallel: 16
       matrix:
         shard: ["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15"]
+        # 変換の一式を借りる run（push のとき。1つ目が比べる元、2つ目が試す枝。workflow_dispatch では bin_run だけ使う）
+        bin: ["41780720556", "41849922425"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,7 +89,7 @@ jobs:
         with:
           name: linux-bin
           path: bin
-          run-id: ${{ inputs.bin_run || '41780720556' }}
+          run-id: ${{ inputs.bin_run || matrix.bin }}
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@v4
         with:
@@ -105,7 +110,7 @@ jobs:
           wc -l out/conv-${{ matrix.shard }}.tsv
       - uses: actions/upload-artifact@v4
         with:
-          name: mine-conv-${{ matrix.shard }}
+          name: mine-conv-${{ inputs.bin_run || matrix.bin }}-${{ matrix.shard }}
           path: out/
           retention-days: 7
 
@@ -123,13 +128,15 @@ jobs:
         with:
           pattern: mine-conv-*
           path: conv
-          merge-multiple: true
-      - name: 元の文と違った文を集める
+      - name: 元の文と違った文を集める（変換の一式ごと）
         run: |
           set -eo pipefail
           mkdir -p out
-          cat conv/conv-*.tsv > out/converted.tsv
-          python3 tools/mine_mistakes.py sentences/body.tsv out/converted.tsv out/mistakes.tsv | tee out/summary.txt
+          for bin in $(ls conv | sed 's/^mine-conv-//; s/-[0-9]*$//' | sort -u); do
+            cat conv/mine-conv-$bin-*/conv-*.tsv > out/converted-$bin.tsv
+            echo "== 変換の一式 $bin" | tee -a out/summary.txt
+            python3 tools/mine_mistakes.py sentences/body.tsv out/converted-$bin.tsv out/mistakes-$bin.tsv | tee -a out/summary.txt
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: mistakes

@@ -5,6 +5,8 @@
 試験の枠は tools/colloquial_text.py と同じ取り分け（文の番号の SHA-256、seed 20261017 の 10%）で、練習の材料には
 使っていない文。話し言葉のしるしやていねいな言い方では絞らず、形の合う文（6〜40 字、漢字・かな・、。だけ）を全部使う。
 tests/conversion の既存の試験と重なる文は除く。出力は「ローマ字<TAB>元の文」（tools/mine_mistakes.py の sentences.tsv）。
+--part rest なら試験の枠の外（残り 9 割）の文を使う（枠の文で選んだ手がかりを、別の文で確かめるため）。
+--contains <語の一覧> なら、その語のどれかを含む文だけ、--count まで。
 材料は Tatoeba の日本語の文（CC BY 2.0 FR、一部は CC0。表示: Tatoeba の投稿者）。
 """
 import argparse
@@ -27,6 +29,9 @@ def main():
     ap.add_argument("--seed", type=int, default=20261017, help="colloquial_text.py と同じ取り分け")
     ap.add_argument("--pool-fraction", type=float, default=0.1)
     ap.add_argument("--repo", default=str(HERE.parent))
+    ap.add_argument("--part", choices=("pool", "rest"), default="pool")
+    ap.add_argument("--contains", default="", help="1行1語。どれかを含む文だけ使う")
+    ap.add_argument("--count", type=int, default=0, help="0 なら全部")
     args = ap.parse_args()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -35,10 +40,13 @@ def main():
     rev = rv.reverse_table(table)
     reader = bd.SudachiReader("core")
     exclusion = bd.TestExclusion(Path(args.repo) / "tests/conversion", bd.load_romaji_table(Path(args.table)))
+    words = [w for w in Path(args.contains).read_text(encoding="utf-8").split() if w] if args.contains else []
     lines, seen = [], set()
     stats = {"pool": 0, "shape": 0, "reading": 0, "blocked": 0}
     for sid, text in ct.read_tatoeba(args.tatoeba):
-        if ct.stable_unit(args.seed, sid) >= args.pool_fraction:
+        if (ct.stable_unit(args.seed, sid) < args.pool_fraction) != (args.part == "pool"):
+            continue
+        if words and not any(w in text for w in words):
             continue
         stats["pool"] += 1
         parts = ct.shape(text)
@@ -55,6 +63,8 @@ def main():
             stats["blocked"] += 1
             continue
         lines.append(f"{made[0]}\t{text}")
+        if args.count and len(lines) >= args.count:
+            break
     Path(args.out).write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     print(f"{len(lines)} 文", stats)
 
