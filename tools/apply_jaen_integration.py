@@ -5962,8 +5962,8 @@ edit("converter/converter.cc", """    if (choice != jaen::Choice::kNone) English
           Util::ContainsScriptType(second.value, Util::KANJI)) {
         kana_changed |= KanaSpellingStore().Add(picked.key, second.lid);
       }
-    } else if ((picked.attributes & Attribute::RERANKED) != 0 &&
-               Util::ContainsScriptType(picked.value, Util::KANJI)) {
+    } else if (Util::ContainsScriptType(picked.value, Util::KANJI) && second.key == picked.key &&
+               second.value == second.key && Util::GetScriptType(second.value) == Util::HIRAGANA) {
       kana_changed |= KanaSpellingStore().Remove(picked.key);
     }
   }
@@ -5989,10 +5989,13 @@ edit("engine/engine.cc", """  async_user_dictionary_importer_ =
           const dictionary::PosMatcher& pos = kana_modules->GetPosMatcher();
           std::string tsv;
           for (const auto& [key, id] : words) {
+            // Verbs and adjectives (they conjugate) and function words are left
+            // out; nouns of every kind (時, 全部: 副詞可能 too) go in as 名詞.
             const char* name = pos.IsAdverb(id) ? "副詞"
-                               : (pos.IsGeneralNoun(id) || pos.IsContentNoun(id) || pos.IsPronoun(id))
-                                   ? "名詞"
-                                   : nullptr;
+                               : (pos.IsContentWordWithConjugation(id) || pos.IsFunctional(id) ||
+                                  pos.IsSuffixWord(id) || pos.IsCounterSuffixWord(id))
+                                   ? nullptr
+                                   : "名詞";
             if (name != nullptr) tsv += key + "\\t" + key + "\\t" + name + "\\n";
           }
           if (std::getenv("MYIME_HISTORY_TRACE") != nullptr) {
