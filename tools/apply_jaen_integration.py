@@ -5949,20 +5949,21 @@ edit("converter/converter.cc", """    if (choice != jaen::Choice::kNone) English
                    picked.content_value.c_str(), (picked.attributes & Attribute::RERANKED) != 0,
                    static_cast<size_t>(segment.candidates_size()));
     }
-    if ((picked.attributes & Attribute::RERANKED) == 0 || picked.key != picked.content_key ||
+    // The chosen candidate is first at commit and the one it displaced second
+    // (a pick does not always mark RERANKED): kana first and a kanji spelling
+    // of the same word second is a kana pick over the kanji.
+    if (segment.candidates_size() < 2 || picked.key != picked.content_key ||
         picked.value != picked.content_value || Util::CharsLen(picked.key) < 2) {
       continue;
     }
+    const Candidate& second = segment.candidate(1);
     if (picked.value == picked.key && Util::GetScriptType(picked.value) == Util::HIRAGANA) {
-      for (size_t c = 1; c < segment.candidates_size(); ++c) {
-        const Candidate& kanji = segment.candidate(c);
-        if (kanji.key == picked.key && kanji.content_key == kanji.key &&
-            Util::ContainsScriptType(kanji.value, Util::KANJI)) {
-          kana_changed |= KanaSpellingStore().Add(picked.key, kanji.lid);
-          break;
-        }
+      if (second.key == picked.key && second.content_key == second.key &&
+          Util::ContainsScriptType(second.value, Util::KANJI)) {
+        kana_changed |= KanaSpellingStore().Add(picked.key, second.lid);
       }
-    } else if (Util::ContainsScriptType(picked.value, Util::KANJI)) {
+    } else if ((picked.attributes & Attribute::RERANKED) != 0 &&
+               Util::ContainsScriptType(picked.value, Util::KANJI)) {
       kana_changed |= KanaSpellingStore().Remove(picked.key);
     }
   }
