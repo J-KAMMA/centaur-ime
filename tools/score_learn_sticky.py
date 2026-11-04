@@ -8,6 +8,7 @@
 学習のあとの確定に望みの書き方が入っていない行があれば失敗にする。
 """
 import sys
+import os
 from collections import defaultdict
 from pathlib import Path
 
@@ -21,7 +22,8 @@ def score(label, path):
     for mode, kind, pick, value, check, want, before, first, second, after in (r[:10] for r in rows):
         g = groups[(mode, kind)]
         # F キーの行は2回目を押さずに確定するので、2回目は学習の結果（数える条件にしない）。
-        picked_twice = value.startswith("KEY:") or want in second
+        # LEARN_ONCE のときは2回目を選ばない（1回で効いたかの結果）。
+        picked_twice = value.startswith("KEY:") or want in second or bool(os.environ.get("LEARN_ONCE"))
         if want in before or want not in first or not picked_twice:
             g[2] += 1
             print(f"    数えない（{mode} {kind}）: {pick} → {value}: 学習の前 {before}、選んだ確定 {first} / {second}")

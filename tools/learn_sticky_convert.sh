@@ -9,6 +9,7 @@
 # 文節の区切りは決めず、確定した文に望みの書き方が入っているかで見る。
 # 前の文の扱いを2通り流す: ctx は変換のたびに違う前の文を渡す（ふつうのアプリと同じ。前の文は確定のたびに変わる）、
 # plain は前の文を渡さない。人工知能あり（-on.tsv）となし（-off.tsv）の両方。
+# 環境変数 LEARN_ONCE=1 なら、2回目は選ばずに確定する（1回選んだだけで次から効くかを見る。2回目の列がその結果）。
 # 結果は「前の文の扱い<TAB>種類<TAB>選ぶ入力<TAB>選ぶ書き方<TAB>確かめる入力<TAB>望み<TAB>学習の前<TAB>1回目<TAB>2回目<TAB>学習のあと」。
 set -e
 EXE=$1; ENGINE=$2; MODEL=$3; IN=$4; PREFIX=$5
@@ -40,7 +41,9 @@ run_mode() {  # <前の文の扱い ctx|plain> <重み> <出力>
       printf 'CLEAR_ALL\n'
       convert "$c1" "$pick" "$value"
       # F キーは押すたびに次の形へ回るので、2回目は押さずに先頭のまま確定する（1回目で覚えていれば望みの形）。
-      case "$value" in KEY:*) convert "$c2" "$pick" "" ;; *) convert "$c2" "$pick" "$value" ;; esac
+      if [ -n "$LEARN_ONCE" ]; then convert "$c2" "$pick" ""
+      else case "$value" in KEY:*) convert "$c2" "$pick" "" ;; *) convert "$c2" "$pick" "$value" ;; esac
+      fi
       convert "$c3" "$check" ""
     done < "$TMP/rows.tsv"; } > "$TMP/$mode.cmd"
   MYIME_HISTORY_TRACE=1 MYIME_ZENZAI_TIME_LIMIT_MS=0 MYIME_AI_BUDGET_MS=0 \
