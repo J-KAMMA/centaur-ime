@@ -5258,9 +5258,9 @@ edit(C, '''    if (segment->segment_type() == Segment::FIXED_VALUE) {
 # 英字の書き方（ail と AIL）は同じ音の別の語ではないので、文の中でも覚えた形を先頭にする。
 edit(C, '''    const bool keep_first =
         segments->conversion_segments_size() >= 2 && !scores[0].context &&
-        scores[0].candidate != &segment->candidate(0);''', '''    const bool keep_first =
+        !kana_spelling && scores[0].candidate != &segment->candidate(0);''', '''    const bool keep_first =
         segments->conversion_segments_size() >= 2 && !scores[0].context &&
-        scores[0].candidate != &segment->candidate(0) &&
+        !kana_spelling && scores[0].candidate != &segment->candidate(0) &&
         segment->segment_type() != Segment::FIXED_VALUE;''')
 # 英字の文節: 打った形・公式の書き方を先頭にしたあと、履歴で先頭になった書き方（F キーで選んだ AIL など）を戻す。
 edit("converter/converter.cc", '''      const std::string& typed = (next++)->second;
