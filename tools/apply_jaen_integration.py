@@ -5255,6 +5255,60 @@ edit(C, '''    if (segment->segment_type() == Segment::FIXED_VALUE) {
     }
 
     if (IsPunctuation(*segment, segment->candidate(0))) {''')
+# 1語で「かなで書く」と覚えた語（全部 → ぜんぶ、時 → とき）は、長い文節の中（ぜんぶ食べた、そのときは）でも
+# かなで書く。読みと同じかなの書き方だけで、同音の別の語には替えない。
+edit(C, '''    if (scores.empty()) {
+      continue;
+    }
+''', '''    // A word the user wrote in kana on its own (ぜんぶ for 全部, とき for 時)
+    // is written in kana inside a longer segment too (ぜんぶ食べた,
+    // そのときは): the pieces of the first candidate whose reading was
+    // learned as its own kana spelling are spelled in kana. Only a spelling
+    // equal to the reading is applied, never another word of the same sound.
+    if (scores.empty() &&
+        !(segment->candidate(0).attributes &
+          converter::Attribute::USER_SEGMENT_HISTORY_REWRITER)) {
+      const converter::Candidate& top = segment->candidate(0);
+      const FeatureKey kana_key(*segments, *pos_matcher_, i);
+      std::string value;
+      std::string content_value = top.content_value;
+      converter::InnerSegmentBoundaryBuilder builder;
+      bool changed = false;
+      for (const auto& piece : top.inner_segments()) {
+        const absl::string_view ck = piece.GetContentKey();
+        const absl::string_view cv = piece.GetContentValue();
+        const absl::string_view functional = piece.GetFunctionalValue();
+        if (ck.size() >= 6 && cv != ck &&
+            Util::ContainsScriptType(cv, Util::KANJI) &&
+            Util::GetScriptType(ck) == Util::HIRAGANA &&
+            Fetch(kana_key.Single(ck, ck), 1).score > 0) {
+          if (const size_t at = content_value.find(cv); at != std::string::npos) {
+            content_value.replace(at, cv.size(), ck);
+          }
+          absl::StrAppend(&value, ck, functional);
+          builder.Add(piece.GetKey().size(), ck.size() + functional.size(),
+                      ck.size(), ck.size());
+          changed = true;
+        } else {
+          absl::StrAppend(&value, piece.GetValue());
+          builder.Add(piece);
+        }
+      }
+      if (changed && value != top.value) {
+        converter::Candidate* kana = segment->insert_candidate(0);
+        *kana = segment->candidate(1);
+        kana->value = value;
+        kana->content_value = content_value;
+        kana->inner_segment_boundary = builder.Build(kana->key, kana->value);
+        kana->attributes |= converter::Attribute::USER_SEGMENT_HISTORY_REWRITER;
+        modified = true;
+      }
+    }
+
+    if (scores.empty()) {
+      continue;
+    }
+''')
 # 英字の書き方（ail と AIL）は同じ音の別の語ではないので、文の中でも覚えた形を先頭にする。
 edit(C, '''    const bool keep_first =
         segments->conversion_segments_size() >= 2 && !scores[0].context &&
