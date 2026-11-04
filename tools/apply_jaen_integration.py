@@ -5257,19 +5257,15 @@ edit(C, '''    if (segment->segment_type() == Segment::FIXED_VALUE) {
     if (IsPunctuation(*segment, segment->candidate(0))) {''')
 # 1語で「かなで書く」と覚えた語（全部 → ぜんぶ、時 → とき）は、長い文節の中（ぜんぶ食べた、そのときは）でも
 # かなで書く。読みと同じかなの書き方だけで、同音の別の語には替えない。
-edit(C, '''    if (scores.empty()) {
-      continue;
-    }
-''', '''    // A word the user wrote in kana on its own (ぜんぶ for 全部, とき for 時)
+edit(C, '''    size_t max_candidates_size = 0;
+    if (HistoryTrace()) {''', '''    // A word the user wrote in kana on its own (ぜんぶ for 全部, とき for 時)
     // is written in kana inside a longer segment too (ぜんぶ食べた,
     // そのときは): the pieces of the first candidate whose reading was
     // learned as its own kana spelling are spelled in kana. Only a spelling
     // equal to the reading is applied, never another word of the same sound.
-    if (scores.empty() &&
-        !(segment->candidate(0).attributes &
+    if (!(segment->candidate(0).attributes &
           converter::Attribute::USER_SEGMENT_HISTORY_REWRITER)) {
       const converter::Candidate& top = segment->candidate(0);
-      const FeatureKey kana_key(*segments, *pos_matcher_, i);
       std::string value;
       std::string content_value = top.content_value;
       converter::InnerSegmentBoundaryBuilder builder;
@@ -5281,7 +5277,7 @@ edit(C, '''    if (scores.empty()) {
         if (ck.size() >= 6 && cv != ck &&
             Util::ContainsScriptType(cv, Util::KANJI) &&
             Util::GetScriptType(ck) == Util::HIRAGANA &&
-            Fetch(kana_key.Single(ck, ck), 1).score > 0) {
+            Fetch(StrJoinWithTabs("S", ck, ck), 1).score > 0) {
           if (const size_t at = content_value.find(cv); at != std::string::npos) {
             content_value.replace(at, cv.size(), ck);
           }
@@ -5302,13 +5298,15 @@ edit(C, '''    if (scores.empty()) {
         kana->inner_segment_boundary = builder.Build(kana->key, kana->value);
         kana->attributes |= converter::Attribute::USER_SEGMENT_HISTORY_REWRITER;
         modified = true;
+        if (HistoryTrace()) {
+          std::fprintf(stderr, "history kana spelling: key=%s value=%s\\n",
+                       std::string(segment->key()).c_str(), kana->value.c_str());
+        }
       }
     }
 
-    if (scores.empty()) {
-      continue;
-    }
-''')
+    size_t max_candidates_size = 0;
+    if (HistoryTrace()) {''')
 # 英字の書き方（ail と AIL）は同じ音の別の語ではないので、文の中でも覚えた形を先頭にする。
 edit(C, '''    const bool keep_first =
         segments->conversion_segments_size() >= 2 && !scores[0].context &&
