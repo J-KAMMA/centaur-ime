@@ -1,21 +1,25 @@
 # 今の変換が取り違える文を集める（人工知能の学び直しの材料。手動で動く）。
-# ウィキペディアの文（tests/conversion の文は除く）をローマ字で打ち込み、元の文と違った文を残す。
+# ウィキペディアの文か、Tatoeba の試験の枠の文（ふだんの文。tools/tatoeba_pool_typing.py）を、tests/conversion の文を除いて
+# ローマ字で打ち込み、元の文と違った文を残す。
 # 変換の一式は、試験の流れ（linux-test.yml）の成果物 linux-bin を、その run の番号で借りる。
-# できたファイルは成果物 mistakes に残る（文はウィキペディア、CC BY-SA 4.0）。
+# できたファイルは成果物 mistakes に残る（文はウィキペディア CC BY-SA 4.0、または Tatoeba CC BY 2.0 FR）。
 name: Mine mistakes
 
 on:
   # main に入れる前は、この枝に push したときに既定の値で動く
   push:
-    branches: [work/mine-homophones]
+    branches: [work/mine-homophones, work/mine-tatoeba]
   workflow_dispatch:
     inputs:
       bin_run:
         description: 成果物 linux-bin を借りる試験の run の番号（main の試験）
         required: true
       count:
-        description: 文の数
+        description: 文の数（ウィキペディアのとき）
         default: '20000'
+      source:
+        description: 文の出どころ（wiki か tatoeba）
+        default: wiki
 
 permissions:
   contents: read
@@ -31,6 +35,11 @@ jobs:
         run: |
           set -eo pipefail
           python3 -m venv venv && venv/bin/pip -q install "sudachipy==0.6.11" "sudachidict-core==20260428" "pyarrow==21.0.0"
+          if [ "${{ inputs.source || (github.ref_name == 'work/mine-tatoeba' && 'tatoeba' || 'wiki') }}" = tatoeba ]; then
+            # Tatoeba は毎日書き出し直されるので版は固定できない。SHA-256 を記録に残す（試験の枠は文の番号で決まる）。
+            curl -fsSL -o jpn_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/jpn/jpn_sentences.tsv.bz2
+            sha256sum jpn_sentences.tsv.bz2
+          fi
           curl -fsSL -o wiki.parquet \
             https://huggingface.co/datasets/wikimedia/wikipedia/resolve/b04c8d1ceb2f5cd4588862100d08de323dccfbaa/20231101.ja/train-00011-of-00015.parquet
           echo "271165db78420d9286c82c2b9b93ac520925b41187537ef12bc9ff7ec1a1dca4  wiki.parquet" | sha256sum -c
@@ -41,8 +50,13 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p out
-          venv/bin/python tools/wiki_typing_test.py --wiki wiki.parquet --table romanji-hiragana.tsv \
-            --out out/all.tsv --count ${{ inputs.count || '20000' }} --seed 20261104
+          if [ -f jpn_sentences.tsv.bz2 ]; then
+            venv/bin/python tools/tatoeba_pool_typing.py --tatoeba jpn_sentences.tsv.bz2 --table romanji-hiragana.tsv \
+              --out out/all.tsv
+          else
+            venv/bin/python tools/wiki_typing_test.py --wiki wiki.parquet --table romanji-hiragana.tsv \
+              --out out/all.tsv --count ${{ inputs.count || '20000' }} --seed 20261104
+          fi
           grep -v '^#' out/all.tsv > out/body.tsv
           wc -l out/body.tsv
           split -n l/16 -d -a 2 out/body.tsv out/shard-
@@ -70,7 +84,7 @@ jobs:
         with:
           name: linux-bin
           path: bin
-          run-id: ${{ inputs.bin_run || '41680623588' }}
+          run-id: ${{ inputs.bin_run || '41780720556' }}
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@v4
         with:
