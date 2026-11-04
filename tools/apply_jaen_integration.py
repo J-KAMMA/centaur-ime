@@ -5850,13 +5850,16 @@ edit("converter/converter.cc", _anchor, _anchor + """  if (const std::vector<std
 # （ぜんぶ、とき）を覚え、単語登録の辞書「かなで書く語（自動）」に入れる。辞書に入れば Mozc も人工知能も、
 # 長い文節の中（ぜんぶ食べた）でかなを使う（学習の鍵は文節ごとなので、1語で覚えた選びは届かない）。
 # 漢字を選び直すと忘れる。学習を消すと一緒に消す。品詞は漢字の候補の品詞から（名詞・副詞だけ）。
-write("converter/kana_spellings.h", (REPO / "native/jaen-detector/kana_spellings.h").read_text(encoding="utf-8"))
-edit("converter/BUILD.bazel", """        "jaen_typo.h",
-        "jaen_number.h",
-    ],""", """        "jaen_typo.h",
-        "jaen_number.h",
-        "kana_spellings.h",
-    ],""")
+# 組み立ての定義の見出しの並びは後の変更で変わるので、すでに入っている jaen_choices.h の中に足す。
+_kana = (REPO / "native/jaen-detector/kana_spellings.h").read_text(encoding="utf-8")
+_kana_includes = "".join(l + "\n" for l in _kana.splitlines() if l.startswith("#include <"))
+_kana_body = _kana[_kana.index("namespace jaen {") + len("namespace jaen {"):_kana.rindex("}  // namespace jaen")]
+_choices = (src / "converter/jaen_choices.h").read_text(encoding="utf-8")
+_at = _choices.rindex("}  // namespace jaen")
+_choices = _choices[:_at] + "// kana_spellings.h (native/jaen-detector)" + _kana_body + _choices[_at:]
+_first = _choices.index("#include")
+_choices = _choices[:_first] + _kana_includes + _choices[_first:]
+write("converter/jaen_choices.h", _choices)
 edit("converter/english_lexicon.h", """#include "converter/jaen_choices.h"
 #include "converter/jaen_detector.h"
 """, """#include <cstdint>
@@ -5867,7 +5870,6 @@ edit("converter/english_lexicon.h", """#include "converter/jaen_choices.h"
 
 #include "converter/jaen_choices.h"
 #include "converter/jaen_detector.h"
-#include "converter/kana_spellings.h"
 """)
 edit("converter/english_lexicon.h", """jaen::ChoiceStore& EnglishChoices();
 """, """jaen::ChoiceStore& EnglishChoices();
