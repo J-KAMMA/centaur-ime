@@ -5851,10 +5851,10 @@ edit("converter/converter.cc", _anchor, _anchor + """  if (const std::vector<std
 # 長い文節の中（ぜんぶ食べた）でかなを使う（学習の鍵は文節ごとなので、1語で覚えた選びは届かない）。
 # 漢字を選び直すと忘れる。学習を消すと一緒に消す。品詞は漢字の候補の品詞から（名詞・副詞だけ）。
 write("converter/kana_spellings.h", (REPO / "native/jaen-detector/kana_spellings.h").read_text(encoding="utf-8"))
-edit("converter/BUILD.bazel", """        "jaen_choices.h",
-        "jaen_detector.h",
-    ],""", """        "jaen_choices.h",
-        "jaen_detector.h",
+edit("converter/BUILD.bazel", """        "jaen_typo.h",
+        "jaen_number.h",
+    ],""", """        "jaen_typo.h",
+        "jaen_number.h",
         "kana_spellings.h",
     ],""")
 edit("converter/english_lexicon.h", """#include "converter/jaen_choices.h"
@@ -5929,17 +5929,14 @@ void NotifyKanaSpellings() {
 edit("converter/converter.cc", """  for (const Segment& segment : segments.conversion_segments()) {
     if (segment.candidates_size() == 0) continue;
     std::string word;
-    const jaen::Choice choice =
-        jaen::ClassifyCommit(raw, segment.key(), segment.candidate(0).value, &word);
-    if (choice != jaen::Choice::kNone) EnglishChoices().Record(choice, word);
-  }
-}""", """  bool kana_changed = false;
+""", """  bool kana_changed = false;
   for (const Segment& segment : segments.conversion_segments()) {
     if (segment.candidates_size() == 0) continue;
     std::string word;
-    const jaen::Choice choice =
-        jaen::ClassifyCommit(raw, segment.key(), segment.candidate(0).value, &word);
-    if (choice != jaen::Choice::kNone) EnglishChoices().Record(choice, word);
+""")
+edit("converter/converter.cc", """    if (choice != jaen::Choice::kNone) EnglishChoices().Record(choice, word, deliberate);
+  }
+}""", """    if (choice != jaen::Choice::kNone) EnglishChoices().Record(choice, word, deliberate);
     // A word picked in kana over a kanji spelling of the same reading (ぜんぶ
     // for 全部) is remembered as written in kana; picking the kanji again
     // forgets it. Only a whole segment that is one word, of two kana or more.
