@@ -6,6 +6,7 @@
 #define CENTAUR_CORE_CORE_H_
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -30,8 +31,8 @@ class Model {
 
   // 表を読む。文字の表なら行は「U<TAB>語<TAB>数」と「B<TAB>前の語<TAB>語<TAB>数」（前の語 <s> は文の頭）。
   // SaveBinary で書いた組み立て済みの表なら、索引を作り直さずにそのまま読む。
-  bool Load(const std::string& path, int max_edit = 2, size_t prefix_keep = 8);
-  bool SaveBinary(const std::string& path) const;
+  bool Load(const std::filesystem::path& path, int max_edit = 2, size_t prefix_keep = 8);
+  bool SaveBinary(const std::filesystem::path& path) const;
 
   double LogpUni(const std::u32string& w) const;
   double Logp(const std::u32string& prev, const std::u32string& w) const;
@@ -47,8 +48,8 @@ class Model {
   double load_ms[3] = {0, 0, 0};
 
  private:
-  bool LoadText(const std::string& path, int max_edit, size_t prefix_keep);
-  bool LoadBinary(const std::string& path);
+  bool LoadText(const std::filesystem::path& path, int max_edit, size_t prefix_keep);
+  bool LoadBinary(const std::filesystem::path& path);
   void Finish();  // 合計と一番長い語の長さ
   static std::vector<std::u32string> Deletes(const std::u32string& w, int n);
 

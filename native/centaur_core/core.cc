@@ -175,7 +175,7 @@ std::vector<std::u32string> Model::Deletes(const std::u32string& w, int n) {
   return {out.begin(), out.end()};
 }
 
-bool Model::Load(const std::string& path, int max_edit, size_t prefix_keep) {
+bool Model::Load(const std::filesystem::path& path, int max_edit, size_t prefix_keep) {
   {
     std::ifstream f(path, std::ios::binary);
     char magic[8] = {};
@@ -193,7 +193,7 @@ void Model::Finish() {
   }
 }
 
-bool Model::LoadText(const std::string& path, int max_edit, size_t prefix_keep) {
+bool Model::LoadText(const std::filesystem::path& path, int max_edit, size_t prefix_keep) {
   using Clock = std::chrono::steady_clock;
   const auto t0 = Clock::now();
   std::ifstream f(path, std::ios::binary);
@@ -251,7 +251,7 @@ bool Model::LoadText(const std::string& path, int max_edit, size_t prefix_keep) 
   return true;
 }
 
-bool Model::SaveBinary(const std::string& path) const {
+bool Model::SaveBinary(const std::filesystem::path& path) const {
   std::ofstream f(path, std::ios::binary);
   if (!f) return false;
   f.write(kBinaryMagic, 8);
@@ -299,7 +299,7 @@ bool Model::SaveBinary(const std::string& path) const {
   return static_cast<bool>(f);
 }
 
-bool Model::LoadBinary(const std::string& path) {
+bool Model::LoadBinary(const std::filesystem::path& path) {
   using Clock = std::chrono::steady_clock;
   const auto t0 = Clock::now();
   std::ifstream f(path, std::ios::binary);
