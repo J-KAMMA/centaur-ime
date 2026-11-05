@@ -56,6 +56,11 @@ jobs:
             [ -f .github/mine-push.env ] && . .github/mine-push.env
             venv/bin/python tools/tatoeba_pool_typing.py --tatoeba jpn_sentences.tsv.bz2 --table romanji-hiragana.tsv \
               --out out/all.tsv --part $PART --count $COUNT ${CONTAINS:+--contains $CONTAINS}
+            # 同音語の組の手がかりの候補（.github/cue-pairs.tsv があるとき）
+            if [ -f .github/cue-pairs.tsv ]; then
+              venv/bin/python tools/mine_homophone_cues.py --tatoeba jpn_sentences.tsv.bz2 --pairs .github/cue-pairs.tsv \
+                --out out/cue-candidates.tsv
+            fi
           else
             venv/bin/python tools/wiki_typing_test.py --wiki wiki.parquet --table romanji-hiragana.tsv \
               --out out/all.tsv --count ${{ inputs.count || '20000' }} --seed 20261104
@@ -80,7 +85,7 @@ jobs:
       matrix:
         shard: ["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15"]
         # 変換の一式を借りる run（push のとき。1つ目が比べる元、2つ目が試す枝。workflow_dispatch では bin_run だけ使う）
-        bin: ["41904807658", "41977170275"]
+        bin: ["41977170275"]
     steps:
       - uses: actions/checkout@v4
         with:

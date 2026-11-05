@@ -29,7 +29,8 @@ def main():
     ap.add_argument("--seed", type=int, default=20261017, help="colloquial_text.py と同じ取り分け")
     ap.add_argument("--pool-fraction", type=float, default=0.1)
     ap.add_argument("--repo", default=str(HERE.parent))
-    ap.add_argument("--part", choices=("pool", "rest"), default="pool")
+    ap.add_argument("--part", choices=("pool", "rest", "check"), default="pool",
+                    help="check は 0.8 以上（tools/mine_homophone_cues.py が数えない、確かめ用の文）")
     ap.add_argument("--contains", default="", help="1行1語。どれかを含む文だけ使う")
     ap.add_argument("--count", type=int, default=0, help="0 なら全部")
     args = ap.parse_args()
@@ -44,7 +45,8 @@ def main():
     lines, seen = [], set()
     stats = {"pool": 0, "shape": 0, "reading": 0, "blocked": 0}
     for sid, text in ct.read_tatoeba(args.tatoeba):
-        if (ct.stable_unit(args.seed, sid) < args.pool_fraction) != (args.part == "pool"):
+        unit = ct.stable_unit(args.seed, sid)
+        if (unit < args.pool_fraction) != (args.part == "pool") or (args.part == "check" and unit < 0.8):
             continue
         if words and not any(w in text for w in words):
             continue
