@@ -38,6 +38,26 @@ def read_tatoeba(path):
                 yield parts[0], parts[2]
 
 
+# 注音の大千式の並び（台湾で一番使われているキーの割り当て）
+DAQIAN = dict(zip("ㄅㄉㄓㄚㄞㄢㄦㄆㄊㄍㄐㄔㄗㄧㄛㄟㄣㄇㄋㄎㄑㄕㄘㄨㄜㄠㄤㄈㄌㄏㄒㄖㄙㄩㄝㄡㄥ",
+                  "125890-qwertyuiopasdfghjkl;zxcvbnm,./"))
+assert len(DAQIAN) == 37
+
+
+def zhuyin_keys(chunk):
+    """字ごとの注音（声調なし）を、大千式のキーの並びにする。直せない字があれば None。"""
+    zy = lazy_pinyin(chunk, style=Style.BOPOMOFO, errors="ignore")
+    if len(zy) != len(chunk):
+        return None
+    out = []
+    for z in zy:
+        z = z.strip("ˊˇˋ˙")
+        if not z or any(ch not in DAQIAN for ch in z):
+            return None
+        out.append("".join(DAQIAN[ch] for ch in z))
+    return out
+
+
 def syllables(chunk):
     py = lazy_pinyin(chunk, style=Style.NORMAL, v_to_u=False, errors="ignore")
     if len(py) != len(chunk) or not all(p.isalpha() and p.isascii() for p in py):
@@ -69,6 +89,8 @@ def main():
     ap.add_argument("--rime", required=True)
     ap.add_argument("--shared", required=True)
     ap.add_argument("--schema", required=True)
+    ap.add_argument("--script", choices=["simp", "trad"], default="simp", help="簡体字の文か繁体字の文か")
+    ap.add_argument("--keys", choices=["pinyin", "zhuyin"], default="pinyin", help="拼音で打つか注音（大千式、声調なし）で打つか")
     ap.add_argument("--user-dir", default="rime-user")
     ap.add_argument("--out", default="out")
     ap.add_argument("--seed", type=int, default=20261017)
@@ -81,11 +103,11 @@ def main():
     for sid, text in read_tatoeba(args.tatoeba):
         if stable_unit(args.seed, sid) < 0.8 or not ONLY_HAN_PUNCT.match(text):
             continue
-        if t2s.convert(text) != text:  # 繁体字の文は除く
+        if (t2s.convert(text) != text) != (args.script == "trad"):  # 簡体字か繁体字の文だけ
             continue
         chunks = []
         for c in HAN.findall(text):
-            py = syllables(c)
+            py = syllables(c) if args.keys == "pinyin" else zhuyin_keys(c)
             if py is None:
                 chunks = None
                 break

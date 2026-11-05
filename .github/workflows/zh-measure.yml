@@ -30,7 +30,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt-get update -q
-          sudo apt-get install -y -q librime-dev librime-data rime-data-luna-pinyin rime-data-pinyin-simp rime-data-essay \
+          sudo apt-get install -y -q librime-dev librime-data rime-data-luna-pinyin rime-data-pinyin-simp rime-data-essay rime-data-bopomofo \
             || sudo apt-get install -y -q librime-dev rime-data-luna-pinyin rime-data-pinyin-simp
           apt-cache policy librime-dev | head -3
           ls /usr/share/rime-data | head -50
@@ -45,14 +45,16 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p out
-          for schema in luna_pinyin_simp pinyin_simp; do
+          # 方式:文字:打ち方（bopomofo_tw は台湾の繁体字を注音の大千式で打つ。声調は打たない）
+          for spec in luna_pinyin_simp:simp:pinyin pinyin_simp:simp:pinyin bopomofo_tw:trad:zhuyin; do
+            IFS=: read schema script keys <<< "$spec"
             rm -rf rime-user && mkdir rime-user
             # 測る文で学習しないように、利用者の辞書を切る
             printf 'patch:\n  schema_list:\n    - schema: %s\n' "$schema" > rime-user/default.custom.yaml
             printf 'patch:\n  translator/enable_user_dict: false\n' > "rime-user/$schema.custom.yaml"
             python3 tools/zh_ime/measure.py --tatoeba cmn_sentences.tsv.bz2 --rime ./rime_convert \
               --shared /usr/share/rime-data --schema "$schema" --user-dir rime-user --out out \
-              --test ${{ inputs.test || '5000' }} | tee -a out/summary.txt
+              --script "$script" --keys "$keys" --test ${{ inputs.test || '5000' }} | tee -a out/summary.txt || echo "$schema は失敗"
           done
       - name: 同音字の手がかりを集めて当てる
         run: |
