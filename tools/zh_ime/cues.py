@@ -8,6 +8,7 @@
    手がかりは「すぐ左の 1〜2 字（L）」「すぐ右の 1〜2 字（R）」「同じまとまりの中の 2 字（W）」。
    A と一緒に min-df 回以上出て、B とは一度も出ないものを A の手がかりにする。
 3. 当てる: 確かめの枠の Rime の出力で、字 B（その音）の前後に A の手がかりがあり B の手がかりが無ければ A に替える。
+   ただし B が左右の字と作る 2 字の方が、A が作る 2 字より手がかり選びの枠で多く出るときは替えない（単語の中の字）。
    組を選ぶのに使った半分の文は除き、残りの半分で、よくなったまとまり・悪くなったまとまりを数える（他・她・它は文の前後を見ないと決められないので別に数える）。
 """
 import argparse
@@ -94,8 +95,10 @@ def main():
     # 2. 手がかり集め（手がかり選びの枠）
     chars = {c for a, b, _ in pairs for c in (a, b)}
     df = collections.defaultdict(collections.Counter)  # (字, 音) → 手がかり → 数
+    bigram = collections.Counter()  # 単語の中の字を替えないための 2 字の数
     for _, chunks in load(args.tatoeba, args.seed, 0.1, 0.8, t2s):
         for c, py in chunks:
+            bigram.update(c[j:j + 2] for j in range(len(c) - 1))
             for i, ch in enumerate(c):
                 if ch in chars:
                     df[(ch, py[i])].update(set(features(c, i)))
@@ -135,6 +138,15 @@ def main():
                         n = len(f & ca)
                         if n > best_n:
                             best, best_n = a, n
+                    # 単語の中の字は替えない: 今の字が左右の字と作る 2 字の方が、替える先より多く出るなら替えない
+                    if best:
+                        left = hyp[i - 1] if i else ""
+                        right = hyp[i + 1] if i + 1 < len(hyp) else ""
+
+                        def near(x):
+                            return (bigram[left + x] if left else 0) + (bigram[x + right] if right else 0)
+                        if near(ch) > near(best):
+                            best = None
                     if best:
                         new[i] = best
             new = "".join(new)
