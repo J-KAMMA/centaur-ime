@@ -87,62 +87,17 @@ def main():
     build = time.time() - t0
     out = [f"表づくりの文 {len(train)}、語 {m.vocab}、試験の文 {len(test)}、表づくり {build:.1f} 秒"]
 
-    # 区切り
-    ok_chunk = n_chunk = ok_sent = 0
-    seg_time = 0.0
-    bad = []
-    for s in test:
-        all_ok = True
-        for ch in CHUNK.findall(s):
-            ws = words_of(ch)
-            if len(ws) < 2:
-                continue
-            joined = "".join(ws)
-            t = time.perf_counter()
-            got = m.segment(joined)
-            seg_time += time.perf_counter() - t
-            n_chunk += 1
-            if got == ws:
-                ok_chunk += 1
-            else:
-                all_ok = False
-                if len(bad) < args.examples:
-                    bad.append(f"  {' '.join(ws)}  →  {' '.join(got)}")
-        ok_sent += all_ok
-    out.append(f"区切り: まとまり {ok_chunk}/{n_chunk}（{ok_chunk / max(n_chunk, 1):.1%}）、"
-               f"文 {ok_sent}/{len(test)}（{ok_sent / len(test):.1%}）、1 まとまり平均 {seg_time / max(n_chunk, 1) * 1000:.2f} ミリ秒")
-    out += bad
+    # 区切り（重みの組を変えて比べる。最後の組の誤りを例に出す）
+    for wp, oc in [(0.0, 1.5), (1.0, 1.5), (2.0, 1.5), (3.0, 1.5), (2.0, 1.0), (2.0, 2.0)]:
+        m.word_penalty, m.oov_char = wp, oc
+        out += segment_score(m, test, args.examples, f"重み 1 語 {wp}・表に無い字 {oc}")
+    m.word_penalty, m.oov_char = 2.0, 1.5
 
     # 直し
-    fixed = n_typo = top3 = false_fix = n_clean = 0
-    fix_time = 0.0
-    bad = []
-    for s in test:
-        ws = words_of(s)
-        prev = "<s>"
-        for w in ws:
-            if len(w) >= 3 and rng.random() < 0.3:
-                wrong = typo(w, rng)
-                if wrong == w or wrong in m.uni:
-                    # 別の正しい語になる間違いは、文脈なしでは直せないので数えない
-                    prev = w
-                    continue
-                t = time.perf_counter()
-                c = m.corrections(wrong, prev)
-                fix_time += time.perf_counter() - t
-                n_typo += 1
-                fixed += bool(c) and c[0] == w
-                top3 += w in c
-                if (not c or c[0] != w) and len(bad) < args.examples:
-                    bad.append(f"  {wrong}（元 {w}）→ {', '.join(c)}")
-            else:
-                c = m.corrections(w, prev, limit=1)
-                n_clean += 1
-                false_fix += bool(c) and c[0] != w
-            prev = w
-    out.append(f"直し: 一番の候補で直った {fixed}/{n_typo}（{fixed / max(n_typo, 1):.1%}）、3 番以内 {top3 / max(n_typo, 1):.1%}、"
-               f"正しい語を替えてしまった {false_fix}/{n_clean}（{false_fix / max(n_clean, 1):.2%}）、1 語平均 {fix_time / max(n_typo, 1) * 1000:.2f} ミリ秒")
-    out += bad
+    for tw in (4.0, 6.0, 8.0):
+        m.typo_weight = tw
+        out += fix_score(m, test, args.seed, args.examples, f"重み {tw}")
+    m.typo_weight = 6.0
 
     # 補完
     keys = typed = 0
@@ -162,6 +117,68 @@ def main():
 
     Path(args.out).write_text("\n".join(out) + "\n", encoding="utf-8")
     print("\n".join(out[:1] + [l for l in out if not l.startswith("  ")][1:]))
+
+
+def segment_score(m, test, examples, label):
+    out = []
+    ok_chunk = n_chunk = ok_sent = 0
+    seg_time = 0.0
+    bad = []
+    for s in test:
+        all_ok = True
+        for ch in CHUNK.findall(s):
+            ws = words_of(ch)
+            if len(ws) < 2:
+                continue
+            joined = "".join(ws)
+            t = time.perf_counter()
+            got = m.segment(joined)
+            seg_time += time.perf_counter() - t
+            n_chunk += 1
+            if got == ws:
+                ok_chunk += 1
+            else:
+                all_ok = False
+                if len(bad) < examples:
+                    bad.append(f"  {' '.join(ws)}  →  {' '.join(got)}")
+        ok_sent += all_ok
+    out.append(f"区切り（{label}）: まとまり {ok_chunk}/{n_chunk}（{ok_chunk / max(n_chunk, 1):.1%}）、"
+               f"文 {ok_sent}/{len(test)}（{ok_sent / len(test):.1%}）、1 まとまり平均 {seg_time / max(n_chunk, 1) * 1000:.2f} ミリ秒")
+    return out + bad
+
+
+def fix_score(m, test, seed, examples, label):
+    out = []
+    rng = random.Random(seed + 1)  # どの重みでも同じ打ち間違いで比べる
+    fixed = n_typo = top3 = false_fix = n_clean = 0
+    fix_time = 0.0
+    bad = []
+    for s in test:
+        ws = words_of(s)
+        prev = "<s>"
+        for w in ws:
+            if len(w) >= 3 and rng.random() < 0.3:
+                wrong = typo(w, rng)
+                if wrong == w or wrong in m.uni:
+                    # 別の正しい語になる間違いは、文脈なしでは直せないので数えない
+                    prev = w
+                    continue
+                t = time.perf_counter()
+                c = m.corrections(wrong, prev)
+                fix_time += time.perf_counter() - t
+                n_typo += 1
+                fixed += bool(c) and c[0] == w
+                top3 += w in c
+                if (not c or c[0] != w) and len(bad) < examples:
+                    bad.append(f"  {wrong}（元 {w}）→ {', '.join(c)}")
+            else:
+                c = m.corrections(w, prev, limit=1)
+                n_clean += 1
+                false_fix += bool(c) and c[0] != w
+            prev = w
+    out.append(f"直し（{label}）: 一番の候補で直った {fixed}/{n_typo}（{fixed / max(n_typo, 1):.1%}）、3 番以内 {top3 / max(n_typo, 1):.1%}、"
+               f"正しい語を替えてしまった {false_fix}/{n_clean}（{false_fix / max(n_clean, 1):.2%}）、1 語平均 {fix_time / max(n_typo, 1) * 1000:.2f} ミリ秒")
+    return out + bad
 
 
 if __name__ == "__main__":
