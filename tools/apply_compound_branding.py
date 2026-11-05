@@ -367,4 +367,7 @@ for name in ("compound_ime.ico", "compound_ime_langbar.ico", "compound_ime-256.p
 
 # 利用者に見せる版の名前（コンパウンドIME 1.N）を、メニュー・題名・「このソフトについて」に出す。
 subprocess.run([sys.executable, str(Path(__file__).with_name("apply_version_display.py")), str(src)], check=True)
+
+# しばらく打たなかったあとの最初のキーが IME に届いているかの記録（ウィンドウズ版の TIP）。
+subprocess.run([sys.executable, str(Path(__file__).with_name("apply_tip_keytrace.py")), str(src)], check=True)
 print("branding applied")
