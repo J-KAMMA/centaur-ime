@@ -63,3 +63,40 @@ jobs:
           name: hi-measure
           path: out/
           retention-days: 14
+
+  ar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 材料（Hugging Face の版を固定。測ると表づくりにだけ使い、配らない）
+        run: |
+          set -eo pipefail
+          python3 -m pip install -q pyarrow==21.0.0
+          H=https://huggingface.co/datasets
+          get() { mkdir -p "data/$1"; curl -fsSL --retry 3 -o "data/$1/$(basename $3)" "$H/$2/resolve/$4/$3"; }
+          get arbml arbml/Arabizi_Transliteration data/train-00000-of-00001-600f00d132ab2179.parquet f3ed32688f7442032449fc47e89deeabb74f5b70
+          for i in 0 1 2 3 4; do
+            get darija elkababi2/Darija-Text-Ar-Arabizi data/train-0000$i-of-00005.parquet 787cfc44a7fdc7a6b615e1fe52c9cb7c52e4fca5
+          done
+          for f in annotated.jsonl train.json dev.json test.json; do
+            get arabizikit rabeeeehh/arabizi-kit-corpus $f 11d51d185cc1dd0f24b43eadff1c8df54291cf04
+          done
+          for f in data/train-00000-of-00001.parquet data/test-00000-of-00001.parquet; do
+            get khanafer akhanafer/arabic-to-arabizi $f f554007a8f59437c3db15923a43f8b40adce82b2
+          done
+          curl -fsSL --retry 3 -o ar.parquet \
+            $H/wikimedia/wikipedia/resolve/b04c8d1ceb2f5cd4588862100d08de323dccfbaa/20231101.ar/train-00004-of-00007.parquet
+          echo "f035e9118745d465529d48b0b1893824a4f266af2474694dcd35823e767aad17  ar.parquet" | sha256sum -c
+          find data -type f | xargs ls -la
+      - name: 測る
+        run: python3 tools/lang_measure/ar_measure.py --data data --wiki ar.parquet --out out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ar-measure
+          path: out/
+          retention-days: 14
