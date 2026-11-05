@@ -83,16 +83,24 @@ def main():
     if p.returncode != 0:
         sys.exit(p.stderr[-2000:])
     cc = p.stdout.split("\n")[: len(qs)]
+    # 組み立て済みの表（--save）でも同じ答えになるか
+    binary = table.with_suffix(".bin")
+    subprocess.run([args.cli, "--save", str(table), str(binary)], check=True)
+    pb = subprocess.run([args.cli, str(binary), str(WP), str(OOV), str(TW)], input="\n".join(lines) + "\n",
+                        capture_output=True, text=True, encoding="utf-8")
+    bin_same = pb.returncode == 0 and pb.stdout == p.stdout
     diff = [(q, a, b) for q, a, b in zip(qs, py, cc) if a != b]
     n = {k: sum(1 for q in qs if q[0] == k) for k in times}
     out = [f"問い {len(qs)}（区切り {n['S']}、直し {n['C']}、補完 {n['P']}）、違い {len(diff)}",
            f"Python: 区切り {times['S'] / max(n['S'], 1) * 1e6:.0f} µs、直し {times['C'] / max(n['C'], 1) * 1e6:.0f} µs、"
            f"補完 {times['P'] / max(n['P'], 1) * 1e6:.0f} µs（合計 {py_total:.1f} 秒）",
-           "C++: " + p.stderr.strip().replace("\n", "、")]
+           "C++: " + p.stderr.strip().replace("\n", "、"),
+           f"C++（組み立て済みの表）: 答えが文字の表と{'同じ' if bin_same else '違う'}、"
+           + pb.stderr.strip().replace("\n", "、")]
     out += [f"  違い {q} Python={a!r} C++={b!r}" for q, a, b in diff[:40]]
     Path(args.out).write_text("\n".join(out) + "\n", encoding="utf-8")
     print("\n".join(out[:3]))
-    if diff:
+    if diff or not bin_same:
         print("\n".join(out[3:13]))
         sys.exit(1)
 

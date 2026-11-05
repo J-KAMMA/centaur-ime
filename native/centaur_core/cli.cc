@@ -10,8 +10,14 @@
 #include "core.h"
 
 int main(int argc, char* argv[]) {
+  if (argc == 4 && std::string(argv[1]) == "--save") {
+    // 組み立て済みの表を書く: centaur_core_cli --save <文字の表> <書き出す先>
+    centaur::Model m;
+    return m.Load(argv[2]) && m.SaveBinary(argv[3]) ? 0 : 1;
+  }
   if (argc != 5) {
-    std::cerr << "usage: centaur_core_cli table word_penalty oov_char typo_weight\n";
+    std::cerr << "usage: centaur_core_cli table word_penalty oov_char typo_weight\n"
+                 "       centaur_core_cli --save table.tsv table.bin\n";
     return 2;
   }
   centaur::Model m;
@@ -22,7 +28,7 @@ int main(int argc, char* argv[]) {
   }
   const auto t1 = std::chrono::steady_clock::now();
   std::cerr << "load_ms " << std::chrono::duration<double, std::milli>(t1 - t0).count() << " vocab " << m.vocab()
-            << "\n";
+            << " (read " << m.load_ms[0] << " deletes " << m.load_ms[1] << " prefix " << m.load_ms[2] << ")\n";
   m.word_penalty = std::stod(argv[2]);
   m.oov_char = std::stod(argv[3]);
   m.typo_weight = std::stod(argv[4]);

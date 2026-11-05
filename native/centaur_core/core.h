@@ -28,8 +28,10 @@ class Model {
   int oov_max = 20;
   double typo_weight = 6.0;
 
-  // 表を読む。行は「U<TAB>語<TAB>数」と「B<TAB>前の語<TAB>語<TAB>数」（前の語 <s> は文の頭）。
+  // 表を読む。文字の表なら行は「U<TAB>語<TAB>数」と「B<TAB>前の語<TAB>語<TAB>数」（前の語 <s> は文の頭）。
+  // SaveBinary で書いた組み立て済みの表なら、索引を作り直さずにそのまま読む。
   bool Load(const std::string& path, int max_edit = 2, size_t prefix_keep = 8);
+  bool SaveBinary(const std::string& path) const;
 
   double LogpUni(const std::u32string& w) const;
   double Logp(const std::u32string& prev, const std::u32string& w) const;
@@ -41,9 +43,13 @@ class Model {
   std::u32string Complete(const std::u32string& prefix, const std::u32string& prev) const;
 
   size_t vocab() const { return words_.size(); }
+  // 読み込みの内訳（ミリ秒）: 表を読む、消し字の索引、補完の一覧
+  double load_ms[3] = {0, 0, 0};
 
  private:
-  void AddDeletes(const std::u32string& w, uint32_t id);
+  bool LoadText(const std::string& path, int max_edit, size_t prefix_keep);
+  bool LoadBinary(const std::string& path);
+  void Finish();  // 合計と一番長い語の長さ
   static std::vector<std::u32string> Deletes(const std::u32string& w, int n);
 
   std::unordered_map<std::u32string, int64_t> uni_;
@@ -53,8 +59,12 @@ class Model {
   size_t max_len_ = 1;
   int max_edit_ = 2;
   std::vector<std::u32string> words_;
-  std::unordered_map<std::u32string, std::vector<uint32_t>> deletes_;
-  std::unordered_map<std::u32string, std::vector<uint32_t>> prefix_;
+  // 索引は文字列ではなくハッシュの並んだ配列（読み込みが速い）。ハッシュが偶然重なっても、
+  // 直しは編集距離で、補完は頭が合うかで確かめ直すので、答えは変わらない。
+  std::vector<std::pair<uint64_t, uint32_t>> deletes_;  // 消し字のハッシュ → 語
+  std::vector<uint64_t> prefix_keys_;                    // 頭のハッシュ（並べたもの）
+  std::vector<uint32_t> prefix_off_;                     // prefix_keys_[i] の語は prefix_ids_[off[i], off[i+1])
+  std::vector<uint32_t> prefix_ids_;
 };
 
 }  // namespace centaur
