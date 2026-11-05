@@ -32,7 +32,10 @@ class Model:
             self.bi.update(zip(ws, ws[1:]))
         self.total = sum(self.uni.values())
         self.vocab = len(self.uni)
-        self.left = Counter(a for a, _ in self.bi)  # a の後に何回続いたか
+        # a の後に何回続いたか（前は続いた語の種類の数を数えていて、並びの確率が 1 を超えることがあった）
+        self.left = Counter()
+        for (a, _), c in self.bi.items():
+            self.left[a] += c
         self.max_len = max((len(w) for w in self.uni), default=1)
         self.max_edit = max_edit
         # 打ち間違いの直し用（SymSpell の消し字の索引）
@@ -87,7 +90,7 @@ class Model:
         for i in range(n):
             if not beams[i]:
                 continue
-            top = sorted(beams[i].items(), key=lambda kv: -kv[1][0])[:8]
+            top = sorted(beams[i].items(), key=lambda kv: (-kv[1][0], kv[0]))[:8]  # 同点は語の順
             for j in range(i + 1, min(n, i + max(self.max_len, self.oov_max)) + 1):
                 w = text[i:j]
                 if w not in self.uni and j - i > self.oov_max:
@@ -99,7 +102,7 @@ class Model:
                         beams[j][w] = (s, i, prev)
         if not beams[n]:
             return [text]
-        w = max(beams[n], key=lambda k: beams[n][k][0])
+        w = min(beams[n], key=lambda k: (-beams[n][k][0], k))
         out, j = [], n
         while j > 0:
             s, i, prev = beams[j][w]
@@ -120,7 +123,7 @@ class Model:
         if w in self.uni:
             cands[w] = 0.0
         # 違うごとに出にくくする（打ち間違いはまれ）。隣のキーや入れ替えは軽く数える
-        scored = sorted(cands, key=lambda c: -(self.logp(prev, c) - self.typo_weight * cands[c]))
+        scored = sorted(cands, key=lambda c: (-(self.logp(prev, c) - self.typo_weight * cands[c]), c))
         return scored[:limit]
 
     # --- 補完 -----------------------------------------------------------------

@@ -32,6 +32,11 @@ jobs:
           mkdir -p out
           python3 tools/en_ime/measure.py --tatoeba eng_sentences.tsv.bz2 --out out/en-measure.txt \
             --test ${{ inputs.test || '3000' }} | tee out/summary.txt
+      - name: C++ の芯が試作と同じ結果を出すか確かめる（違えば止める）
+        run: |
+          set -eo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror native/centaur_core/core.cc native/centaur_core/cli.cc -o centaur_core_cli
+          python3 tools/en_ime/parity.py --tatoeba eng_sentences.tsv.bz2 --cli ./centaur_core_cli --out out/parity.txt
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
