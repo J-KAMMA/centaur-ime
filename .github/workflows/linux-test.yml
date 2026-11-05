@@ -99,7 +99,8 @@ jobs:
           path: |
             llama.cpp/build
             myime/src/swift-engine/.build
-          key: linux-engine-${{ hashFiles('repo/patches/llama-utf8.patch', 'repo/patches/myime-engine.patch', 'repo/tools/apply_linux_engine_port.py', 'repo/tools/apply_selector_trace.py', 'repo/tools/apply_selector_stage3.py', 'repo/tools/apply_zenzai_deadline.py', 'repo/tools/apply_context_gate.py', 'repo/tools/apply_batch_score.py', 'repo/tools/apply_latency_profile.py', 'repo/tools/swift-Package.resolved') }}
+          # 作業場所の名前（リポジトリ名）が控えに入るので、鍵にも入れる（compound-ime → centaur-ime で食い違った）
+          key: linux-engine-${{ github.event.repository.name }}-${{ hashFiles('repo/patches/llama-utf8.patch', 'repo/patches/myime-engine.patch', 'repo/tools/apply_linux_engine_port.py', 'repo/tools/apply_selector_trace.py', 'repo/tools/apply_selector_stage3.py', 'repo/tools/apply_zenzai_deadline.py', 'repo/tools/apply_context_gate.py', 'repo/tools/apply_batch_score.py', 'repo/tools/apply_latency_profile.py', 'repo/tools/swift-Package.resolved') }}
 
       - name: 生成器と改造の適用
         run: |
