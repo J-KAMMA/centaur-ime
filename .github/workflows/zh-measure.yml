@@ -1,0 +1,62 @@
+name: Chinese measure
+
+# CentaurIME 中国語（簡体字・全拼）の基本の計測: Rime（librime、AI なし）に声調なしの拼音を打ち込み、
+# 一番の候補を選び続けた結果を元の文と比べる。手がかり（同音語）を作る前の基準にする。
+# 材料は Tatoeba の中国語の文（CC BY 2.0 FR、一部は CC0。表示: Tatoeba の投稿者）。
+# Rime の辞書は Ubuntu の rime-data（LGPL-3.0）。計測にだけ使い、配布物には入れない。
+
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 試験に使う文の数
+        default: "5000"
+  push:
+    branches: [work/zh-measure]
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Rime と辞書
+        run: |
+          set -eo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q librime-dev librime-data rime-data-luna-pinyin rime-data-pinyin-simp \
+            || sudo apt-get install -y -q librime-dev rime-data-luna-pinyin rime-data-pinyin-simp
+          apt-cache policy librime-dev | head -3
+          ls /usr/share/rime-data | head -50
+          python3 -m pip install -q pypinyin==0.53.0 'opencc>=1.1,<2'
+          g++ -std=c++17 -O2 tools/zh_ime/rime_convert.cc -o rime_convert $(pkg-config --cflags --libs rime)
+      - name: 材料（Tatoeba は毎日書き出し直されるので SHA-256 を記録に残す）
+        run: |
+          set -eo pipefail
+          curl -fsSL -o cmn_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/cmn/cmn_sentences.tsv.bz2
+          sha256sum cmn_sentences.tsv.bz2
+      - name: 測る
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          for schema in luna_pinyin_simp pinyin_simp; do
+            rm -rf rime-user && mkdir rime-user
+            # 測る文で学習しないように、利用者の辞書を切る
+            printf 'patch:\n  schema_list:\n    - schema: %s\n' "$schema" > rime-user/default.custom.yaml
+            printf 'patch:\n  translator/enable_user_dict: false\n' > "rime-user/$schema.custom.yaml"
+            python3 tools/zh_ime/measure.py --tatoeba cmn_sentences.tsv.bz2 --rime ./rime_convert \
+              --shared /usr/share/rime-data --schema "$schema" --user-dir rime-user --out out \
+              --test ${{ inputs.test || '5000' }} | tee -a out/summary.txt
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zh-measure
+          path: out/
+          retention-days: 14
