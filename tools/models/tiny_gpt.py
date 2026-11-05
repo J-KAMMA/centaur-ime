@@ -72,6 +72,9 @@ class TinyGPT(nn.Module):
         self.config = dict(vocab_size=vocab_size, d=d, layers=layers, heads=heads, max_len=max_len, drop=drop)
 
     def forward(self, ids):
+        # 受け付ける長さを超える並びは後ろの max_len 字だけを見る（試験の文が長いときに位置の表の外を読まないように）
+        if ids.size(1) > self.max_len:
+            ids = ids[:, -self.max_len:]
         n = ids.size(1)
         x = self.tok(ids) + self.pos(torch.arange(n, device=ids.device))
         mask = torch.triu(torch.full((n, n), float("-inf"), device=ids.device), 1)
@@ -118,9 +121,10 @@ def score_continuations(model, prefix, conts):
             continue
         ids = torch.tensor([prefix + c], device=next(model.parameters()).device)
         logp = F.log_softmax(model(ids[:, :-1])[0], -1)
+        base = logp.size(0) - len(c)  # 長い並びは前が切られるので、終わりから数える
         s = 0.0
         for k, t in enumerate(c):
-            s += logp[len(prefix) - 1 + k, t].item()
+            s += logp[base + k, t].item()
         out.append(s)
     return out
 
