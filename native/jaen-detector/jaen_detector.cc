@@ -348,6 +348,7 @@ struct LatticeResult {
   // 一番安い読みの語の切れ目（かなの位置。0 と終わりを含む）。辞書に無いかなが続く所は 1 つの語として
   // まとめる（その中には切れ目を置かない）。
   std::vector<size_t> bounds;
+  std::vector<bool> known;  // known[i]: [bounds[i], bounds[i+1]) が辞書の語（英語の辺でも、辞書に無いかなでもない）
 };
 
 // かなの並び（off はかな1文字ごとのバイト位置と終わり）を、日本語の辞書の語と、渡された英語の辺で
@@ -425,14 +426,19 @@ LatticeResult RunLattice(const JapaneseModel& model, std::string_view kana, cons
     const Node& node = best[pos].at(state);
     if (node.edge >= 0) result.used.push_back(static_cast<size_t>(node.edge));
     // 辞書に無いかなどうしの間は切れ目にしない
-    if (pos != m && !(node.unknown && later_unknown)) result.bounds.push_back(pos);
-    later_unknown = node.unknown;
+    if (pos != m && !(node.unknown && later_unknown)) {
+      result.bounds.push_back(pos);
+      result.known.push_back(!later_unknown);
+    }
+    later_unknown = node.unknown && node.edge < 0;
     pos = node.prev_pos;
     state = node.prev_state;
   }
   result.bounds.push_back(0);
+  result.known.push_back(!later_unknown);
   std::ranges::reverse(result.used);
   std::ranges::reverse(result.bounds);
+  std::reverse(result.known.begin(), result.known.end());
   return result;
 }
 }  // namespace
@@ -1295,22 +1301,29 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
       const std::string& text = split_text.text;
       const std::vector<size_t>& off = split_text.off;
       const std::vector<std::vector<JapaneseWord>>& dictionary_words = split_text.words;
-      // ローマ字としてそのまま読める英単語 1 語の走り（remade、nine、mate、done）は、日本語だけで読んだときの
-      // 1 語とちょうど重なるときだけ英語にできる。日本語の語の切れ目をまたぐ走り（それ|まで の れまで、
-      // 床|に|寝 の にね、けど|ね の どね）は取らない（2026-11-06、それまでに が 粗remadeに になった）。
-      // 厳選の語（api など）は今までどおり。辞書に無いかなの続きは 1 語とみなすので、日本語の語にない英単語は止めない。
+      // ローマ字としてそのまま読める英単語 1 語の走り（remade、done、sane）の端が、日本語だけで読んだときの
+      // 辞書の語の途中にあれば取らない（それ|まで の れまで、けど|ね の どね、消さ|ね の さね）。
+      // 日本語の短い語にちょうど重なる走り（じゃ|ぱ|ね|せ = japanese、だ|た = data）は止めない。
+      // 英語の隣（前後が英語、直前の確定が英語）では今までどおり（name・game を英語の続きとして打つ）。
+      // 厳選の語（api など）も今までどおり（2026-11-06、それまでに が 粗remadeに になった）。
+      const bool english_near = after_english || before_english || follows_text;
       const auto aligned_edges = [&](const LatticeResult& plain) {
         std::vector<EnglishEdge> out = edges;
+        if (english_near) return out;
+        // 位置 at が辞書の語の途中か
+        const auto inside_known_word = [&](size_t at) {
+          const auto it = std::ranges::upper_bound(plain.bounds, at);
+          if (it == plain.bounds.begin() || it == plain.bounds.end()) return false;
+          const size_t seg = static_cast<size_t>(it - plain.bounds.begin()) - 1;
+          return plain.bounds[seg] != at && seg < plain.known.size() && plain.known[seg];
+        };
         for (size_t r = 0; r < runs.size(); ++r) {
           const Run& run = runs[r];
           if (!run.cuts.empty() || !readable(run.begin, run.end) ||
               lexicon.IsCurated(std::string_view(sub).substr(run.begin, run.end - run.begin))) {
             continue;
           }
-          const auto first = std::ranges::lower_bound(plain.bounds, out[r].from);
-          const bool one_word = first != plain.bounds.end() && *first == out[r].from &&
-                                first + 1 != plain.bounds.end() && *(first + 1) == out[r].to;
-          if (!one_word) out[r].cost += kStraddleCost;
+          if (inside_known_word(out[r].from) || inside_known_word(out[r].to)) out[r].cost += kStraddleCost;
         }
         return out;
       };
