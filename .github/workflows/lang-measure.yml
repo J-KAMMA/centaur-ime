@@ -1,0 +1,65 @@
+name: More languages measure
+
+# Centaur IME に足す言語の候補を、AI なしの基本で測る（どこまで行けそうかを先に数で見る）。
+#   ベトナム語: 声調記号なしで打った文を記号つきに戻す（Tatoeba CC BY 2.0 FR、ウィキペディア CC BY-SA 4.0）
+#   ヒンディー語: ローマ字で打った文をデーヴァナーガリーに（Google Dakshina、CC BY-SA 4.0）
+# 比べに使う indic_transliteration（MIT）は計測にだけ使う。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/lang-measure]
+
+permissions:
+  contents: read
+
+jobs:
+  vi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 材料
+        run: |
+          set -eo pipefail
+          python3 -m pip install -q pyarrow==21.0.0
+          curl -fsSL --retry 3 -o vie_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/vie/vie_sentences.tsv.bz2
+          sha256sum vie_sentences.tsv.bz2
+          curl -fsSL --retry 3 -o vi.parquet \
+            https://huggingface.co/datasets/wikimedia/wikipedia/resolve/b04c8d1ceb2f5cd4588862100d08de323dccfbaa/20231101.vi/train-00002-of-00004.parquet
+          echo "f364415cd7ccffc02651843ef2a12a80c5e217a08274b930bc1a1746b544622f  vi.parquet" | sha256sum -c
+      - name: 測る
+        run: python3 tools/lang_measure/vi_measure.py --tatoeba vie_sentences.tsv.bz2 --wiki vi.parquet --out out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vi-measure
+          path: out/
+          retention-days: 14
+
+  hi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 材料（Dakshina 1.0。ヒンディー語の分だけ取り出す）
+        run: |
+          set -eo pipefail
+          python3 -m pip install -q indic_transliteration==2.3.69 || echo "indic_transliteration なし"
+          curl -fsSL --retry 3 https://storage.googleapis.com/gresearch/dakshina/dakshina_dataset_v1.0.tar \
+            | tar -x --wildcards 'dakshina_dataset_v1.0/hi/*'
+          ls -R dakshina_dataset_v1.0/hi | head -30
+      - name: 測る
+        run: python3 tools/lang_measure/hi_measure.py --dakshina dakshina_dataset_v1.0/hi --out out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hi-measure
+          path: out/
+          retention-days: 14
