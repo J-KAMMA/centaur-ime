@@ -66,6 +66,8 @@ def main():
     ap.add_argument("--min-pair", type=int, default=3)
     ap.add_argument("--min-df", type=int, default=3)
     ap.add_argument("--top", type=int, default=40)
+    ap.add_argument("--essay", default="/usr/share/rime-data/essay.txt",
+                    help="Rime の語の出る数の表（繁体字。簡体字に直して、単語の中の字を替えない確かめに使う）")
     args = ap.parse_args()
     from opencc import OpenCC
     t2s = OpenCC("t2s")
@@ -96,6 +98,13 @@ def main():
     chars = {c for a, b, _ in pairs for c in (a, b)}
     df = collections.defaultdict(collections.Counter)  # (字, 音) → 手がかり → 数
     bigram = collections.Counter()  # 単語の中の字を替えないための 2 字の数
+    # Tatoeba の文だけでは少ないので、Rime の語の表の 2 字の語も足す（数は 1/1000 にして目盛りをそろえる）
+    if Path(args.essay).exists():
+        for line in open(args.essay, encoding="utf-8"):
+            p = line.rstrip("\n").split("\t")
+            if len(p) >= 2 and len(p[0]) == 2:
+                bigram[t2s.convert(p[0])] += max(1, int(p[1]) // 1000)
+        print(f"Rime の語の表から 2 字の語 {len(bigram)}")
     for _, chunks in load(args.tatoeba, args.seed, 0.1, 0.8, t2s):
         for c, py in chunks:
             bigram.update(c[j:j + 2] for j in range(len(c) - 1))
