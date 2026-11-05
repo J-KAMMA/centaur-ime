@@ -1154,7 +1154,36 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
     const auto decide = [&](const Piece& gap, bool after_english, bool before_english, bool follows_text) -> std::vector<Piece> {
       const size_t len = gap.end - gap.begin;
       const std::string sub = raw.substr(gap.begin, len);
-      const ChunkMarks local = MarkChunks(parse(sub));
+      const ChunkMarks original = MarkChunks(parse(sub));
+      if (original.raw != sub || original.kana_all.empty()) return {gap};
+      // 英単語の最後の子音が、次の語の頭とかなにくっついた所（opus|yaritai の s|ya = しゃ、book|ya の k|ya = きゃ、
+      // mac|ha の c|ha = ちゃ）では、打った文字の区切りが英単語の終わりと合わない。一覧の 3 文字以上の語が
+      // そこで終わるときは、その所でも打ち直したもの（o|pu|s|ya|ri|ta|i）を英語の候補の読みに使う
+      // （2026-11-06、opusyaritai が おぷしゃりたい になった）。日本語だけの読みは元の区切りのまま比べる。
+      std::vector<size_t> splits;
+      for (size_t at = 2; at + 2 <= len; ++at) {
+        const char c0 = Lower(sub[at - 1]), c1 = Lower(sub[at]), c2 = Lower(sub[at + 1]);
+        if (!original.edge[at - 1] || original.edge[at] || !original.edge[at + 2]) continue;
+        if (!IsAsciiAlpha(c0) || IsVowel(c0) || c0 == 'n' || c0 == 'y' || c0 == 'w') continue;
+        const bool ya = c1 == 'y' && (c2 == 'a' || c2 == 'u' || c2 == 'o');
+        const bool ha = c1 == 'h' && (c0 == 's' || c0 == 'c') && (c2 == 'a' || c2 == 'e');
+        if (!ya && !ha) continue;
+        bool word_ends = false;
+        for (size_t x = 0; x + 3 <= at && !word_ends; ++x) {
+          word_ends = original.edge[x] && lexicon.Contains(std::string_view(sub).substr(x, at - x));
+        }
+        if (word_ends) splits.push_back(at);
+      }
+      std::vector<Chunk> split_chunks;
+      if (!splits.empty()) {
+        size_t from = 0;
+        for (size_t k = 0; k <= splits.size(); ++k) {
+          const size_t to = k < splits.size() ? splits[k] : len;
+          for (Chunk& c : parse(sub.substr(from, to - from))) split_chunks.push_back(std::move(c));
+          from = to;
+        }
+      }
+      const ChunkMarks local = splits.empty() ? original : MarkChunks(split_chunks);
       if (local.raw != sub || local.kana_all.empty()) return {gap};
       // 各位置から始まる一覧の語（終わりの位置、費用）
       struct Word { size_t end; int64_t cost; };
@@ -1243,17 +1272,29 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
         }
       }
       if (edges.empty()) return {gap};
-      std::string text;
-      std::vector<size_t> off;
-      for (const std::string& k : local.kana_all) {
-        off.push_back(text.size());
-        text += k;
-      }
-      off.push_back(text.size());
-      std::vector<std::vector<JapaneseWord>> dictionary_words(off.size() - 1);
-      for (size_t p = 0; p + 1 < off.size(); ++p) {
-        japanese_model->prefix_words(std::string_view(text).substr(off[p]), &dictionary_words[p]);
-      }
+      struct KanaText {
+        std::string text;
+        std::vector<size_t> off;
+        std::vector<std::vector<JapaneseWord>> words;
+      };
+      const auto kana_text_of = [&](const ChunkMarks& marks) {
+        KanaText k;
+        for (const std::string& s : marks.kana_all) {
+          k.off.push_back(k.text.size());
+          k.text += s;
+        }
+        k.off.push_back(k.text.size());
+        k.words.resize(k.off.size() - 1);
+        for (size_t p = 0; p + 1 < k.off.size(); ++p) {
+          japanese_model->prefix_words(std::string_view(k.text).substr(k.off[p]), &k.words[p]);
+        }
+        return k;
+      };
+      const KanaText split_text = kana_text_of(local);
+      const KanaText original_text = splits.empty() ? KanaText{} : kana_text_of(original);
+      const std::string& text = split_text.text;
+      const std::vector<size_t>& off = split_text.off;
+      const std::vector<std::vector<JapaneseWord>>& dictionary_words = split_text.words;
       // ローマ字としてそのまま読める英単語 1 語の走り（remade、nine、mate、done）は、日本語だけで読んだときの
       // 1 語とちょうど重なるときだけ英語にできる。日本語の語の切れ目をまたぐ走り（それ|まで の れまで、
       // 床|に|寝 の にね、けど|ね の どね）は取らない（2026-11-06、それまでに が 粗remadeに になった）。
@@ -1274,10 +1315,16 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
         return out;
       };
       const auto both = [&](bool after) {
+        // 語の切れ目の確かめは、英語の辺と同じ読み（打ち直したもの）の上で行う
         LatticeResult plain = RunLattice(*japanese_model, text, off, dictionary_words, {}, after, before_english,
                                          costs.run_start, costs.run_end);
         LatticeResult mixed = RunLattice(*japanese_model, text, off, dictionary_words, aligned_edges(plain), after,
                                          before_english, costs.run_start, costs.run_end);
+        if (!splits.empty()) {
+          // 比べる日本語だけの読みは、打ったままの区切り（しゃ・きゃ・ちゃ）で読む
+          plain = RunLattice(*japanese_model, original_text.text, original_text.off, original_text.words, {}, after,
+                             before_english, costs.run_start, costs.run_end);
+        }
         return std::pair{std::move(plain), std::move(mixed)};
       };
       std::pair<LatticeResult, LatticeResult> costs_pair = both(after_english);
