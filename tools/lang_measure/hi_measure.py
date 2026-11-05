@@ -41,20 +41,29 @@ def main():
     args = ap.parse_args()
     d = Path(args.dakshina)
 
+    def text_open(path):
+        # Dakshina の一部のファイルは gzip で縮めてある
+        import gzip
+        return gzip.open(path, "rt", encoding="utf-8") if path.suffix == ".gz" else open(path, encoding="utf-8")
+
+    def lines(folder, stem):
+        with text_open(next((d / folder).glob(stem + "*"))) as f:
+            return f.read().split("\n")
+
     table = collections.defaultdict(collections.Counter)
-    for line in open(d / "lexicons" / "hi.translit.sampled.train.tsv", encoding="utf-8"):
-        p = line.rstrip("\n").split("\t")
+    for line in lines("lexicons", "hi.translit.sampled.train.tsv"):
+        p = line.split("\t")
         if len(p) >= 3:
             table[p[1].lower()][p[0]] += int(p[2])
     lm = Bigram()
     wiki = next((d / "native_script_wikipedia").glob("*train.text*"))
-    with open(wiki, encoding="utf-8") as f:
+    with text_open(wiki) as f:
         for i, line in enumerate(f):
             if i >= args.lm_limit:
                 break
             lm.add([w for w in line.split() if DEVA.match(w)])
-    roman = (d / "romanized" / "hi.romanized.rejoined.test.roman.txt").read_text(encoding="utf-8").split("\n")
-    native = (d / "romanized" / "hi.romanized.rejoined.test.native.txt").read_text(encoding="utf-8").split("\n")
+    roman = lines("romanized", "hi.romanized.rejoined.test.roman.txt")
+    native = lines("romanized", "hi.romanized.rejoined.test.native.txt")
     pairs = [(r.split(), n.split()) for r, n in zip(roman, native) if r.strip()]
     pairs = [(r, n) for r, n in pairs if len(r) == len(n)][: args.test]
     out = [f"組の表のローマ字 {len(table)}、並びの表の語 {len(lm.uni)}、試験の文 {len(pairs)}（語の数が合う文だけ）"]
