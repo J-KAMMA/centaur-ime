@@ -134,7 +134,7 @@ jobs:
         with:
           name: mine-sentences
           path: sentences
-      - name: 上流の Mozc を組み立てる（myime が使う版と同じ）
+      - name: 上流の Mozc を組み立てる（myime の Mozc が上流から分かれた所の版、2026-08-27）
         run: |
           set -eo pipefail
           sudo apt-get update -qq && sudo apt-get install -y -qq clang lld > /dev/null
@@ -142,7 +142,7 @@ jobs:
           curl -fsSL -o $T/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
           chmod +x $T/bazelisk
           git clone -q https://github.com/google/mozc.git mozc
-          git -C mozc checkout -q 2d993fd532c0df849ff3a5f6c7851b3757471ed6
+          git -C mozc checkout -q 4b1953a935c0613233f6f66c1799b827ddba7ca4
           git -C mozc submodule update -q --init --recursive
           cd mozc/src
           $T/bazelisk build --config oss_linux -c opt             --action_env=PATH=$T:/usr/bin:/bin --host_action_env=PATH=$T:/usr/bin:/bin             --linkopt=-B$T --host_linkopt=-B$T //converter:converter_main > $GITHUB_WORKSPACE/bazel.log 2>&1             || { grep -B3 -A20 "ERROR\|error:" $GITHUB_WORKSPACE/bazel.log | head -80; exit 1; }
