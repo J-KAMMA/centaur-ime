@@ -119,7 +119,11 @@ class LatinIME:
     def corrections(self, w, prev="<s>", limit=3):
         self.p.stdin.write(f"{'' if prev == '<s>' else prev}\t{w}\n")
         self.p.stdin.flush()
-        c = [x for x in self.p.stdout.readline().rstrip("\n").split("\t") if x]
+        raw = self.p.stdout.readline().rstrip("\n")
+        self.shown = getattr(self, "shown", 0) + 1
+        if self.shown <= 15:  # 答えの形を記録に残す（調べる用）
+            print(f"  {self.name} 問い {prev!r} {w!r} → {raw!r}", file=sys.stderr)
+        c = [x for x in raw.split("\t") if x]
         return [x.lower() for x in c][:limit] or [w]
 
 
