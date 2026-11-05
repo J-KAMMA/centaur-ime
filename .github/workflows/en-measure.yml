@@ -1,0 +1,39 @@
+name: English measure
+
+# CentaurIME English（AI なし）の計測: スペースなしの区切り、打ち間違いの直し、単語の補完。
+# 材料は Tatoeba の英語の文（CC BY 2.0 FR、一部は CC0。表示: Tatoeba の投稿者）。
+
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 試験に使う文の数
+        default: "3000"
+  push:
+    branches: [work/en-measure]
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: 材料（Tatoeba は毎日書き出し直されるので SHA-256 を記録に残す）
+        run: |
+          set -eo pipefail
+          curl -fsSL -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          sha256sum eng_sentences.tsv.bz2
+      - name: 測る
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          python3 tools/en_ime/measure.py --tatoeba eng_sentences.tsv.bz2 --out out/en-measure.txt \
+            --test ${{ inputs.test || '3000' }} | tee out/summary.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: en-measure
+          path: out/
+          retention-days: 14
