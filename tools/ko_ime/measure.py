@@ -81,20 +81,38 @@ class Spacer:
             gap = 0
         return chars, spaces
 
-    def space(self, text, min_count=3):
-        chars = [c for c in text if c != " "]
-        out = [chars[0]] if chars else []
-        for i in range(1, len(chars)):
-            p = 0.0
+    # 空白を入れる基準と、並びの使い方（first: 数が足りる一番長い並び、mix: 長さと数で重みを付けて混ぜる）
+    threshold = 0.5
+    min_count = 3
+    mode = "first"
+
+    def prob(self, chars, i):
+        if self.mode == "first":
             for a, b in CTX:
                 if a > i or b > len(chars) - i:
                     continue
                 k = f"{a}{b}" + "".join(chars[i - a:i]) + "|" + "".join(chars[i:i + b])
                 n = self.all.get(k, 0)
-                if n >= min_count:
-                    p = self.sp[k] / n
-                    break
-            if p >= 0.5:
+                if n >= self.min_count:
+                    return self.sp[k] / n
+            return 0.0
+        num = den = 0.0
+        for a, b in CTX:
+            if a > i or b > len(chars) - i:
+                continue
+            k = f"{a}{b}" + "".join(chars[i - a:i]) + "|" + "".join(chars[i:i + b])
+            n = self.all.get(k, 0)
+            if n:
+                w = (a + b) ** 2 * n / (n + self.min_count)
+                num += w * self.sp[k] / n
+                den += w
+        return num / den if den else 0.0
+
+    def space(self, text):
+        chars = [c for c in text if c != " "]
+        out = [chars[0]] if chars else []
+        for i in range(1, len(chars)):
+            if self.prob(chars, i) >= self.threshold:
                 out.append(" ")
             out.append(chars[i])
         return "".join(out)
@@ -152,21 +170,38 @@ def main():
     ap.add_argument("--examples", type=int, default=25)
     args = ap.parse_args()
 
-    train, tat_test, wiki_test = [], [], []
+    # 0.1 未満は試験、0.1〜0.15 は基準選び（dev）、残りは表づくり
+    train, tat_test, wiki_test, dev = [], [], [], []
+
+    def place(u, s, test):
+        (test if u < 0.1 else dev if u < 0.15 else train).append(s)
     for sid, s in read_tatoeba(args.tatoeba, "kor"):
         if not KO_LINE.match(s) or " " not in s:
             continue
-        (tat_test if unit(args.seed, "t" + sid) < 0.1 else train).append(s)
+        place(unit(args.seed, "t" + sid), s, tat_test)
     n_tat = len(train)
     if args.wiki:
         for aid, s in read_wiki(args.wiki, args.wiki_limit):
-            (wiki_test if unit(args.seed, "w" + aid) < 0.1 else train).append(s)
+            place(unit(args.seed, "w" + aid), s, wiki_test)
     tat_test, wiki_test = tat_test[: args.test], wiki_test[: args.test]
     out = [f"表づくりの文 {len(train)}（Tatoeba {n_tat}、ウィキ {len(train) - n_tat}）、"
            f"試験 Tatoeba {len(tat_test)}・ウィキ {len(wiki_test)}"]
     t0 = time.time()
     sp = Spacer(train)
     out.append(f"表づくり {time.time() - t0:.1f} 秒、並びの数 {len(sp.all)}")
+    # 基準選び: dev の文で、語が合った割合が一番高い組を選ぶ
+    dev = dev[:3000]
+    best = None
+    for mode in ("first", "mix"):
+        for th in (0.3, 0.35, 0.4, 0.45, 0.5):
+            for mc in (2, 3, 5):
+                sp.mode, sp.threshold, sp.min_count = mode, th, mc
+                r = score_spacing(sp.space, dev, "dev", 0)[0]
+                eoj = float(r.split("語が合った ")[1].split("%")[0])
+                if best is None or eoj > best[0]:
+                    best = (eoj, mode, th, mc)
+    _, sp.mode, sp.threshold, sp.min_count = best
+    out.append(f"基準選び（dev {len(dev)} 文）: 並び {sp.mode}、基準 {sp.threshold}、最少の数 {sp.min_count}、語 {best[0]}%")
 
     kiwi = None
     try:
