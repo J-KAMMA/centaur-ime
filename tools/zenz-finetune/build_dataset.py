@@ -10,7 +10,7 @@
   manifest.json   出どころ・利用条件・ファイルの SHA256・件数・除いた件数・設定
   excluded.txt    試験の文と重なったために除いた文（先頭 200 件、見直し用）
 
-問いの形は、コンパウンドIMEが変換時に zenz-v3.2 へ渡す形と同じにする
+問いの形は、CentaurIMEが変換時に zenz-v3.2 へ渡す形と同じにする
 （AzooKeyKanaKanjiConverter の ZenzPromptBuilder.candidateEvaluationPrompt）:
   [U+EE02 左の文脈][U+EE07 右の文脈]U+EE00 読み（カタカナ）U+EE01
 正解はその後に続く表記。文の終わりの記号は学習の側（finetune.ipynb）で付ける。
@@ -955,7 +955,7 @@ class Builder:
                                     text=True, check=True).stdout.strip()
         except Exception:
             pass
-        own = "このリポジトリ（compound-ime）で作成した一覧。MIT ライセンス（リポジトリの LICENSE）。"
+        own = "このリポジトリ（centaur-ime）で作成した一覧。MIT ライセンス（リポジトリの LICENSE）。"
         sources = [
             {"name": "tools/data/colloquial.tsv", "use": "話し言葉の語と読み", "license": own},
             {"name": "tools/data/katakana-english-common.tsv", "use": "カタカナ語を英単語に置き換える対応", "license": own},
@@ -1043,7 +1043,7 @@ def main(argv=None):
     here = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", required=True, help="出力先のフォルダ")
-    parser.add_argument("--repo", default=str(here.parent.parent), help="compound-ime のリポジトリ（tools/data と tests/conversion を読む）")
+    parser.add_argument("--repo", default=str(here.parent.parent), help="centaur-ime のリポジトリ（tools/data と tests/conversion を読む）")
     parser.add_argument("--romaji-table", required=True, help="Mozc の src/data/preedit/romanji-hiragana.tsv")
     parser.add_argument("--wiki", nargs="*", default=[], help="wikimedia/wikipedia の parquet か文章ファイル")
     parser.add_argument("--size", type=int, default=400000, help="学習用の問題の数")

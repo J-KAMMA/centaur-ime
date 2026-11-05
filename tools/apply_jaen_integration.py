@@ -3487,16 +3487,16 @@ edit("prediction/dictionary_predictor.cc", """bool IsDebug(const ConversionReque
 import subprocess  # noqa: E402
 subprocess.run([sys.executable, str(REPO / "tools/apply_loanword_katakana.py"), str(src)], check=True)
 
-# Product identity: CompoundIME (separate script, last).
+# Product identity: CentaurIME (separate script, last).
 subprocess.run([sys.executable, str(REPO / "tools/apply_compound_branding.py"), str(src)], check=True)
 
 # Linux 対応（製品名の変更のあと）: 節: Linux でも変換エンジン（azooKey）を使えるようにする。
 #
 # ウィンドウズでは azookey-engine.dll を LoadLibrary で読み、設定はレジストリから読む。
 # Linux では libazookey-engine.so を dlopen で読み、設定は
-# ~/.config/compound-ime/settings（「名前=数値」の行）から読む。
-# モデルは ~/.local/share/compound-ime/models/ か /usr/share/compound-ime/models/、
-# 学習データは ~/.local/share/compound-ime/azookey_memory に置く。
+# ~/.config/centaur-ime/settings（「名前=数値」の行）から読む。
+# モデルは ~/.local/share/centaur-ime/models/ か /usr/share/centaur-ime/models/、
+# 学習データは ~/.local/share/centaur-ime/azookey_memory に置く。
 # 試験用の環境変数（MYIME_HERMETIC_TEST など）はウィンドウズと同じ意味で使える。
 A = "converter/azookey_immutable_converter.cc"
 edit(A, """#ifdef _WIN32
@@ -3615,7 +3615,7 @@ edit(E, """#ifdef _WIN32
 #include <fstream>
 #endif
 """)
-# 設定: ~/.config/compound-ime/settings の「名前=数値」。
+# 設定: ~/.config/centaur-ime/settings の「名前=数値」。
 edit(E, """  return value;
 #else
   return std::nullopt;
@@ -3630,8 +3630,8 @@ bool ReadHkcuMozcDwordAsBool(""", """  return value;
   const char* config = std::getenv("XDG_CONFIG_HOME");
   const char* home = std::getenv("HOME");
   const std::string path =
-      config && config[0] ? std::string(config) + "/compound-ime/settings"
-      : home              ? std::string(home) + "/.config/compound-ime/settings"
+      config && config[0] ? std::string(config) + "/centaur-ime/settings"
+      : home              ? std::string(home) + "/.config/centaur-ime/settings"
                           : "";
   if (path.empty()) return std::nullopt;
   std::ifstream file(path);
@@ -3665,12 +3665,12 @@ edit(E, """#else
 
 #ifndef _WIN32
 namespace {
-// ~/.local/share/compound-ime/<name>/（XDG_DATA_HOME があればその下）
+// ~/.local/share/centaur-ime/<name>/（XDG_DATA_HOME があればその下）
 std::string LinuxDataDirectory(const std::string& name) {
   const char* data = std::getenv("XDG_DATA_HOME");
   const char* home = std::getenv("HOME");
-  if (data && data[0]) return std::string(data) + "/compound-ime/" + name + "/";
-  if (home) return std::string(home) + "/.local/share/compound-ime/" + name + "/";
+  if (data && data[0]) return std::string(data) + "/centaur-ime/" + name + "/";
+  if (home) return std::string(home) + "/.local/share/centaur-ime/" + name + "/";
   return "";
 }
 
@@ -3682,13 +3682,13 @@ void MakeDirectories(const std::string& path) {
 }
 }  // namespace
 #endif  // _WIN32""")
-edit(E, """    return base + "\\\\CompoundIME\\\\models\\\\";
+edit(E, """    return base + "\\\\CentaurIME\\\\models\\\\";
   }
 #endif
   return "";
 }
 
-std::string GetZenzaiInstallModelDirectory() {""", """    return base + "\\\\CompoundIME\\\\models\\\\";
+std::string GetZenzaiInstallModelDirectory() {""", """    return base + "\\\\CentaurIME\\\\models\\\\";
   }
 #else
   if (!IsHermeticTestMode()) return LinuxDataDirectory("models");
@@ -3697,16 +3697,16 @@ std::string GetZenzaiInstallModelDirectory() {""", """    return base + "\\\\Com
 }
 
 std::string GetZenzaiInstallModelDirectory() {""")
-edit(E, """    return base + "\\\\CompoundIME\\\\models\\\\";
+edit(E, """    return base + "\\\\CentaurIME\\\\models\\\\";
   }
 #endif
   return "";
 }
 
-std::string GetZenzaiModelDirectory() {""", """    return base + "\\\\CompoundIME\\\\models\\\\";
+std::string GetZenzaiModelDirectory() {""", """    return base + "\\\\CentaurIME\\\\models\\\\";
   }
 #else
-  if (!IsHermeticTestMode()) return "/usr/share/compound-ime/models/";
+  if (!IsHermeticTestMode()) return "/usr/share/centaur-ime/models/";
 #endif
   return "";
 }
@@ -3746,9 +3746,9 @@ edit(E, """    return internal::WideToUtf8(dir);
 
 # Mac の置き場所: 節: Mac でのモデルと学習データの置き場所（Linux 対応のあと）。
 #
-# Mac では ~/Library/Application Support/CompoundIME/models と
-# /Library/Application Support/CompoundIME/models（配布物の導入時に取得）を見て、
-# 人工知能の学習データは ~/Library/Application Support/CompoundIME/azookey_memory に置く。
+# Mac では ~/Library/Application Support/CentaurIME/models と
+# /Library/Application Support/CentaurIME/models（配布物の導入時に取得）を見て、
+# 人工知能の学習データは ~/Library/Application Support/CentaurIME/azookey_memory に置く。
 # 導入時の処理（postflight）で、変換モデルを公式の配布元から取得して SHA-256 を照合する。
 E = "converter/engine_config.cc"
 edit(E, """std::string LinuxDataDirectory(const std::string& name) {
@@ -3756,42 +3756,42 @@ edit(E, """std::string LinuxDataDirectory(const std::string& name) {
   const char* home = std::getenv("HOME");""", """std::string LinuxDataDirectory(const std::string& name) {
   const char* home = std::getenv("HOME");
 #ifdef __APPLE__
-  if (home) return std::string(home) + "/Library/Application Support/CompoundIME/" + name + "/";
+  if (home) return std::string(home) + "/Library/Application Support/CentaurIME/" + name + "/";
 #endif  // __APPLE__
   const char* data = std::getenv("XDG_DATA_HOME");""")
-edit(E, """  if (!IsHermeticTestMode()) return "/usr/share/compound-ime/models/";""",
+edit(E, """  if (!IsHermeticTestMode()) return "/usr/share/centaur-ime/models/";""",
      """#ifdef __APPLE__
-  if (!IsHermeticTestMode()) return "/Library/Application Support/CompoundIME/models/";
+  if (!IsHermeticTestMode()) return "/Library/Application Support/CentaurIME/models/";
 #else   // __APPLE__
-  if (!IsHermeticTestMode()) return "/usr/share/compound-ime/models/";
+  if (!IsHermeticTestMode()) return "/usr/share/centaur-ime/models/";
 #endif  // __APPLE__""")
 
 edit("mac/installer/postflight_template.sh", "/usr/bin/true", """# 変換モデル（zenz-v3.2-small を追加学習した ft-v5、約74MB）を配布ページから取得し、SHA-256 を照合する
-M="/Library/Application Support/CompoundIME/models"
+M="/Library/Application Support/CentaurIME/models"
 MODEL="$M/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf"
 SUM=2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff
 /bin/mkdir -p "$M"
 if ! echo "$SUM  $MODEL" | /usr/bin/shasum -a 256 -c -s 2>/dev/null; then
   /usr/bin/curl -fsL -o "$MODEL.part" \\
-    https://github.com/J-KAMMA/compound-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf \\
+    https://github.com/J-KAMMA/centaur-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf \\
     && echo "$SUM  $MODEL.part" | /usr/bin/shasum -a 256 -c -s && /bin/mv "$MODEL.part" "$MODEL"
   /bin/rm -f "$MODEL.part"
 fi
 
 /usr/bin/true""")
 
-# マック版の新しい版のお知らせ: ログイン時に台本（CompoundIME.app の Resources/update_check.sh）を動かす
+# マック版の新しい版のお知らせ: ログイン時に台本（CentaurIME.app の Resources/update_check.sh）を動かす
 # LaunchAgent を置く。止め方は tools/update-check/README.md。
 edit("mac/installer/postflight_template.sh", "/usr/bin/true", """# 新しい版のお知らせ（1日1回まで GitHub の公開ページに問い合わせる）
-A="/Library/LaunchAgents/org.compoundime.update-check.plist"
+A="/Library/LaunchAgents/org.centaurime.update-check.plist"
 /bin/cat > "$A" <<'EOP'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>org.compoundime.update-check</string>
+  <key>Label</key><string>org.centaurime.update-check</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/bash</string><string>/Library/Input Methods/CompoundIME.app/Contents/Resources/update_check.sh</string></array>
+  <array><string>/bin/bash</string><string>/Library/Input Methods/CentaurIME.app/Contents/Resources/update_check.sh</string></array>
   <key>RunAtLoad</key><true/>
   <key>StartInterval</key><integer>86400</integer>
 </dict>
@@ -4146,7 +4146,7 @@ edit(T, """  } else if (command == "SET_FOLLOWING_TEXT") {""", """  } else if (c
 
 # 人工知能を、zenz-v3.2-small を追加学習した ft-v5 に替える（tools/zenz-finetune、配布ページ model-zenz-ft-v5）。
 # ファイル名を変えるので、前の版を入れた人も導入時に新しいほうを取りに行く。取れなかったときは前の名前のファイルを使う。
-FT_URL = ('L"https://github.com/J-KAMMA/compound-ime/releases/download/"\n'
+FT_URL = ('L"https://github.com/J-KAMMA/centaur-ime/releases/download/"\n'
           '    L"model-zenz-ft-v5/"\n'
           '    L"zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf";')
 FT_SUM = '"2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff";'

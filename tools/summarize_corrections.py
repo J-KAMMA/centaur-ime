@@ -5,9 +5,9 @@ find what to improve next. The log is written only when it is turned on and stay
 this tool only reads it and prints to the screen.
 
 Without a path, the log in the usual profile folder is read:
-  Windows: %USERPROFILE%\\AppData\\LocalLow\\CompoundIME\\correction_log.tsv
-  Linux:   ~/.config/compound-ime/correction_log.tsv
-  Mac:     ~/Library/Application Support/CompoundIME/correction_log.tsv
+  Windows: %USERPROFILE%\\AppData\\LocalLow\\CentaurIME\\correction_log.tsv
+  Linux:   ~/.config/centaur-ime/correction_log.tsv
+  Mac:     ~/Library/Application Support/CentaurIME/correction_log.tsv
 
 Lines are "time<TAB>kind<TAB>key<TAB>first<TAB>chosen". Printed: the kinds of correction, then
 the most frequent (first -> chosen) pairs with their readings.
@@ -21,9 +21,9 @@ from pathlib import Path
 
 def default_log():
     home = Path.home()
-    for path in (home / "AppData/LocalLow/CompoundIME/correction_log.tsv",
-                 home / ".config/compound-ime/correction_log.tsv",
-                 home / "Library/Application Support/CompoundIME/correction_log.tsv"):
+    for path in (home / "AppData/LocalLow/CentaurIME/correction_log.tsv",
+                 home / ".config/centaur-ime/correction_log.tsv",
+                 home / "Library/Application Support/CentaurIME/correction_log.tsv"):
         if path.is_file():
             return path
     return None

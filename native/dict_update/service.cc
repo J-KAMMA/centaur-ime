@@ -52,20 +52,20 @@ Settings ReadSettings() {
   }
 #ifdef _WIN32
   DWORD v = 0, size = sizeof(v);
-  if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\CompoundIME", L"DictUpdate", RRF_RT_REG_DWORD, nullptr, &v, &size) ==
+  if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\CentaurIME", L"DictUpdate", RRF_RT_REG_DWORD, nullptr, &v, &size) ==
       ERROR_SUCCESS) {
     s.enabled = v != 0;
   }
   size = sizeof(v);
-  if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\CompoundIME", L"DictUpdateIntervalHours", RRF_RT_REG_DWORD, nullptr,
+  if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\CentaurIME", L"DictUpdateIntervalHours", RRF_RT_REG_DWORD, nullptr,
                    &v, &size) == ERROR_SUCCESS) {
     s.interval_hours = static_cast<int>(v);
   }
 #else
   const std::string config = EnvOr("XDG_CONFIG_HOME");
   const std::string home = EnvOr("HOME");
-  const std::string path = !config.empty() ? config + "/compound-ime/settings"
-                           : !home.empty() ? home + "/.config/compound-ime/settings" : "";
+  const std::string path = !config.empty() ? config + "/centaur-ime/settings"
+                           : !home.empty() ? home + "/.config/centaur-ime/settings" : "";
   if (!path.empty()) {
     std::ifstream file(path);
     std::string line;
@@ -92,12 +92,12 @@ std::string DefaultRoot() {
   const int len = WideCharToMultiByte(CP_UTF8, 0, buf, static_cast<int>(n), nullptr, 0, nullptr, nullptr);
   std::string utf8(len > 0 ? len : 0, '\0');
   if (len > 0) WideCharToMultiByte(CP_UTF8, 0, buf, static_cast<int>(n), utf8.data(), len, nullptr, nullptr);
-  return utf8 + "\\CompoundIME\\dict";
+  return utf8 + "\\CentaurIME\\dict";
 #else
   const std::string data = EnvOr("XDG_DATA_HOME");
   const std::string home = EnvOr("HOME");
-  if (!data.empty()) return data + "/compound-ime/dict";
-  if (!home.empty()) return home + "/.local/share/compound-ime/dict";
+  if (!data.empty()) return data + "/centaur-ime/dict";
+  if (!home.empty()) return home + "/.local/share/centaur-ime/dict";
   return "";
 #endif
 }

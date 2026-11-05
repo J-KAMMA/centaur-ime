@@ -1,4 +1,4 @@
-"""Publishes the build as CompoundIME (コンパウンドIME), side by side with official Mozc.
+"""Publishes the build as Centaur IME (internal name CentaurIME), side by side with official Mozc.
 
   python tools/apply_compound_branding.py <mozc/src>
 Run by apply_jaen_integration.py as its last step.
@@ -14,9 +14,10 @@ import sys
 from pathlib import Path
 
 src = Path(sys.argv[1])
-ASCII, JA = "CompoundIME", "複合IME"
-COMPANY = "CompoundIME Project"
-URL = "https://github.com/J-KAMMA/compound-ime"
+# ASCII は中の名前（フォルダ・レジストリ・窓の名前）、DISPLAY と JA は人に見せる名前
+ASCII, DISPLAY, JA = "CentaurIME", "Centaur IME", "Centaur IME 日本語"
+COMPANY = "CentaurIME Project"
+URL = "https://github.com/J-KAMMA/centaur-ime"
 
 
 def edit(path, old, new, count=1):
@@ -69,7 +70,7 @@ edit("win32/tip/tip_lang_bar_menu.h", '#define IIDSTR_IMozcLangBarItem "75B2153A
 edit("win32/tip/tip_lang_bar_menu.h", '#define IIDSTR_IMozcLangBarToggleItem "9ABF0C3B-4AC6-4DED-9EF6-97E728852CF3"',
      '#define IIDSTR_IMozcLangBarToggleItem "3D7247EF-EE35-418D-A01C-0DB90444D4A4"')
 edit("win32/installer/build_installer.py", "    upgrade_code = 'DD94B570-B5E2-4100-9D42-61930C611D8A'",
-     "    upgrade_code = '5C585624-F0D2-4899-B999-11B493EC6247'  # CompoundIME")
+     "    upgrade_code = '5C585624-F0D2-4899-B999-11B493EC6247'  # CentaurIME")
 
 # Names in base/const.h (Mozc branch only).
 C = "base/const.h"
@@ -86,15 +87,15 @@ for old, new in [
     ('    L"MozcCompositionWindow";', f'    L"{ASCII}CompositionWindow";'),
     ('inline constexpr wchar_t kIndicatorWindowClassName[] = L"MozcIndicatorWindow";', f'inline constexpr wchar_t kIndicatorWindowClassName[] = L"{ASCII}IndicatorWindow";'),
     ('inline constexpr wchar_t kInfolistWindowClassName[] = L"MozcInfolistWindow";', f'inline constexpr wchar_t kInfolistWindowClassName[] = L"{ASCII}InfolistWindow";'),
-    ('inline constexpr wchar_t kIMEUIWndClassName[] = L"MozcUIWindow";', 'inline constexpr wchar_t kIMEUIWndClassName[] = L"CompoundUIWnd";'),
+    ('inline constexpr wchar_t kIMEUIWndClassName[] = L"MozcUIWindow";', 'inline constexpr wchar_t kIMEUIWndClassName[] = L"CentaurUIWnd";'),
     ('inline constexpr char kIPCPrefix[] = "\\\\\\\\.\\\\pipe\\\\mozc.";', f'inline constexpr char kIPCPrefix[] = "\\\\\\\\.\\\\pipe\\\\{ASCII.lower()}.";'),
     ('inline constexpr wchar_t kCandidateUIDescription[] = L"MozcCandidateUI";', f'inline constexpr wchar_t kCandidateUIDescription[] = L"{ASCII}CandidateUI";'),
-    ('inline constexpr wchar_t kConfigurationDisplayname[] = L"Mozc Configuration";', f'inline constexpr wchar_t kConfigurationDisplayname[] = L"{ASCII} Configuration";'),
+    ('inline constexpr wchar_t kConfigurationDisplayname[] = L"Mozc Configuration";', f'inline constexpr wchar_t kConfigurationDisplayname[] = L"{DISPLAY} Configuration";'),
     ('inline constexpr wchar_t kMozcRegKey[] = L"Software\\\\Mozc Project\\\\Mozc";', f'inline constexpr wchar_t kMozcRegKey[] = L"Software\\\\{ASCII}";'),
     ('    L"Software\\\\Policies\\\\Mozc Project\\\\Mozc\\\\Preferences";', f'    L"Software\\\\Policies\\\\{ASCII}\\\\Preferences";'),
 ]:
     edit(C, old, new)
-assert len("CompoundUIWnd") < 16  # kIMEUIWndClassName limit incl. NUL
+assert len("CentaurUIWnd") < 16  # kIMEUIWndClassName limit incl. NUL
 
 # MyIME settings key, model and learning folders.
 for path, n in [("converter/engine_config.cc", 2), ("converter/azookey_immutable_converter.cc", 2),
@@ -111,7 +112,7 @@ edit(R, '''  #elif defined(MOZC_BUILD)
     #define MOZC_RES_COMPANY_NAME "{COMPANY}"''')
 edit(R, '''  #define MOZC_RES_LEGAL_COPYRIGHT "Copyright 2026 Google LLC. All Rights Reserved."''',
      '''  #if defined(MOZC_BUILD)
-    #define MOZC_RES_LEGAL_COPYRIGHT "Copyright 2026 CompoundIME contributors. Based on Mozc (Copyright Google LLC, BSD-3-Clause)."
+    #define MOZC_RES_LEGAL_COPYRIGHT "Copyright 2026 CentaurIME contributors. Based on Mozc (Copyright Google LLC, BSD-3-Clause)."
   #else
     #define MOZC_RES_LEGAL_COPYRIGHT "Copyright 2026 Google LLC. All Rights Reserved."
   #endif''')
@@ -123,18 +124,18 @@ for path, old in [("gui/tool/mozc_tool.rc", "Mozc Tool"), ("renderer/win32/mozc_
                   ("win32/cache_service/mozc_cache_service.rc", "Mozc Cache Service"),
                   ("win32/custom_action/custom_action.rc", "Mozc Installer Helper"),
                   ("win32/tip/tip_resource.rc", "Mozc TIP Module")]:
-    edit(path, f'#define MOZC_RES_FILE_DESCRIPTION "{old}"', f'#define MOZC_RES_FILE_DESCRIPTION "{old.replace("Mozc", ASCII)}"')
+    edit(path, f'#define MOZC_RES_FILE_DESCRIPTION "{old}"', f'#define MOZC_RES_FILE_DESCRIPTION "{old.replace("Mozc", DISPLAY)}"')
 
 # Input switcher names and other TIP strings (ja then en blocks).
 T = "win32/tip/tip_resource.rc"
 edit(T, 'IDS_IME_DISPLAYNAME     "Mozc"', f'IDS_IME_DISPLAYNAME     "{JA}"', 2)
 edit(T, 'IDS_TEXTSERVICE_DISPLAYNAME_SYNONYM  "Mozc"', f'IDS_TEXTSERVICE_DISPLAYNAME_SYNONYM  "{JA}"', 2)
 edit(T, 'IDS_ABOUT               "Mozc について"', f'IDS_ABOUT               "{JA} について"')
-edit(T, 'IDS_ABOUT               "About Mozc"', f'IDS_ABOUT               "About {ASCII}"')
+edit(T, 'IDS_ABOUT               "About Mozc"', f'IDS_ABOUT               "About {DISPLAY}"')
 for ja in ("サジェストウィンドウ", "サジェスト候補ウィンドウ", "候補ウィンドウ", "インジケータ ウィンドウ"):
     edit(T, f'"Mozc {ja}"', f'"{JA} {ja}"')
 for en in ("Suggestion Window", "Suggestion Candidate Window", "Candidate Window"):
-    edit(T, f'"Mozc {en}"', f'"{ASCII} {en}"')
+    edit(T, f'"Mozc {en}"', f'"{DISPLAY} {en}"')
 t = (src / T).read_text(encoding="utf-8")
 t = re.sub(r'"Mozc (Indicator Window)"', rf'"{ASCII} \1"', t)
 (src / T).write_text(t, encoding="utf-8", newline="")
@@ -145,15 +146,15 @@ edit("win32/tip/tip_text_service.cc", '"https://github.com/google/mozc"', f'"{UR
 # Cache service names shown in services.msc.
 S = "win32/cache_service/mozc_cache_service.rc"
 s = (src / S).read_text(encoding="utf-8")
-s = s.replace('"Mozc Cache Service"', f'"{ASCII} Cache Service"').replace("Mozc の", f"{JA} の").replace("of Mozc", f"of {ASCII}")
+s = s.replace('"Mozc Cache Service"', f'"{DISPLAY} Cache Service"').replace("Mozc の", f"{JA} の").replace("of Mozc", f"of {DISPLAY}")
 (src / S).write_text(s, encoding="utf-8", newline="")
 
 # Server message boxes, installer helper texts.
 edit("server/mozc_server_main.cc", 'L"Mozc - Zenzai Model"', f'L"{JA} - Zenzai Model"')
 edit("server/mozc_server_main.cc", 'L"Mozc - Error"', f'L"{JA} - エラー"')
-edit("win32/custom_action/custom_action.cc", "later from the Mozc settings.", f"later from the {ASCII} settings.")
+edit("win32/custom_action/custom_action.cc", "later from the Mozc settings.", f"later from the {DISPLAY} settings.")
 edit("win32/custom_action/custom_action.rc", '"Mozc インストーラー (バージョン %1!s!)"', f'"{JA} インストーラー (バージョン %1!s!)"')
-edit("win32/custom_action/custom_action.rc", '"Mozc Installer (Ver. %1!s!)"', f'"{ASCII} Installer (Ver. %1!s!)"')
+edit("win32/custom_action/custom_action.rc", '"Mozc Installer (Ver. %1!s!)"', f'"{DISPLAY} Installer (Ver. %1!s!)"')
 
 # Installer: name, maker, folder, cabinet, service, run value, messages.
 W = "win32/installer/installer_oss_64bit.wxs"
@@ -168,14 +169,14 @@ edit(W, '<Directory Id="MozcDir" Name="Mozc">', f'<Directory Id="MozcDir" Name="
 edit(W, 'Name="MozcCacheService"', f'Name="{ASCII}CacheService"', 2)
 edit(W, 'Name="Mozc Prelauncher"', f'Name="{ASCII} Prelauncher"')
 # 新しい版のお知らせ（tools/update-check/update_check.ps1）: 入れる先に置き、ログイン時に動かす。
-# 台本は MSI を作るときに azookey の部品と同じ場所に置く。止め方は HKCU\Software\CompoundIME の UpdateCheck=0。
+# 台本は MSI を作るときに azookey の部品と同じ場所に置く。止め方は HKCU\Software\CentaurIME の UpdateCheck=0。
 edit(W, '      <ComponentRef Id="MozcTool" />\n', '      <ComponentRef Id="MozcTool" />\n      <ComponentRef Id="UpdateCheck" />\n')
 edit(W, """          <File Id="mozc_tool.exe" Name="mozc_tool.exe" DiskId="1" Checksum="yes" Source="$(var.MozcToolPath)" Vital="yes" />
         </Component>""", """          <File Id="mozc_tool.exe" Name="mozc_tool.exe" DiskId="1" Checksum="yes" Source="$(var.MozcToolPath)" Vital="yes" />
         </Component>
         <Component Id="UpdateCheck">
           <File Id="update_check.ps1" Name="update_check.ps1" DiskId="1" Source="$(var.AzooKeyDllDir)/update_check.ps1" KeyPath="yes" />
-          <RegistryValue Root="HKLM" Key="Software\\Microsoft\\Windows\\CurrentVersion\\Run" Name="CompoundIMEUpdateCheck" Type="string"
+          <RegistryValue Root="HKLM" Key="Software\\Microsoft\\Windows\\CurrentVersion\\Run" Name="CentaurIMEUpdateCheck" Type="string"
                          Value="powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File &quot;[MozcDir]update_check.ps1&quot;" />
         </Component>""")
 
@@ -190,16 +191,16 @@ edit("gui/about_dialog/about_dialog.cc", 'Replace(replaced, "[ProductUrl]", "htt
 edit("gui/about_dialog/about_dialog.cc", 'Replace(replaced, "[ForumUrl]", "https://github.com/google/mozc/issues");',
      f'Replace(replaced, "[ForumUrl]", "{URL}/issues");')
 edit("gui/about_dialog/about_dialog.ui", "<string>Copyright 2026 Google LLC. All rights reserved.</string>",
-     "<string>Copyright 2026 CompoundIME contributors. Based on Mozc.</string>")
+     "<string>Copyright 2026 CentaurIME contributors. Based on Mozc.</string>")
 
 # Downloader identities.
 edit("win32/custom_action/custom_action.cc", 'L"MozcInstaller/1.0"', f'L"{ASCII}Installer/1.0"')
 edit("gui/zenzai_download/zenzai_download_dialog.cc", 'L"MozcZenzaiDownloader/1.0"', f'L"{ASCII}ZenzaiDownloader/1.0"')
 # Linux 版の名前: 節: Linux 版の名前と置き場所を公式の Mozc と分ける。
 #
-# /usr/lib/mozc → /usr/lib/compound-ime、~/.config/mozc → ~/.config/compound-ime、
-# ibus の部品名 com.google.IBus.Mozc → org.compoundime.IBus.CompoundIME、
-# エンジン名 mozc-jp → compound-ime-jp など。ウィンドウズ版には影響しない。
+# /usr/lib/mozc → /usr/lib/centaur-ime、~/.config/mozc → ~/.config/centaur-ime、
+# ibus の部品名 com.google.IBus.Mozc → org.centaurime.IBus.CentaurIME、
+# エンジン名 mozc-jp → centaur-ime-jp など。ウィンドウズ版には影響しない。
 
 
 def edit(path, old, new, count=1):
@@ -210,55 +211,55 @@ def edit(path, old, new, count=1):
 
 
 edit("config.bzl", '''LINUX_MOZC_ICONS_DIR = "/usr/share/icons/mozc"
-LINUX_MOZC_SERVER_DIR = "/usr/lib/mozc"''', '''LINUX_MOZC_ICONS_DIR = "/usr/share/icons/compound-ime"
-LINUX_MOZC_SERVER_DIR = "/usr/lib/compound-ime"''')
-edit("config.bzl", '''IBUS_MOZC_INSTALL_DIR = "/usr/share/ibus-mozc"''', '''IBUS_MOZC_INSTALL_DIR = "/usr/share/ibus-compound-ime"''')
+LINUX_MOZC_SERVER_DIR = "/usr/lib/mozc"''', '''LINUX_MOZC_ICONS_DIR = "/usr/share/icons/centaur-ime"
+LINUX_MOZC_SERVER_DIR = "/usr/lib/centaur-ime"''')
+edit("config.bzl", '''IBUS_MOZC_INSTALL_DIR = "/usr/share/ibus-mozc"''', '''IBUS_MOZC_INSTALL_DIR = "/usr/share/ibus-centaur-ime"''')
 edit("config.bzl", '''IBUS_MOZC_PATH = "/usr/lib/ibus-mozc/ibus-engine-mozc"''',
-     '''IBUS_MOZC_PATH = "/usr/lib/ibus-compound-ime/ibus-engine-compound-ime"''')
+     '''IBUS_MOZC_PATH = "/usr/lib/ibus-centaur-ime/ibus-engine-centaur-ime"''')
 edit("config.bzl", '''EMACS_MOZC_CLIENT_DIR = "/usr/share/emacs/site-lisp/emacs-mozc"''',
-     '''EMACS_MOZC_CLIENT_DIR = "/usr/share/emacs/site-lisp/emacs-compound-ime"''')
+     '''EMACS_MOZC_CLIENT_DIR = "/usr/share/emacs/site-lisp/emacs-centaur-ime"''')
 
 S = "base/system_util.cc"
 edit(S, 'constexpr absl::string_view kMozcServerDir = "/usr/lib/mozc";',
-     'constexpr absl::string_view kMozcServerDir = "/usr/lib/compound-ime";')
+     'constexpr absl::string_view kMozcServerDir = "/usr/lib/centaur-ime";')
 edit(S, 'constexpr absl::string_view kMozcDocumentDir = "/usr/lib/mozc/documents";',
-     'constexpr absl::string_view kMozcDocumentDir = "/usr/lib/compound-ime/documents";')
-edit(S, '      return FileUtil::JoinPath(pw.pw_dir, ".mozc");', '      return FileUtil::JoinPath(pw.pw_dir, ".compound-ime");')
-edit(S, '    std::string old_dir = FileUtil::JoinPath(home, ".mozc");', '    std::string old_dir = FileUtil::JoinPath(home, ".compound-ime");')
-edit(S, '      return FileUtil::JoinPath(xdg_config_home, "mozc");', '      return FileUtil::JoinPath(xdg_config_home, "compound-ime");')
-edit(S, '    return FileUtil::JoinPath(home, ".config/mozc");', '    return FileUtil::JoinPath(home, ".config/compound-ime");')
+     'constexpr absl::string_view kMozcDocumentDir = "/usr/lib/centaur-ime/documents";')
+edit(S, '      return FileUtil::JoinPath(pw.pw_dir, ".mozc");', '      return FileUtil::JoinPath(pw.pw_dir, ".centaur-ime");')
+edit(S, '    std::string old_dir = FileUtil::JoinPath(home, ".mozc");', '    std::string old_dir = FileUtil::JoinPath(home, ".centaur-ime");')
+edit(S, '      return FileUtil::JoinPath(xdg_config_home, "mozc");', '      return FileUtil::JoinPath(xdg_config_home, "centaur-ime");')
+edit(S, '    return FileUtil::JoinPath(home, ".config/mozc");', '    return FileUtil::JoinPath(home, ".config/centaur-ime");')
 
 edit("unix/ibus/path_util.cc", '#define MOZC_IBUS_INSTALL_DIR "/usr/share/ibus-mozc"',
-     '#define MOZC_IBUS_INSTALL_DIR "/usr/share/ibus-compound-ime"')
+     '#define MOZC_IBUS_INSTALL_DIR "/usr/share/ibus-centaur-ime"')
 G = "unix/ibus/gen_mozc_xml.py"
-edit(G, "      'name': 'com.google.IBus.Mozc',", "      'name': 'org.compoundime.IBus.CompoundIME',")
-edit(G, "      'author': 'Google LLC',", "      'author': 'CompoundIME contributors',")
+edit(G, "      'name': 'com.google.IBus.Mozc',", "      'name': 'org.centaurime.IBus.CentaurIME',")
+edit(G, "      'author': 'Google LLC',", "      'author': 'CentaurIME contributors',")
 edit(G, "      'homepage': 'https://github.com/google/mozc',", f"      'homepage': '{URL}',")
-edit(G, "      'textdomain': 'ibus-mozc',", "      'textdomain': 'ibus-compound-ime',")
+edit(G, "      'textdomain': 'ibus-mozc',", "      'textdomain': 'ibus-centaur-ime',")
 edit(G, "  product_name = PRODUCT_NAMES[options.branding]", f"  product_name = '{JA}'")
 
 C = "unix/ibus/ibus_config.textproto"
 edit(C, '''  name : "mozc-jp"
-  longname : "Mozc"''', f'''  name : "compound-ime-jp"
+  longname : "Mozc"''', f'''  name : "centaur-ime-jp"
   longname : "{JA}"''')
 edit(C, '''  name : "mozc-on"
-  longname : "Mozc:あ"''', f'''  name : "compound-ime-on"
+  longname : "Mozc:あ"''', f'''  name : "centaur-ime-on"
   longname : "{JA}:あ"''')
 edit(C, '''  name : "mozc-off"
-  longname : "Mozc:A_"''', f'''  name : "compound-ime-off"
+  longname : "Mozc:A_"''', f'''  name : "centaur-ime-off"
   longname : "{JA}:A_"''')
 edit("unix/build_package.py", "        'mozc.xml': os.path.join(args.ibus_component_dir, 'mozc.xml'),",
-     "        'mozc.xml': os.path.join(args.ibus_component_dir, 'compound-ime.xml'),")
-edit(G, "<!-- * $XDG_CONFIG_HOME/mozc/ibus_config.textproto -->", "<!-- * $XDG_CONFIG_HOME/compound-ime/ibus_config.textproto -->")
-edit(G, "<!-- * $HOME/.config/mozc/ibus_config.textproto -->", "<!-- * $HOME/.config/compound-ime/ibus_config.textproto -->")
-edit(G, "<!-- * $HOME/.mozc/ibus_config.textproto -->", "<!-- * $HOME/.compound-ime/ibus_config.textproto -->")
+     "        'mozc.xml': os.path.join(args.ibus_component_dir, 'centaur-ime.xml'),")
+edit(G, "<!-- * $XDG_CONFIG_HOME/mozc/ibus_config.textproto -->", "<!-- * $XDG_CONFIG_HOME/centaur-ime/ibus_config.textproto -->")
+edit(G, "<!-- * $HOME/.config/mozc/ibus_config.textproto -->", "<!-- * $HOME/.config/centaur-ime/ibus_config.textproto -->")
+edit(G, "<!-- * $HOME/.mozc/ibus_config.textproto -->", "<!-- * $HOME/.centaur-ime/ibus_config.textproto -->")
 
 # Mac 版の名前: 節: Mac 版の名前と置き場所を公式の Mozc と分ける。
 #
-# /Library/Input Methods/Mozc.app → CompoundIME.app（中の MozcConverter.app なども
-# CompoundIMEConverter.app などに）、識別子 org.mozc.inputmethod.Japanese →
-# org.compoundime.inputmethod.Japanese、学習データ ~/Library/Application Support/Mozc
-# → .../CompoundIME、入力メニューの名前を「コンパウンドIME」に。ウィンドウズ版と
+# /Library/Input Methods/Mozc.app → CentaurIME.app（中の MozcConverter.app なども
+# CentaurIMEConverter.app などに）、識別子 org.mozc.inputmethod.Japanese →
+# org.centaurime.inputmethod.Japanese、学習データ ~/Library/Application Support/Mozc
+# → .../CentaurIME、入力メニューの名前を「CentaurIME」に。ウィンドウズ版と
 # Linux 版には影響しない。
 
 
@@ -270,52 +271,52 @@ def edit(path, old, new, count=1):
 
 
 edit("config.bzl", 'MACOS_BUNDLE_ID_PREFIX = "org.mozc.inputmethod.Japanese"',
-     'MACOS_BUNDLE_ID_PREFIX = "org.compoundime.inputmethod.Japanese"')
-edit("mac/BUILD.bazel", "    bundle_name = BRANDING,\n", '    bundle_name = "CompoundIME",\n')
-edit("server/BUILD.bazel", '    bundle_name = BRANDING + "Converter",', '    bundle_name = "CompoundIMEConverter",')
-edit("renderer/BUILD.bazel", '    bundle_name = BRANDING + "Renderer",', '    bundle_name = "CompoundIMERenderer",')
-edit("gui/tool/BUILD.bazel", '    bundle_name = BRANDING + "Prelauncher",', '    bundle_name = "CompoundIMEPrelauncher",')
+     'MACOS_BUNDLE_ID_PREFIX = "org.centaurime.inputmethod.Japanese"')
+edit("mac/BUILD.bazel", "    bundle_name = BRANDING,\n", '    bundle_name = "CentaurIME",\n')
+edit("server/BUILD.bazel", '    bundle_name = BRANDING + "Converter",', '    bundle_name = "CentaurIMEConverter",')
+edit("renderer/BUILD.bazel", '    bundle_name = BRANDING + "Renderer",', '    bundle_name = "CentaurIMERenderer",')
+edit("gui/tool/BUILD.bazel", '    bundle_name = BRANDING + "Prelauncher",', '    bundle_name = "CentaurIMEPrelauncher",')
 
 # Info.plist の差し込み値（実行ファイル名・識別子・表示名）
 T = "build_tools/tweak_info_plist.py"
 edit(T, """    domain_prefix = 'org.mozc'
-    product_name = 'Mozc'""", """    domain_prefix = 'org.compoundime'
-    product_name = 'CompoundIME'""")
+    product_name = 'Mozc'""", """    domain_prefix = 'org.centaurime'
+    product_name = 'CentaurIME'""")
 edit(T, """      'BRANDING':
           options.branding,""", """      'BRANDING':
-          'CompoundIME' if options.branding == 'Mozc' else options.branding,""")
+          'CentaurIME' if options.branding == 'Mozc' else options.branding,""")
 edit(T, "  copyright_message = u'© %d Google Inc.' % _COPYRIGHT_YEAR",
-     "  copyright_message = u'© %d CompoundIME contributors' % _COPYRIGHT_YEAR")
+     "  copyright_message = u'© %d CentaurIME contributors' % _COPYRIGHT_YEAR")
 S = "build_tools/tweak_info_plist_strings.py"
 edit(S, """        'CF_BUNDLE_NAME_EN': 'Mozc',
-        'CF_BUNDLE_NAME_JA': 'Mozc',""", f"""        'CF_BUNDLE_NAME_EN': 'CompoundIME',
+        'CF_BUNDLE_NAME_JA': 'Mozc',""", f"""        'CF_BUNDLE_NAME_EN': 'CentaurIME',
         'CF_BUNDLE_NAME_JA': '{JA}',""")
 edit(S, "        'INPUT_MODE_ANNOTATION': 'Mozc',", f"        'INPUT_MODE_ANNOTATION': '{JA}',")
 
 edit("base/mac/mac_util.mm", 'const char kProjectPrefix[] = "org.mozc.inputmethod.Japanese.";',
-     'const char kProjectPrefix[] = "org.compoundime.inputmethod.Japanese.";')
-edit("base/system_util.cc", '    return FileUtil::JoinPath(dir, "Mozc");', '    return FileUtil::JoinPath(dir, "CompoundIME");')
+     'const char kProjectPrefix[] = "org.centaurime.inputmethod.Japanese.";')
+edit("base/system_util.cc", '    return FileUtil::JoinPath(dir, "Mozc");', '    return FileUtil::JoinPath(dir, "CentaurIME");')
 
 A = "mac/ActivatePane/ActivatePane.mm"
 edit(A, 'static const unsigned char kInstalledLocation[] = "/Library/Input Methods/Mozc.app";',
-     'static const unsigned char kInstalledLocation[] = "/Library/Input Methods/CompoundIME.app";')
+     'static const unsigned char kInstalledLocation[] = "/Library/Input Methods/CentaurIME.app";')
 edit(A, '    @"/Library/LaunchAgents/org.mozc.inputmethod.Japanese.Converter.plist",',
-     '    @"/Library/LaunchAgents/org.compoundime.inputmethod.Japanese.Converter.plist",')
+     '    @"/Library/LaunchAgents/org.centaurime.inputmethod.Japanese.Converter.plist",')
 edit(A, '    @"/Library/LaunchAgents/org.mozc.inputmethod.Japanese.Renderer.plist", nil};',
-     '    @"/Library/LaunchAgents/org.compoundime.inputmethod.Japanese.Renderer.plist", nil};')
+     '    @"/Library/LaunchAgents/org.centaurime.inputmethod.Japanese.Renderer.plist", nil};')
 edit(A, 'static NSString *const kSourceID = @"org.mozc.inputmethod.Japanese";',
-     'static NSString *const kSourceID = @"org.compoundime.inputmethod.Japanese";')
-# マックのインストーラーの版の決まり（Google の配布では末尾が .101 か .1）はコンパウンドIMEの版
+     'static NSString *const kSourceID = @"org.centaurime.inputmethod.Japanese";')
+# マックのインストーラーの版の決まり（Google の配布では末尾が .101 か .1）はCentaurIMEの版
 # （3.34.6239.141 など）に合わないので、確かめない。
 edit("build_tools/tweak_macinstaller_script.py", "  if options.version_file and not is_valid:",
-     "  if False and options.version_file and not is_valid:  # CompoundIME has its own version numbers")
+     "  if False and options.version_file and not is_valid:  # CentaurIME has its own version numbers")
 U = "mac/Uninstaller/Uninstaller.mm"
-edit(U, '      "/Library/Input Methods/Mozc.app",', '      "/Library/Input Methods/CompoundIME.app",')
+edit(U, '      "/Library/Input Methods/Mozc.app",', '      "/Library/Input Methods/CentaurIME.app",')
 edit(U, '      "/Library/LaunchAgents/org.mozc.inputmethod.Japanese.Converter.plist",',
-     '      "/Library/LaunchAgents/org.compoundime.inputmethod.Japanese.Converter.plist",')
+     '      "/Library/LaunchAgents/org.centaurime.inputmethod.Japanese.Converter.plist",')
 edit(U, '      "/Library/LaunchAgents/org.mozc.inputmethod.Japanese.Renderer.plist", "/Applications/Mozc",',
-     '      "/Library/LaunchAgents/org.compoundime.inputmethod.Japanese.Renderer.plist",\n'
-     '      "/Library/LaunchAgents/org.compoundime.update-check.plist", "/Applications/CompoundIME",')
+     '      "/Library/LaunchAgents/org.centaurime.inputmethod.Japanese.Renderer.plist",\n'
+     '      "/Library/LaunchAgents/org.centaurime.update-check.plist", "/Applications/CentaurIME",')
 
 # 起動用の設定（LaunchAgents）: 名前と中身
 L = src / "mac/installer/LaunchAgents"
@@ -323,34 +324,34 @@ for part in ("Converter", "Renderer"):
     old = L / f"org.mozc.inputmethod.Japanese.{part}.plist"
     text = old.read_text(encoding="utf-8")
     text = text.replace("/Library/Input Methods/Mozc.app/Contents/Resources/Mozc" + part + ".app/Contents/MacOS/Mozc" + part,
-                        "/Library/Input Methods/CompoundIME.app/Contents/Resources/CompoundIME" + part +
-                        ".app/Contents/MacOS/CompoundIME" + part)
-    text = text.replace("org.mozc.inputmethod.Japanese.", "org.compoundime.inputmethod.Japanese.")
+                        "/Library/Input Methods/CentaurIME.app/Contents/Resources/CentaurIME" + part +
+                        ".app/Contents/MacOS/CentaurIME" + part)
+    text = text.replace("org.mozc.inputmethod.Japanese.", "org.centaurime.inputmethod.Japanese.")
     assert "mozc" not in text.lower(), text
-    (L / f"org.compoundime.inputmethod.Japanese.{part}.plist").write_text(text, encoding="utf-8", newline="")
+    (L / f"org.centaurime.inputmethod.Japanese.{part}.plist").write_text(text, encoding="utf-8", newline="")
     old.unlink()
 edit("mac/installer/BUILD.bazel", """        "LaunchAgents/org.mozc.inputmethod.Japanese.Converter.plist",
         "LaunchAgents/org.mozc.inputmethod.Japanese.Renderer.plist",""",
-     """        "LaunchAgents/org.compoundime.inputmethod.Japanese.Converter.plist",
-        "LaunchAgents/org.compoundime.inputmethod.Japanese.Renderer.plist",""")
-edit("mac/installer/distribution.xml", "org.mozc.pkg.JapaneseInput", "org.compoundime.pkg.JapaneseInput", 5)
+     """        "LaunchAgents/org.centaurime.inputmethod.Japanese.Converter.plist",
+        "LaunchAgents/org.centaurime.inputmethod.Japanese.Renderer.plist",""")
+edit("mac/installer/distribution.xml", "org.mozc.pkg.JapaneseInput", "org.centaurime.pkg.JapaneseInput", 5)
 edit("mac/installer/distribution.xml", "    <title>Mozc</title>", f"    <title>{JA}</title>")
-edit("mac/build_package.py", "    identifier = 'org.mozc.pkg.JapaneseInput'", "    identifier = 'org.compoundime.pkg.JapaneseInput'")
+edit("mac/build_package.py", "    identifier = 'org.mozc.pkg.JapaneseInput'", "    identifier = 'org.centaurime.pkg.JapaneseInput'")
 P = "mac/installer/postflight_template.sh"
-edit(P, "/usr/bin/killall MozcConverter", "/usr/bin/killall CompoundIMEConverter")
-edit(P, "/usr/bin/killall MozcRenderer", "/usr/bin/killall CompoundIMERenderer")
-edit(P, "/usr/bin/killall Mozc > /dev/null", "/usr/bin/killall CompoundIME > /dev/null")
+edit(P, "/usr/bin/killall MozcConverter", "/usr/bin/killall CentaurIMEConverter")
+edit(P, "/usr/bin/killall MozcRenderer", "/usr/bin/killall CentaurIMERenderer")
+edit(P, "/usr/bin/killall Mozc > /dev/null", "/usr/bin/killall CentaurIME > /dev/null")
 W = "mac/tweak_installer_files.py"
-edit(W, "  name = 'Mozc' if oss else 'GoogleJapaneseInput'", "  name = 'CompoundIME' if oss else 'GoogleJapaneseInput'")
+edit(W, "  name = 'Mozc' if oss else 'GoogleJapaneseInput'", "  name = 'CentaurIME' if oss else 'GoogleJapaneseInput'")
 edit(W, """    name = 'Mozc'
-    folder = 'Mozc'""", """    name = 'CompoundIME'
-    folder = 'CompoundIME'""")
+    folder = 'Mozc'""", """    name = 'CentaurIME'
+    folder = 'CentaurIME'""")
 
-# 消去用アプリの名前（UninstallCompoundIME.app）
+# 消去用アプリの名前（UninstallCentaurIME.app）
 edit("mac/BUILD.bazel", """                      oss = "Mozc",
                       prod = "GoogleJapaneseInput",
                   ),
-    infoplists = ["Uninstaller/Info.plist"],""", """                      oss = "CompoundIME",
+    infoplists = ["Uninstaller/Info.plist"],""", """                      oss = "CentaurIME",
                       prod = "GoogleJapaneseInput",
                   ),
     infoplists = ["Uninstaller/Info.plist"],""")
@@ -365,6 +366,9 @@ for name in ("compound_ime.ico", "compound_ime_langbar.ico", "compound_ime-256.p
              "compound_ime.svg", "compound_ime_langbar-64.png"):
     (icons / name).unlink()
 
-# 利用者に見せる版の名前（コンパウンドIME 1.N）を、メニュー・題名・「このソフトについて」に出す。
+# 利用者に見せる版の名前（CentaurIME 1.N）を、メニュー・題名・「このソフトについて」に出す。
 subprocess.run([sys.executable, str(Path(__file__).with_name("apply_version_display.py")), str(src)], check=True)
+
+# 旧名（CompoundIME）の設定と学習を新しい置き場へ写す（変換の常駐が最初に起きたとき一度だけ）。
+subprocess.run([sys.executable, str(Path(__file__).with_name("apply_centaur_migration.py")), str(src)], check=True)
 print("branding applied")

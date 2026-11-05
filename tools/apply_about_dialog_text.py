@@ -39,8 +39,8 @@ edit(CC, 'Replace(replaced, "[ForumName]", QObject::tr("issues"));',
      'Replace(replaced, "[ForumName]", QString::fromUtf8("不具合の報告"));')
 
 # --- 著作権の行 --------------------------------------------------------------
-edit(UI, "<string>Copyright 2026 CompoundIME contributors. Based on Mozc.</string>",
-     "<string>Copyright 2026 CompoundIME contributors. Mozc をもとにしています。</string>")
+edit(UI, "<string>Copyright 2026 CentaurIME contributors. Based on Mozc.</string>",
+     "<string>Copyright 2026 CentaurIME contributors. Mozc をもとにしています。</string>")
 
 # --- 変換エンジンの行 --------------------------------------------------------
 NEW_BLOCK = '''  // 確かめられる事実だけを出す。ウィンドウズでは変換エンジン側からの状態の記録
