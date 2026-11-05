@@ -13,6 +13,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHONIOENCODING: utf-8
+
 jobs:
   build:
     runs-on: windows-2022
@@ -47,11 +50,11 @@ jobs:
         shell: pwsh
         run: |
           $dll = (Resolve-Path build64/Release/centaur_tip_en.dll).Path
-          & "$env:windir\System32\regsvr32.exe" /s $dll
+          ./build64/Release/tip_check.exe register $dll
           if ($LASTEXITCODE -ne 0) { throw '登録に失敗' }
           ./build64/Release/tip_check.exe present
           if ($LASTEXITCODE -ne 0) { throw '登録したのに見つからない' }
-          & "$env:windir\System32\regsvr32.exe" /s /u $dll
+          ./build64/Release/tip_check.exe unregister $dll
           ./build64/Release/tip_check.exe absent
           if ($LASTEXITCODE -ne 0) { throw '取り消したのに残っている' }
       - name: 試用の一式
