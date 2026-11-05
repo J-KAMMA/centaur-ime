@@ -5,6 +5,7 @@
 比べる相手:
   区切り: wordsegment（Google の語の数の表）、symspellpy の word_segmentation
   直し:   Hunspell（LibreOffice・Firefox などの綴りの確かめ）、pyspellchecker（Norvig 式）、symspellpy
+          AOSP LatinIME（Android 標準キーボードの C++ 本体、Apache-2.0。--latinime のとき。表は AOSP のものと Tatoeba のもの）
 文は measure.py の確かめの側（重み選びに使わない後半）。区切りは ' を含むまとまりを除く（相手が ' を扱えないため）。
 時間は作りが違う（C と Python）ので参考だけ。
 """
@@ -107,6 +108,51 @@ class Hunspell:
         return [w]
 
 
+class LatinIME:
+    """AOSP LatinIME（Android 標準キーボード、Apache-2.0）の C++ 本体。latinime/Harness.java を通して呼ぶ。"""
+
+    def __init__(self, name, cmd, uni):
+        self.name, self.uni = name, uni
+        self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+                                  encoding="utf-8", bufsize=1)
+
+    def corrections(self, w, prev="<s>", limit=3):
+        self.p.stdin.write(f"{'' if prev == '<s>' else prev}\t{w}\n")
+        self.p.stdin.flush()
+        c = [x for x in self.p.stdout.readline().rstrip("\n").split("\t") if x]
+        return [x.lower() for x in c][:limit] or [w]
+
+
+def entries_from_aosp(path, out):
+    """AOSP の語の表（*.combined.gz）を Harness の形に直す。"""
+    import gzip
+    n = 0
+    with gzip.open(path, "rt", encoding="utf-8") as f, open(out, "w", encoding="utf-8") as o:
+        word = None
+        for line in f:
+            kv = dict(x.split("=", 1) for x in line.strip().split(",") if "=" in x)
+            if "word" in kv and "f" in kv:
+                word = kv["word"]
+                o.write(f"u\t{word}\t{kv['f']}\n")
+                n += 1
+            elif "bigram" in kv and "f" in kv and word:
+                o.write(f"b\t{word}\t{kv['bigram']}\t{kv['f']}\n")
+    return n
+
+
+def entries_from_model(m, out):
+    """CentaurIME と同じ Tatoeba の表を、AOSP の 0〜255 の目盛り（2 倍ごとに 8 ほど）に直す。"""
+    import math
+    top = max(m.uni.values())
+    with open(out, "w", encoding="utf-8") as o:
+        for w, c in m.uni.items():
+            o.write(f"u\t{w}\t{max(1, min(255, round(222 + 8 * math.log2(c / top))))}\n")
+        for (a, b), c in m.bi.items():
+            if c >= 2 and a != "<s>":
+                p = c / max(m.left[a], 1)
+                o.write(f"b\t{a}\t{b}\t{max(1, min(255, round(222 + 8 * math.log2(p))))}\n")
+
+
 def segment_cmp(sys_, test):
     ok = n = 0
     t = 0.0
@@ -129,6 +175,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=20261105)
     ap.add_argument("--test", type=int, default=3000)
+    ap.add_argument("--latinime", nargs=3, metavar=("SO", "CLASSPATH", "WORDLIST"),
+                    help="AOSP LatinIME の本体（.so）、Harness のクラスの置き場、AOSP の語の表（*.combined.gz）")
     args = ap.parse_args()
 
     train, test = [], []
@@ -146,7 +194,15 @@ def main():
         print(out[-1], flush=True)
     # 直しの打ち間違いは同じ種から作るので、どの相手も同じ間違いで比べる。
     # 「別の正しい語になる間違い」を除く基準は全員 CentaurIME の語の表にそろえる。
-    for s in (ours, Hunspell(m.uni), PySpell(m.uni), SymSpell(m.uni)):
+    fixers = [ours, Hunspell(m.uni), PySpell(m.uni), SymSpell(m.uni)]
+    if args.latinime:
+        # 同じ本体を、AOSP の英語の表と、CentaurIME と同じ Tatoeba の表の両方で（仕組みの差と表の差を分ける）
+        so, cp, aosp = args.latinime
+        entries_from_aosp(aosp, "latin-aosp.tsv")
+        entries_from_model(m, "latin-tatoeba.tsv")
+        for label, f in (("LatinIME（AOSP の表）", "latin-aosp.tsv"), ("LatinIME（Tatoeba の表）", "latin-tatoeba.tsv")):
+            fixers.append(LatinIME(label, ["java", "-cp", cp, "Harness", so, f], m.uni))
+    for s in fixers:
         r = fix_score(s, verify, args.seed, 0, s.name)
         out += r
         print(r[0], flush=True)
