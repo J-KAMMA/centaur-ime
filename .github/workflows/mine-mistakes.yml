@@ -8,7 +8,7 @@ name: Mine mistakes
 on:
   # main に入れる前は、この枝に push したときに既定の値で動く
   push:
-    branches: [work/mine-homophones, work/mine-tatoeba]
+    branches: [work/mine-homophones, work/mine-tatoeba, work/compare-general]
   workflow_dispatch:
     inputs:
       bin_run:
@@ -35,7 +35,7 @@ jobs:
         run: |
           set -eo pipefail
           python3 -m venv venv && venv/bin/pip -q install "sudachipy==0.6.11" "sudachidict-core==20260428" "pyarrow==21.0.0"
-          if [ "${{ inputs.source || (github.ref_name == 'work/mine-tatoeba' && 'tatoeba' || 'wiki') }}" = tatoeba ]; then
+          if [ "${{ inputs.source || (startsWith(github.ref_name, 'work/') && github.ref_name != 'work/mine-homophones' && 'tatoeba' || 'wiki') }}" = tatoeba ]; then
             # Tatoeba は毎日書き出し直されるので版は固定できない。SHA-256 を記録に残す（試験の枠は文の番号で決まる）。
             curl -fsSL -o jpn_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/jpn/jpn_sentences.tsv.bz2
             sha256sum jpn_sentences.tsv.bz2
@@ -85,7 +85,7 @@ jobs:
       matrix:
         shard: ["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15"]
         # 変換の一式を借りる run（push のとき。1つ目が比べる元、2つ目が試す枝。workflow_dispatch では bin_run だけ使う）
-        bin: ["41977170275", "42001096123"]
+        bin: ["41977170275"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -119,8 +119,47 @@ jobs:
           path: out/
           retention-days: 7
 
+  # 一般的な IME との比べ: 上流の Mozc（Google 日本語入力の元。AI も CentaurIME の直しも入れない）で同じ文を変換する
+  plain-mozc:
+    needs: sentences
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      USE_BAZEL_VERSION: 9.0.2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - uses: actions/download-artifact@v4
+        with:
+          name: mine-sentences
+          path: sentences
+      - name: 上流の Mozc を組み立てる（myime が使う版と同じ）
+        run: |
+          set -eo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq clang lld > /dev/null
+          T=$HOME/tools; mkdir -p $T && ln -sf $(command -v ld.lld) $T/ld.lld
+          curl -fsSL -o $T/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x $T/bazelisk
+          git clone -q https://github.com/google/mozc.git mozc
+          git -C mozc checkout -q 2d993fd532c0df849ff3a5f6c7851b3757471ed6
+          git -C mozc submodule update -q --init --recursive
+          cd mozc/src
+          $T/bazelisk build --config oss_linux -c opt             --action_env=PATH=$T:/usr/bin:/bin --host_action_env=PATH=$T:/usr/bin:/bin             --linkopt=-B$T --host_linkopt=-B$T //converter:converter_main > $GITHUB_WORKSPACE/bazel.log 2>&1             || { grep -B3 -A20 "ERROR\|error:" $GITHUB_WORKSPACE/bazel.log | head -80; exit 1; }
+      - name: 変換
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          cd mozc/src
+          python3 $GITHUB_WORKSPACE/repo/tools/mozc_plain_convert.py bazel-bin/converter/converter_main             $GITHUB_WORKSPACE/sentences/body.tsv $GITHUB_WORKSPACE/out/conv-plain.tsv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mine-conv-plain-00
+          path: out/
+          retention-days: 7
+
   collect:
-    needs: convert
+    needs: [convert, plain-mozc]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
