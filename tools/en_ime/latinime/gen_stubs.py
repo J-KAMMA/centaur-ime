@@ -40,9 +40,11 @@ def decl(name, sig):
 
 
 for cpp in sorted(JNI.glob("com_android_inputmethod_*.cpp")):
-    t = cpp.read_text(encoding="utf-8")
+    t = cpp.read_text(encoding="utf-8", errors="replace")
     cls = re.search(r'kClassPathName = "([^"]+)"', t).group(1)
-    methods = re.findall(r'const_cast<char \*>\("(\w+)"\),\s*const_cast<char \*>\("([^"]+)"\)', t)
+    # 型の文字列は 2 行以上の文字列に分かれていることがある（"(J[I" "Z[I...)" のように）
+    methods = [(m.group(1), "".join(re.findall(r'"([^"]*)"', m.group(2))))
+               for m in re.finditer(r'const_cast<char \*>\("(\w+)"\),\s*const_cast<char \*>\(((?:\s*"[^"]*")+)\s*\)', t)]
     pkg, _, name = cls.rpartition("/")
     d = OUT / pkg
     d.mkdir(parents=True, exist_ok=True)
