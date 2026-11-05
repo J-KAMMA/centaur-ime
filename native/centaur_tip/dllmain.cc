@@ -1,6 +1,7 @@
 // DLL の入り口: COM の部品の工場と、入力方式としての登録・取り消し。
-#include <msctf.h>
 #include <windows.h>
+#include <msctf.h>
+#include <olectl.h>
 
 #include <atomic>
 #include <string>

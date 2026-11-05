@@ -15,6 +15,10 @@ extern std::atomic<long> g_dll_ref;
 namespace centaur_tip {
 namespace {
 
+// 入力の種類（パスワード欄など）を持つ性質の識別子。SDK のライブラリに実体が無いことがあるので値を書く
+// （inputscope.idl の GUID_PROP_INPUTSCOPE と同じ値）。
+const GUID kGuidPropInputScope = {0x1713dd5a, 0x68e7, 0x4a5b, {0x9a, 0xf6, 0x59, 0x2a, 0x59, 0x5c, 0x77, 0x8d}};
+
 // ---- 表（1 つの処理の中で 1 度だけ、別の糸で読む） ----
 std::mutex g_model_mutex;
 std::shared_ptr<const centaur::Model> g_model;
@@ -306,7 +310,7 @@ bool TextService::Allowed(ITfContext* ctx, TfEditCookie ec) {
   // パスワード欄などの入力の種類
   bool ok = true;
   ITfReadOnlyProperty* prop = nullptr;
-  if (SUCCEEDED(ctx->GetAppProperty(GUID_PROP_INPUTSCOPE, &prop)) && prop) {
+  if (SUCCEEDED(ctx->GetAppProperty(kGuidPropInputScope, &prop)) && prop) {
     TF_SELECTION sel = {};
     ULONG n = 0;
     if (SUCCEEDED(ctx->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &n)) && n == 1 && sel.range) {

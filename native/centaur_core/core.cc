@@ -67,9 +67,9 @@ template <typename T>
 bool GetVec(std::ifstream& f, std::vector<T>* v) {
   uint64_t n;
   if (!Get(f, &n)) return false;
-  v->resize(n);
+  v->resize(static_cast<size_t>(n));
   return static_cast<bool>(
-      f.read(reinterpret_cast<char*>(v->data()), static_cast<std::streamsize>(n * sizeof(T))));
+      f.read(reinterpret_cast<char*>(v->data()), static_cast<std::streamsize>(static_cast<size_t>(n) * sizeof(T))));
 }
 
 }  // namespace
@@ -314,8 +314,8 @@ bool Model::LoadBinary(const std::filesystem::path& path) {
     w->resize(len);
     return static_cast<bool>(f.read(reinterpret_cast<char*>(w->data()), len * sizeof(char32_t)));
   };
-  words_.resize(n);
-  uni_.reserve(n);
+  words_.resize(static_cast<size_t>(n));
+  uni_.reserve(static_cast<size_t>(n));
   for (uint64_t i = 0; i < n; ++i) {
     int64_t c;
     if (!read_word(&words_[i]) || !Get(f, &c)) return false;
@@ -323,7 +323,7 @@ bool Model::LoadBinary(const std::filesystem::path& path) {
   }
   uint64_t n_extra;
   if (!Get(f, &n_extra)) return false;
-  std::vector<std::u32string> extra(n_extra);
+  std::vector<std::u32string> extra(static_cast<size_t>(n_extra));
   for (auto& w : extra) {
     if (!read_word(&w)) return false;
   }
