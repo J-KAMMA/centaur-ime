@@ -81,23 +81,37 @@ def main():
         (test if unit(args.seed, sid) < 0.1 else train).append(text)
     rng = random.Random(args.seed)
     rng.shuffle(test)
-    test = test[:args.test]
+    # 前半で重みを選び、後半（重み選びに使わない文）で確かめる
+    test, verify = test[:args.test], test[args.test:2 * args.test]
     t0 = time.time()
     m = Model(train)
     build = time.time() - t0
-    out = [f"表づくりの文 {len(train)}、語 {m.vocab}、試験の文 {len(test)}、表づくり {build:.1f} 秒"]
+    out = [f"表づくりの文 {len(train)}、語 {m.vocab}、重み選びの文 {len(test)}、確かめの文 {len(verify)}、表づくり {build:.1f} 秒"]
 
-    # 区切り（重みの組を変えて比べる。最後の組の誤りを例に出す）
-    for wp, oc in [(0.0, 1.5), (1.0, 1.5), (2.0, 1.5), (3.0, 1.5), (2.0, 1.0), (2.0, 2.0)]:
+    # 区切り（重みの組を変えて比べ、一番よい組を確かめの文で測る）
+    best = None
+    for wp, oc in [(1.0, 2.0), (2.0, 2.0), (3.0, 2.0), (2.0, 2.5), (2.0, 3.0), (3.0, 3.0)]:
         m.word_penalty, m.oov_char = wp, oc
-        out += segment_score(m, test, args.examples, f"重み 1 語 {wp}・表に無い字 {oc}")
-    m.word_penalty, m.oov_char = 2.0, 1.5
+        r = segment_score(m, test, 0, f"重み 1 語 {wp}・表に無い字 {oc}")
+        out += r
+        ok = int(r[0].split("文 ")[1].split("/")[0])
+        if best is None or ok > best[0]:
+            best = (ok, wp, oc)
+    m.word_penalty, m.oov_char = best[1], best[2]
+    out += segment_score(m, verify, args.examples, f"確かめ・重み 1 語 {best[1]}・表に無い字 {best[2]}")
 
-    # 直し
-    for tw in (4.0, 6.0, 8.0):
+    # 直し（正しい語を替えてしまうのが 0.5% 以下の中で、一番の候補が一番よく当たる重みを選ぶ）
+    best = None
+    for tw in (6.0, 8.0, 10.0, 12.0):
         m.typo_weight = tw
-        out += fix_score(m, test, args.seed, args.examples, f"重み {tw}")
-    m.typo_weight = 6.0
+        r = fix_score(m, test, args.seed, 0, f"重み {tw}")
+        out += r
+        top1 = float(r[0].split("（")[2].split("%")[0])
+        false = float(r[0].split("（")[3].split("%")[0])
+        if false <= 0.5 and (best is None or top1 > best[0]):
+            best = (top1, tw)
+    m.typo_weight = best[1] if best else 12.0
+    out += fix_score(m, verify, args.seed, args.examples, f"確かめ・重み {m.typo_weight}")
 
     # 補完
     keys = typed = 0
