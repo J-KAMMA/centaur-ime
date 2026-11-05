@@ -1,0 +1,83 @@
+name: Sources check
+
+# 材料の台帳（tools/data/sources.tsv）の材料が、決まった版のまま取れるかを確かめ、取った物の SHA-256 と大きさを
+# 記録に残す。材料は GitHub の機械の中でだけ使い、配布物や配布ページには置かない。
+# CC-100 は大きいので、先頭の 200,000 行だけ流して読む。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/lang-measure]
+    paths: ['tools/data/sources.tsv', 'tools/fetch_source.py', '.github/workflows/sources-check.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  list:
+    runs-on: ubuntu-24.04
+    outputs:
+      names: ${{ steps.names.outputs.names }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: names
+        run: |
+          names=$(grep -v '^#' tools/data/sources.tsv | awk -F'\t' '$3=="tatoeba"||$3=="hf"||$3=="cc100"{print $1}' \
+            | python3 -c "import json,sys;print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))")
+          echo "names=$names" >> "$GITHUB_OUTPUT"
+  fetch:
+    needs: list
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        name: ${{ fromJSON(needs.list.outputs.names) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 取る
+        run: |
+          set -eo pipefail
+          mkdir -p rec
+          python3 tools/fetch_source.py ${{ matrix.name }} data | tee rec/${{ matrix.name }}.tsv
+          rm -rf data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rec-${{ matrix.name }}
+          path: rec/
+          retention-days: 30
+  dakshina:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dakshina（12 言語の中身の一覧と大きさ）
+        run: |
+          set -eo pipefail
+          mkdir -p rec
+          python3 tools/fetch_source.py dakshina data | tee rec/dakshina.tsv
+          du -sh data/dakshina_dataset_v1.0/* | tee -a rec/dakshina.tsv
+          find data -name '*.tsv*' -o -name '*.txt*' | sort | xargs ls -la | awk '{print $5"\t"$9}' >> rec/dakshina.tsv
+          rm -rf data
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rec-dakshina
+          path: rec/
+          retention-days: 30
+  collect:
+    needs: [fetch, dakshina]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rec-*
+          path: rec
+          merge-multiple: true
+      - run: cat rec/*.tsv | sort > sources-recorded.tsv && wc -l sources-recorded.tsv && cat sources-recorded.tsv | cut -c1-200
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sources-recorded
+          path: sources-recorded.tsv
+          retention-days: 90
