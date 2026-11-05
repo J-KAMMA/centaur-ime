@@ -329,6 +329,8 @@ bool EndsWithEnglishWord(std::string_view text) {
 namespace {
 constexpr uint32_t kEnglishState = 0x10000;  // 直前が英単語（品詞番号とは別の状態）
 constexpr size_t kLatticeBeam = 30;
+// 日本語の語の切れ目をまたぐ英語の辺に足す費用（事実上使わせない）
+constexpr int64_t kStraddleCost = 1'000'000'000;
 
 // 助詞の綴り（ローマ字で打った形）。英語の to、no、he、me でもあるが、日本語の助詞として読むほうを取らせる。
 bool IsParticleSpelling(std::string_view word) {
@@ -343,6 +345,9 @@ struct EnglishEdge {
 struct LatticeResult {
   int64_t cost = std::numeric_limits<int64_t>::max();
   std::vector<size_t> used;  // 使った英語の辺（edges の番号）
+  // 一番安い読みの語の切れ目（かなの位置。0 と終わりを含む）。辞書に無いかなが続く所は 1 つの語として
+  // まとめる（その中には切れ目を置かない）。
+  std::vector<size_t> bounds;
 };
 
 // かなの並び（off はかな1文字ごとのバイト位置と終わり）を、日本語の辞書の語と、渡された英語の辺で
@@ -358,6 +363,7 @@ LatticeResult RunLattice(const JapaneseModel& model, std::string_view kana, cons
     size_t prev_pos = 0;
     uint32_t prev_state = 0;
     int64_t edge = -1;
+    bool unknown = false;  // どの語も読まないかな（名詞 unknown_cost）
   };
   const size_t m = off.size() - 1;
   std::vector<size_t> index_of(kana.size() + 1, std::numeric_limits<size_t>::max());
@@ -389,7 +395,7 @@ LatticeResult RunLattice(const JapaneseModel& model, std::string_view kana, cons
         if (q == std::numeric_limits<size_t>::max()) continue;
         relax(q, w.rid, Node{node.cost + w.cost + trans(state, w.lid) + leave, p, state, -1});
       }
-      relax(p + 1, model.noun, Node{node.cost + model.unknown_cost + trans(state, model.noun) + leave, p, state, -1});
+      relax(p + 1, model.noun, Node{node.cost + model.unknown_cost + trans(state, model.noun) + leave, p, state, -1, true});
       for (const size_t e : edges_at[p]) {
         const int64_t enter = state == kEnglishState ? 0 : trans(state, model.noun) + run_start;
         relax(edges[e].to, kEnglishState, Node{node.cost + edges[e].cost + enter, p, state, static_cast<int64_t>(e)});
@@ -413,13 +419,20 @@ LatticeResult RunLattice(const JapaneseModel& model, std::string_view kana, cons
   if (result.cost == std::numeric_limits<int64_t>::max()) return result;
   size_t pos = m;
   uint32_t state = final_state;
+  bool later_unknown = false;  // 後ろの語が辞書に無いかなか
+  result.bounds.push_back(m);
   while (pos > 0) {
     const Node& node = best[pos].at(state);
     if (node.edge >= 0) result.used.push_back(static_cast<size_t>(node.edge));
+    // 辞書に無いかなどうしの間は切れ目にしない
+    if (pos != m && !(node.unknown && later_unknown)) result.bounds.push_back(pos);
+    later_unknown = node.unknown;
     pos = node.prev_pos;
     state = node.prev_state;
   }
+  result.bounds.push_back(0);
   std::ranges::reverse(result.used);
+  std::ranges::reverse(result.bounds);
   return result;
 }
 }  // namespace
@@ -759,11 +772,20 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
           // AIに意見（いけん）・活かす（いかす）・移行する（いこうする）は、行く の形に見えても AI にする。
           static constexpr std::string_view kGoCome =
               "いく,いきます,いきたい,いった,いって,いけない,いける,いかず,いかな,いかせ,いかれ,"
-              "いこう,きた,きます,きて,きてい,きなさい,きましょう,きません,くる,くれ,こい,こない,こよう,"
+              "いこう,きた,きます,きました,きて,きてい,きなさい,きましょう,きません,くる,くれ,こい,こない,こよう,"
+              "やってく,やってき,でかけ,まいり,まいる,うかがい,うかがう,いらっしゃ,おいで,"
               "これ,こさ,こられ,こさせ,ゆく,ゆきます,ゆこう,ゆき,ゆけ,ゆける,ゆか,ゆいた,ゆいて";
           const bool going = StartsWithCue(after, kGoCome) &&
                              !(after.starts_with("いこう") && after.substr(std::string_view("いこう").size()).starts_with("する"));
           if (going) return false;
+          // 「人に会いに」: に + あい + に は、AIに より 会いに がずっと多い（私に会いに来た、叔父に会いに四国へ）。
+          // AIを・AIで など に以外が続くときは今までどおり（2026-11-06、Tatoeba で 私にAIに来ました などが 7 件）。
+          if (ka > 0 && kana[ka - 1] == "に") return false;
+          // 生憎（あいにく）: が・は・も のあと（訪ねたが生憎不在）。AIに組み込む・比べ・加え は AI のまま。
+          if (next_is("く") && ka > 0 && (kana[ka - 1] == "が" || kana[ka - 1] == "は" || kana[ka - 1] == "も") &&
+              !(next + 1 < kana.size() && (kana[next + 1] == "み" || kana[next + 1] == "ら" || kana[next + 1] == "わ"))) {
+            return false;
+          }
           // 生憎（あいにく）: に + く で終わるか、助詞・句読点が続くときだけ。
           if (next_is("く") && (after.size() <= 3 || particle_or_stop(next + 1))) return false;
         } else if (kana[kb] == "の") {
@@ -1232,9 +1254,31 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
       for (size_t p = 0; p + 1 < off.size(); ++p) {
         japanese_model->prefix_words(std::string_view(text).substr(off[p]), &dictionary_words[p]);
       }
+      // ローマ字としてそのまま読める英単語 1 語の走り（remade、nine、mate、done）は、日本語だけで読んだときの
+      // 1 語とちょうど重なるときだけ英語にできる。日本語の語の切れ目をまたぐ走り（それ|まで の れまで、
+      // 床|に|寝 の にね、けど|ね の どね）は取らない（2026-11-06、それまでに が 粗remadeに になった）。
+      // 厳選の語（api など）は今までどおり。辞書に無いかなの続きは 1 語とみなすので、日本語の語にない英単語は止めない。
+      const auto aligned_edges = [&](const LatticeResult& plain) {
+        std::vector<EnglishEdge> out = edges;
+        for (size_t r = 0; r < runs.size(); ++r) {
+          const Run& run = runs[r];
+          if (!run.cuts.empty() || !readable(run.begin, run.end) ||
+              lexicon.IsCurated(std::string_view(sub).substr(run.begin, run.end - run.begin))) {
+            continue;
+          }
+          const auto first = std::ranges::lower_bound(plain.bounds, out[r].from);
+          const bool one_word = first != plain.bounds.end() && *first == out[r].from &&
+                                first + 1 != plain.bounds.end() && *(first + 1) == out[r].to;
+          if (!one_word) out[r].cost += kStraddleCost;
+        }
+        return out;
+      };
       const auto both = [&](bool after) {
-        return std::pair{RunLattice(*japanese_model, text, off, dictionary_words, {}, after, before_english, costs.run_start, costs.run_end),
-                         RunLattice(*japanese_model, text, off, dictionary_words, edges, after, before_english, costs.run_start, costs.run_end)};
+        LatticeResult plain = RunLattice(*japanese_model, text, off, dictionary_words, {}, after, before_english,
+                                         costs.run_start, costs.run_end);
+        LatticeResult mixed = RunLattice(*japanese_model, text, off, dictionary_words, aligned_edges(plain), after,
+                                         before_english, costs.run_start, costs.run_end);
+        return std::pair{std::move(plain), std::move(mixed)};
       };
       std::pair<LatticeResult, LatticeResult> costs_pair = both(after_english);
       // 直前に確定した文字が英語の語で終わっているとき: 入力の最初から終わりまでがまるごと一覧の語で
