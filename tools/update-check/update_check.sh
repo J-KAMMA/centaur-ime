@@ -1,15 +1,15 @@
 #!/bin/bash
-# 複合IME 新版のお知らせ（Linux 用）
+# CentaurIME 新版のお知らせ（Linux 用）
 # curl と notify-send を使う。notify-send がなければ何もしない。
 # 失敗したときは黙って終わる。外部に送るのは GitHub の releases API への GET だけ。
 
-UA="CompoundIME-update-check"
-API_URL="https://api.github.com/repos/J-KAMMA/compound-ime/releases?per_page=5"
-VERSION_FILE="/usr/lib/compound-ime/version.txt"
-CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/compound-ime"
+UA="CentaurIME-update-check"
+API_URL="https://api.github.com/repos/J-KAMMA/centaur-ime/releases?per_page=5"
+VERSION_FILE="/usr/lib/centaur-ime/version.txt"
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/centaur-ime"
 STATE_FILE="$CONF_DIR/update_check"
 SETTINGS_FILE="$CONF_DIR/settings"
-RELEASE_BASE="https://github.com/J-KAMMA/compound-ime/releases/tag/"
+RELEASE_BASE="https://github.com/J-KAMMA/centaur-ime/releases/tag/"
 
 # $1 が $2 より新しければ 1、そうでなければ 0 を出す（4つの数字）
 ver_gt() {
@@ -74,7 +74,7 @@ main() {
   [ "$notified" != "$latest" ] || return 0
 
   url="${RELEASE_BASE}${latest}"
-  msg="複合IMEの新しい版（${latest_ver}）があります。押すと配布ページを開きます。"
+  msg="CentaurIMEの新しい版（${latest_ver}）があります。押すと配布ページを開きます。"
 
   # 知らせた版を記録
   printf 'checked=%s\nnotified=%s\n' "$now" "$latest" > "$STATE_FILE" 2>/dev/null
@@ -82,16 +82,16 @@ main() {
   if notify-send --help 2>&1 | grep -q -- '--action'; then
     (
       if command -v timeout >/dev/null 2>&1; then
-        act=$(timeout 600 notify-send --wait --app-name="CompoundIME" --action="open=配布ページを開く" "複合IME" "$msg" 2>/dev/null)
+        act=$(timeout 600 notify-send --wait --app-name="CentaurIME" --action="open=配布ページを開く" "CentaurIME" "$msg" 2>/dev/null)
       else
-        act=$(notify-send --wait --app-name="CompoundIME" --action="open=配布ページを開く" "複合IME" "$msg" 2>/dev/null)
+        act=$(notify-send --wait --app-name="CentaurIME" --action="open=配布ページを開く" "CentaurIME" "$msg" 2>/dev/null)
       fi
       if [ "$act" = "open" ] && command -v xdg-open >/dev/null 2>&1; then
         xdg-open "$url" >/dev/null 2>&1
       fi
     ) >/dev/null 2>&1 &
   else
-    notify-send "複合IME" "$msg" >/dev/null 2>&1
+    notify-send "CentaurIME" "$msg" >/dev/null 2>&1
   fi
   return 0
 }

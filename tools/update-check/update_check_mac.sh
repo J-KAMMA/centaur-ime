@@ -1,15 +1,15 @@
 #!/bin/bash
-# 複合IME 新版のお知らせ（マック用）
+# CentaurIME 新版のお知らせ（マック用）
 # curl と osascript（display notification）を使う。
 # 失敗したときは黙って終わる。外部に送るのは GitHub の releases API への GET だけ。
 
-UA="CompoundIME-update-check"
-API_URL="https://api.github.com/repos/J-KAMMA/compound-ime/releases?per_page=5"
-PLIST="/Library/Input Methods/CompoundIME.app/Contents/Info.plist"
-DATA_DIR="$HOME/Library/Application Support/CompoundIME"
+UA="CentaurIME-update-check"
+API_URL="https://api.github.com/repos/J-KAMMA/centaur-ime/releases?per_page=5"
+PLIST="/Library/Input Methods/CentaurIME.app/Contents/Info.plist"
+DATA_DIR="$HOME/Library/Application Support/CentaurIME"
 STATE_FILE="$DATA_DIR/update_check"
 SETTINGS_FILE="$DATA_DIR/settings"
-RELEASE_BASE="https://github.com/J-KAMMA/compound-ime/releases/tag/"
+RELEASE_BASE="https://github.com/J-KAMMA/centaur-ime/releases/tag/"
 
 # $1 が $2 より新しければ 1、そうでなければ 0 を出す（4つの数字）
 ver_gt() {
@@ -79,11 +79,11 @@ main() {
 
   url="${RELEASE_BASE}${latest}"
   # 押して開くのは難しいので、文に URL を入れる
-  msg="複合IMEの新しい版（${latest_ver}）があります。配布ページ: ${url}"
+  msg="CentaurIMEの新しい版（${latest_ver}）があります。配布ページ: ${url}"
 
   if osascript \
       -e 'on run argv' \
-      -e 'display notification (item 1 of argv) with title "複合IME"' \
+      -e 'display notification (item 1 of argv) with title "CentaurIME"' \
       -e 'end run' -- "$msg" >/dev/null 2>&1; then
     printf 'checked=%s\nnotified=%s\n' "$now" "$latest" > "$STATE_FILE" 2>/dev/null
   fi

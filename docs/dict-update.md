@@ -55,7 +55,7 @@
 ### 2.2 配る物（配布ページ）
 
 - `dict-YYYYMMDD`（日付ごとの配布ページ。下書きで作り、こちらが公開する）: `manifest.txt`、`manifest.txt.sig`、`supplement.tsv`（追加の辞書）、`english-extra.tsv`（英語の一覧）、`proper-nouns.tsv`（次の版の本体に焼き込むための元）、`gate-report.md`。
-- `dict-latest`（固定の配布ページ）: `manifest.txt` と `manifest.txt.sig` だけ。本体が見に行くのはここ。`https://github.com/J-KAMMA/compound-ime/releases/download/dict-latest/manifest.txt`。
+- `dict-latest`（固定の配布ページ）: `manifest.txt` と `manifest.txt.sig` だけ。本体が見に行くのはここ。`https://github.com/J-KAMMA/centaur-ime/releases/download/dict-latest/manifest.txt`。
 - `dict-` で始まる配布ページは、新版のお知らせの台本（`tools/update-check`）が見る「4つの数字の版」の形ではないので、本体の新版のお知らせと混ざらない。どちらも「最新」の印は付けない。
 
 追加の辞書は `dictionary14.txt` と同じ作り方・同じ形（1行＝読み・左品詞・右品詞・費用・表記）。約24,000行、1.3MB。英語の一覧は約64,000行、1.6MB。どちらも読み込みに30ミリ秒ほど（手元で測った）。
@@ -69,7 +69,7 @@ compound-ime-dict-manifest	1
 version	20261101
 created	2026-11-01
 pos_table	<id.def の SHA-256>
-file	supplement	supplement.tsv	<大きさ>	<SHA-256>	https://github.com/J-KAMMA/compound-ime/releases/download/dict-20261101/supplement.tsv
+file	supplement	supplement.tsv	<大きさ>	<SHA-256>	https://github.com/J-KAMMA/centaur-ime/releases/download/dict-20261101/supplement.tsv
 file	english	english-extra.tsv	<大きさ>	<SHA-256>	https://…/english-extra.tsv
 ```
 
@@ -77,13 +77,13 @@ file	english	english-extra.tsv	<大きさ>	<SHA-256>	https://…/english-extra.t
 - 本体側の署名の確かめは標準ライブラリだけの自前の実装（`native/dict_update/crypto.cc`、TweetNaCl の組み立て）。python の `cryptography` と照らし合わせて確かめた（乱数で作った300組ほどと RFC 8032 の試験。作り変えた署名も拒む）。
 - **巻き戻しの防ぎ**: 版（年月日）は今の版より大きくなければ入れない。古い目録を差し込まれても無視する。
 - **品詞の表**: `pos_table` が本体の `id.def` の SHA-256 と違う辞書は受け付けない（品詞番号の意味が違うため）。
-- **取る先の制限**: URL は `https://` で、本体に焼いた `https://github.com/J-KAMMA/compound-ime/releases/download/` で始まるものだけ。ファイル名は英数字と `._-` だけ（`..` や `/` は不可）。大きさの上限（目録 64KB、追加の辞書 32MB、英語の一覧 8MB）。
+- **取る先の制限**: URL は `https://` で、本体に焼いた `https://github.com/J-KAMMA/centaur-ime/releases/download/` で始まるものだけ。ファイル名は英数字と `._-` だけ（`..` や `/` は不可）。大きさの上限（目録 64KB、追加の辞書 32MB、英語の一覧 8MB）。
 - 読み込みの決まり: 全部の行が決まりに合わなければ、全体を受け付けない（品詞番号が表の外、費用が範囲の外、制御文字、UTF-8 でない、など）。
 - **限界**: 公開した辞書を遠隔で取り下げる手段はない（取り下げは、前の辞書に新しい版の番号を付けて出し直す）。署名の鍵が漏れれば辞書を差し込める（鍵を替えるには本体の作り直しが要る）。更新を止められる（新しい辞書を見せない）攻撃は防げない。
 
 ### 2.4 置き場所と入れ替え・戻し
 
-置き場所（ウィンドウズ `%LOCALAPPDATA%\CompoundIME\dict\`、Linux・マック `~/.local/share/compound-ime/dict/`）:
+置き場所（ウィンドウズ `%LOCALAPPDATA%\CentaurIME\dict\`、Linux・マック `~/.local/share/centaur-ime/dict/`）:
 
 ```
 current/   今の辞書   previous/  1つ前の辞書   staging/  取っている途中（起動のたびに捨てる）   state.txt
@@ -100,10 +100,10 @@ current/   今の辞書   previous/  1つ前の辞書   staging/  取ってい�
 ### 2.5 いつ取りに行くか、止める設定
 
 - 起動して120秒後に最初の確かめ（起動を遅らせない）。以後6時間ごとに「間隔がたったか」を見る。**間隔は既定1週間**（設定で変えられるが24時間より短くはしない）。確かめた時刻は `state.txt` なので、起動のたびには通信しない。取れなかったときは6時間たつまで再び試さない。
-- **止める設定**: ウィンドウズはレジストリ `HKCU\Software\CompoundIME` の `DictUpdate`（DWORD）を `0`、Linux・マックは `~/.config/compound-ime/settings` に `DictUpdate=0` と1行。止めると**通信しない**（入っている辞書は使い続ける）。間隔は同じ場所の `DictUpdateIntervalHours`。レジストリ・設定ファイルの置き場所は、既存の `ZenzaiEnabled` などと同じ（`converter/engine_config.cc`）。
+- **止める設定**: ウィンドウズはレジストリ `HKCU\Software\CentaurIME` の `DictUpdate`（DWORD）を `0`、Linux・マックは `~/.config/centaur-ime/settings` に `DictUpdate=0` と1行。止めると**通信しない**（入っている辞書は使い続ける）。間隔は同じ場所の `DictUpdateIntervalHours`。レジストリ・設定ファイルの置き場所は、既存の `ZenzaiEnabled` などと同じ（`converter/engine_config.cc`）。
 - **設定の画面（チェックボックス）は作っていない**。既存の `ZenzaiEnabled` なども設定の画面にはなく、レジストリだけなので合わせた。
 - 公開鍵が `UNSET` の間（鍵を作るまで）は、通信しない。**既定の本体は何も変わらない**。
-- 送るもの: `https://github.com/…/releases/download/…` への GET と User-Agent（`CompoundIME-dict-update/1`）だけ。打った文字・設定・今の版などは送らない（GitHub には IP アドレスは届く）。
+- 送るもの: `https://github.com/…/releases/download/…` への GET と User-Agent（`CentaurIME-dict-update/1`）だけ。打った文字・設定・今の版などは送らない（GitHub には IP アドレスは届く）。
 
 ### 2.6 取得の部品（環境ごと）
 

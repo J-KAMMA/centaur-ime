@@ -92,7 +92,7 @@ jobs:
           cp -R $R/*.framework $E/ 2>/dev/null || true
           cp $W/myime/mozc/src/bazel-bin/session/session_handler_main $E/
           curl -fsSL -o $W/model.gguf \
-            https://github.com/J-KAMMA/compound-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
+            https://github.com/J-KAMMA/centaur-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
           echo "2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff  $W/model.gguf" | shasum -a 256 -c
           head -20 $W/repo/tests/conversion/inputs.txt > $W/small.txt
           bash $W/repo/tools/batch_convert.sh $E/session_handler_main $E $W/model.gguf $W/small.txt $W/small.tsv 1
@@ -210,7 +210,7 @@ jobs:
           bazelisk build --config oss_macos -c opt --nocheck_visibility --action_env=MOZC_VERSION=${{ inputs.version || '3.34.6239.0' }} --embed_label=${{ inputs.version || '3.34.6239.0' }} //mac:package_files > $W/bazel.log 2>&1 || { grep -v "install_name_tool: warning" $W/bazel.log | grep -B3 -A25 "ERROR\|error:\|Traceback" | head -120; exit 1; }
           rm -rf $W/pkg && mkdir $W/pkg && cd $W/pkg && unzip -q $S/bazel-bin/mac/package_files.zip
           find . -maxdepth 6 -name "*.app" | head -20
-          CONV=$(find . -path "*CompoundIME.app/Contents/Resources/CompoundIMEConverter.app" -maxdepth 8 | head -1)
+          CONV=$(find . -path "*CentaurIME.app/Contents/Resources/CentaurIMEConverter.app" -maxdepth 8 | head -1)
           echo "converter: $CONV"; test -n "$CONV"
           ER=$W/myime/src/swift-engine/.build/release
           cp $ER/libazookey-engine.dylib "$CONV/Contents/MacOS/"
@@ -229,28 +229,28 @@ jobs:
           codesign --verify --deep "$APP" && echo "署名（簡易）を確認"
           zip -qry $W/package_files_compound.zip installer
           cd $S
-          PYTHONPATH=$S python3 mac/build_package.py --input $W/package_files_compound.zip --output $W/CompoundIME.pkg --oss --codesign_identity - --keychain ""
-          ls -la $W/CompoundIME.pkg
-          pkgutil --payload-files $W/CompoundIME.pkg | grep -E "libazookey|ggml|llama|\.bundle$" | head -10
+          PYTHONPATH=$S python3 mac/build_package.py --input $W/package_files_compound.zip --output $W/CentaurIME.pkg --oss --codesign_identity - --keychain ""
+          ls -la $W/CentaurIME.pkg
+          pkgutil --payload-files $W/CentaurIME.pkg | grep -E "libazookey|ggml|llama|\.bundle$" | head -10
 
       - name: 試しに導入して起動を確かめる
         run: |
           set -eo pipefail
           W=$GITHUB_WORKSPACE
-          sudo installer -pkg $W/CompoundIME.pkg -target / | tail -3
-          ls -la "/Library/Input Methods/CompoundIME.app/Contents/Resources/"
-          ls -la "/Library/Application Support/CompoundIME/models/"
-          shasum -a 256 "/Library/Application Support/CompoundIME/models/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf"
-          C="/Library/Input Methods/CompoundIME.app/Contents/Resources/CompoundIMEConverter.app/Contents/MacOS/CompoundIMEConverter"
+          sudo installer -pkg $W/CentaurIME.pkg -target / | tail -3
+          ls -la "/Library/Input Methods/CentaurIME.app/Contents/Resources/"
+          ls -la "/Library/Application Support/CentaurIME/models/"
+          shasum -a 256 "/Library/Application Support/CentaurIME/models/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf"
+          C="/Library/Input Methods/CentaurIME.app/Contents/Resources/CentaurIMEConverter.app/Contents/MacOS/CentaurIMEConverter"
           ( "$C" > $W/converter.out 2>&1 & echo $! > $W/converter.pid ); sleep 20
           kill $(cat $W/converter.pid) 2>/dev/null || true
           cat $W/converter.out | tail -20
-          ls -la "$HOME/Library/Application Support/CompoundIME/" || true
-          find "$HOME/Library/Application Support/CompoundIME" "$HOME/Library/Logs" -name "*.log" -newer $W/CompoundIME.pkg 2>/dev/null | while read f; do echo "== $f"; grep -i -E "azookey|zenzai|dlopen|engine" "$f" | head -20; done
+          ls -la "$HOME/Library/Application Support/CentaurIME/" || true
+          find "$HOME/Library/Application Support/CentaurIME" "$HOME/Library/Logs" -name "*.log" -newer $W/CentaurIME.pkg 2>/dev/null | while read f; do echo "== $f"; grep -i -E "azookey|zenzai|dlopen|engine" "$f" | head -20; done
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: mac-package
-          path: CompoundIME.pkg
+          path: CentaurIME.pkg
           if-no-files-found: ignore

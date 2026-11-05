@@ -1,4 +1,4 @@
-"""利用者に見せる版の名前（コンパウンドIME 1.<通し番号>）を IME の中に出す。
+"""利用者に見せる版の名前（CentaurIME 1.<通し番号>）を IME の中に出す。
 
   python tools/apply_version_display.py <mozc/src>
 apply_compound_branding.py の最後から呼ばれる。
@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 src = Path(sys.argv[1])
-JA = "複合IME"
+JA = "CentaurIME 日本語"
 
 
 def edit(path, old, new, count=1):
