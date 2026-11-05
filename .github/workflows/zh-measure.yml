@@ -54,6 +54,10 @@ jobs:
               --shared /usr/share/rime-data --schema "$schema" --user-dir rime-user --out out \
               --test ${{ inputs.test || '5000' }} | tee -a out/summary.txt
           done
+      - name: 同音字の手がかりを集めて当てる
+        run: |
+          set -eo pipefail
+          python3 tools/zh_ime/cues.py --tatoeba cmn_sentences.tsv.bz2 --mistakes out/mistakes-luna_pinyin_simp.tsv             --out out --test ${{ inputs.test || '5000' }} | tee -a out/summary.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
