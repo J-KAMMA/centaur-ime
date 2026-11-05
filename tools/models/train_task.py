@@ -288,6 +288,7 @@ def main():
     ap.add_argument("--wiki-text", help="ウィキの文を 1 行 1 文にしたもの（中国語の足しの材料）")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--heads", type=int, default=4)
+    ap.add_argument("--amp", action="store_true", help="GPU で半精度を使う（速くなる見込み。採る前に数字を比べる）")
     ap.add_argument("--test-limit", type=int, default=10 ** 9, help="試験の文の数の上限（動くかを確かめるとき用）")
     ap.add_argument("--extra", type=int, default=300000, help="足す材料の文の数（CC-100・作った組）")
     ap.add_argument("--minutes", type=float, default=200)
@@ -306,6 +307,8 @@ def main():
     random.Random(1).shuffle(exs)
     model = TinyGPT(len(vocab), d=a.d, layers=a.layers, heads=a.heads, max_len=256).to(a.device)
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.01)
+    use_amp = a.amp and a.device.startswith("cuda")
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     log = [f"{a.task}（{a.device}）: 学習の組 {len(exs)}（長すぎるものを除く）、字の種類 {len(vocab)}、模型 {model.params() / 1e6:.1f}M、"
            f"材料づくり {time.time() - t0:.0f} 秒"]
     print(log[-1], flush=True)
@@ -323,11 +326,14 @@ def main():
             continue
         for g in opt.param_groups:
             g["lr"] = lr_at(step, total, a.lr)
-        loss = batch_loss(model, batch)
+        with torch.autocast("cuda", dtype=torch.float16, enabled=use_amp):
+            loss = batch_loss(model, batch)
         opt.zero_grad()
-        loss.backward()
+        scaler.scale(loss).backward()
+        scaler.unscale_(opt)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        opt.step()
+        scaler.step(opt)
+        scaler.update()
         step += 1
         if step == 50:
             total = int(50 * a.minutes * 60 / max(time.time() - t_start, 1e-6))
