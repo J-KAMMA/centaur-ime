@@ -39,6 +39,7 @@ def decl(name, sig):
     return f"    public static native {ret} {name}({', '.join(args)});"
 
 
+referenced = set()
 for cpp in sorted(JNI.glob("com_android_inputmethod_*.cpp")):
     t = cpp.read_text(encoding="utf-8", errors="replace")
     cls = re.search(r'kClassPathName = "([^"]+)"', t).group(1)
@@ -52,3 +53,16 @@ for cpp in sorted(JNI.glob("com_android_inputmethod_*.cpp")):
     (d / f"{name}.java").write_text(f"package {pkg.replace('/', '.')};\n\npublic final class {name} {{\n{body}\n}}\n",
                                     encoding="utf-8")
     print(cls, len(methods))
+    for m, s in methods:
+        for ref in re.findall(r"L([\w/$]+);", s):
+            if not ref.startswith("java/"):
+                referenced.add(ref)
+
+# 宣言の型に出てくるだけのクラス（例 WordInputEventForPersonalization）は、空の殻を作る（呼ばないので中身は要らない）
+for ref in sorted(referenced):
+    pkg, _, name = ref.rpartition("/")
+    f = OUT / pkg / f"{name}.java"
+    if not f.exists():
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(f"package {pkg.replace('/', '.')};\n\npublic final class {name} {{\n}}\n", encoding="utf-8")
+        print("empty", ref)
