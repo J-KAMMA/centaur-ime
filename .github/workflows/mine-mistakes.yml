@@ -150,8 +150,11 @@ jobs:
         run: |
           set -eo pipefail
           mkdir -p out
-          cd mozc/src
-          python3 $GITHUB_WORKSPACE/repo/tools/mozc_plain_convert.py bazel-bin/converter/converter_main             $GITHUB_WORKSPACE/sentences/body.tsv $GITHUB_WORKSPACE/out/conv-plain.tsv
+          # converter_main は辞書（data_manager/oss/mozc.data）を今の場所から読むので、組み立ての付属の置き場で動かす
+          D=$(dirname $(dirname $(dirname $(find -L mozc/src/bazel-bin/converter/converter_main.runfiles -path '*data_manager/oss/mozc.data' | head -1))))
+          E=$GITHUB_WORKSPACE/mozc/src/bazel-bin/converter/converter_main
+          cd $D
+          python3 $GITHUB_WORKSPACE/repo/tools/mozc_plain_convert.py $E             $GITHUB_WORKSPACE/sentences/body.tsv $GITHUB_WORKSPACE/out/conv-plain.tsv
       - uses: actions/upload-artifact@v4
         with:
           name: mine-conv-plain-00
