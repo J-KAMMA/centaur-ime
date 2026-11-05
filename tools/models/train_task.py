@@ -343,13 +343,15 @@ def main():
             print(f"歩 {step} 誤差 {loss.item():.3f} 経過 {(time.time() - t_start) / 60:.0f} 分", flush=True)
     log.append(f"学習 {step} 歩、最後の誤差 {loss.item():.3f}、{(time.time() - t_start) / 60:.0f} 分")
     model.eval()
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    # 測る前に模型を保存する（測る所で落ちても学習の分を失わない）
+    torch.save({"config": model.config, "vocab": vocab.state(), "state": model.state_dict()}, out / f"{a.task}.pt")
+    (out / f"{a.task}-result.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
     t1 = time.time()
     log.append(evaluate(model, vocab) + f"（測るのに {time.time() - t1:.0f} 秒）")
     print("\n".join(log[-2:]), flush=True)
-    out = Path(a.out)
-    out.mkdir(parents=True, exist_ok=True)
     (out / f"{a.task}-result.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
-    torch.save({"config": model.config, "vocab": vocab.state(), "state": model.state_dict()}, out / f"{a.task}.pt")
 
 
 if __name__ == "__main__":
