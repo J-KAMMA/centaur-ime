@@ -1,0 +1,55 @@
+name: Models smoke
+
+# 言語ごとの小さな模型の学習の台本（tools/models/train_task.py）が、全部の課題で最後まで動くかを確かめる。
+# 小さな模型・2 分の学習・少しの試験だけ（数字は当てにしない）。本番の学習は Colab の GPU（notebooks/train_all.ipynb）。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/lang-measure]
+    paths: ['tools/models/**', 'notebooks/**', '.github/workflows/models-smoke.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [zh, vi, hi, ko, ar]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 道具と材料
+        run: |
+          set -eo pipefail
+          python3 -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install -q pypinyin==0.53.0 "opencc>=1.1,<2" pyarrow==21.0.0
+          case ${{ matrix.task }} in
+            zh) python3 tools/fetch_source.py tatoeba-cmn data/zh
+                python3 tools/fetch_source.py cc100-zh-Hans data/zh --lines 3000 ;;
+            vi) python3 tools/fetch_source.py tatoeba-vie data/vi
+                python3 tools/fetch_source.py cc100-vi data/vi --lines 3000 ;;
+            hi) python3 tools/fetch_source.py dakshina data/hi --member 'dakshina_dataset_v1.0/hi/*' ;;
+            ko) python3 tools/fetch_source.py tatoeba-kor data/ko
+                python3 tools/fetch_source.py cc100-ko data/ko --lines 3000 ;;
+            ar) python3 tools/fetch_source.py arabizi-darija data/darija ;;
+          esac
+      - name: 2 分だけ学習して少し測る
+        run: |
+          set -eo pipefail
+          common="--d 64 --layers 2 --heads 4 --batch 16 --minutes 2 --extra 3000 --test-limit 30 --device cpu --out out"
+          case ${{ matrix.task }} in
+            zh) python3 tools/models/train_task.py --task zh --tatoeba data/zh/cmn_sentences.tsv.bz2 --cc100 data/zh/cc100-zh-Hans.3000.txt $common ;;
+            vi) python3 tools/models/train_task.py --task vi --tatoeba data/vi/vie_sentences.tsv.bz2 --cc100 data/vi/cc100-vi.3000.txt $common ;;
+            hi) python3 tools/models/train_task.py --task hi --dakshina data/hi/dakshina_dataset_v1.0/hi $common ;;
+            ko) python3 tools/models/train_task.py --task ko --tatoeba data/ko/kor_sentences.tsv.bz2 --cc100 data/ko/cc100-ko.3000.txt $common ;;
+            ar) python3 tools/models/train_task.py --task ar --darija data/darija $common ;;
+          esac
+          cat out/*-result.txt
+          ls -la out
