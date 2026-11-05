@@ -39,6 +39,9 @@ jobs:
           python3 tools/en_ime/parity.py --tatoeba eng_sentences.tsv.bz2 --cli ./centaur_core_cli --out out/parity.txt
           g++ -std=c++17 -O2 -Wall -Wextra -Werror native/centaur_core/core.cc native/centaur_core/hangul.cc native/centaur_core/hangul_cli.cc -o hangul_cli
           python3 tools/ko_ime/hangul_parity.py ./hangul_cli | tee out/hangul-parity.txt
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror native/centaur_core/core.cc native/centaur_core/telex.cc native/centaur_core/telex_cli.cc -o telex_cli
+          curl -fsSL --retry 3 -o vie_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/vie/vie_sentences.tsv.bz2
+          python3 tools/vi_ime/telex_parity.py ./telex_cli vie_sentences.tsv.bz2 | tee out/telex-parity.txt
           (cd native/centaur_core && g++ -std=c++17 -O2 -Wall -Wextra -Werror core.cc word_tracker.cc word_tracker_test.cc -o /tmp/word_tracker_test && /tmp/word_tracker_test) | tee out/word-tracker-test.txt
       - uses: actions/setup-java@v4
         with:
