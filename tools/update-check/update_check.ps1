@@ -1,4 +1,4 @@
-﻿# CentaurIME 新版のお知らせ（ウィンドウズ用）
+﻿# Centaur IME 新版のお知らせ（ウィンドウズ用）
 # PowerShell 5.1 で動く。失敗したときは黙って終わる。
 # 外部に送るのは GitHub の releases API への GET だけ。
 
@@ -101,7 +101,7 @@ function Main {
     if ($state.notified -eq $bestTag) { return }
 
     $url = 'https://github.com/J-KAMMA/centaur-ime/releases/tag/' + $bestTag
-    $msg = 'CentaurIMEの新しい版（' + $bestVer.ToString() + '）があります。押すと配布ページを開きます。'
+    $msg = 'Centaur IME の新しい版（' + $bestVer.ToString() + '）があります。押すと配布ページを開きます。'
     if (Show-Toast $msg $url) {
         Write-State $now $bestTag
     }

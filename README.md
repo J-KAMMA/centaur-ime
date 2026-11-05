@@ -1,7 +1,7 @@
-# CentaurIME（CentaurIME）
+# Centaur IME（CentaurIME）
 
 
-2026年10月に、見える名前を「CentaurIME」から「CentaurIME」に替えました。入れる場所（CentaurIME）や設定・学習の引き継ぎは前と同じで、前の版から上書きで入れられます。
+2026年11月に、名前を「複合IME」から「Centaur IME」に替えました（日本語、英語、中国語、韓国語へ広げるため）。前の版から上書きで入れられ、設定と学習は最初に起動したときに新しい置き場（CentaurIME）へ写します。前の置き場は消しません。
 **英語まじりの日本語を、そのまま打てる日本語入力。**
 ローマ字で打った英単語は英語のまま残り、日本語の部分だけが漢字かなになります。変換はすべてパソコンの中で動き、打った文字を外へ送りません。
 
@@ -83,13 +83,13 @@ denwabangouhazerokyuuzero        →  電話番号は090
 ### ウィンドウズ
 1. 配布ページから `.msi` を取って実行します。初めてのときは「発行元不明」の警告が出ます。
 2. インストール中に、変換用の人工知能（約74MB）を公式の配布元から取得します。
-3. **Windows キー＋スペース**で「CentaurIME」を選びます。
+3. **Windows キー＋スペース**で「Centaur IME 日本語」を選びます。
 
 公式の Mozc と並べて入れられるよう、名前や置き場所をすべて分けています。
 
 ### マック（試用）
 1. `.pkg` を**右クリック →「開く」**で開きます（署名がないため、ダブルクリックでは開けません）。
-2. 「システム設定」→「キーボード」→「入力ソース」の「編集」→「＋」→「日本語」から「CentaurIME」を追加します。
+2. 「システム設定」→「キーボード」→「入力ソース」の「編集」→「＋」→「日本語」から「Centaur IME」を追加します。
 3. 外すときは「アプリケーション」→「CentaurIME」→「UninstallCentaurIME」。
 
 ### Linux（ibus、試用）
@@ -97,7 +97,7 @@ denwabangouhazerokyuuzero        →  電話番号は090
 tar xzf centaur-ime-1.xxx-linux-x64.tar.gz
 cd centaur-ime-*/ && sudo ./install.sh && ibus restart
 ```
-入力方式の設定で「CentaurIME」を追加します。外すときは `sudo ./uninstall.sh`。
+入力方式の設定で「Centaur IME 日本語」を追加します。外すときは `sudo ./uninstall.sh`。
 
 ---
 

@@ -83,7 +83,7 @@ file	english	english-extra.tsv	<大きさ>	<SHA-256>	https://…/english-extra.t
 
 ### 2.4 置き場所と入れ替え・戻し
 
-置き場所（ウィンドウズ `%LOCALAPPDATA%\CentaurIME\dict\`、Linux・マック `~/.local/share/centaur-ime/dict/`）:
+置き場所（ウィンドウズ `%LOCALAPPDATA%\Centaur IME\dict\`、Linux・マック `~/.local/share/centaur-ime/dict/`）:
 
 ```
 current/   今の辞書   previous/  1つ前の辞書   staging/  取っている途中（起動のたびに捨てる）   state.txt

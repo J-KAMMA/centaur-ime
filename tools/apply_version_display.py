@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 src = Path(sys.argv[1])
-JA = "CentaurIME 日本語"
+JA = "Centaur IME 日本語"
 
 
 def edit(path, old, new, count=1):

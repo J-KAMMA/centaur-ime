@@ -1,4 +1,4 @@
-"""Publishes the build as CentaurIME (CentaurIME), side by side with official Mozc.
+"""Publishes the build as Centaur IME (internal name CentaurIME), side by side with official Mozc.
 
   python tools/apply_compound_branding.py <mozc/src>
 Run by apply_jaen_integration.py as its last step.
@@ -14,7 +14,8 @@ import sys
 from pathlib import Path
 
 src = Path(sys.argv[1])
-ASCII, JA = "CentaurIME", "CentaurIME 日本語"
+# ASCII は中の名前（フォルダ・レジストリ・窓の名前）、DISPLAY と JA は人に見せる名前
+ASCII, DISPLAY, JA = "CentaurIME", "Centaur IME", "Centaur IME 日本語"
 COMPANY = "CentaurIME Project"
 URL = "https://github.com/J-KAMMA/centaur-ime"
 
@@ -89,7 +90,7 @@ for old, new in [
     ('inline constexpr wchar_t kIMEUIWndClassName[] = L"MozcUIWindow";', 'inline constexpr wchar_t kIMEUIWndClassName[] = L"CentaurUIWnd";'),
     ('inline constexpr char kIPCPrefix[] = "\\\\\\\\.\\\\pipe\\\\mozc.";', f'inline constexpr char kIPCPrefix[] = "\\\\\\\\.\\\\pipe\\\\{ASCII.lower()}.";'),
     ('inline constexpr wchar_t kCandidateUIDescription[] = L"MozcCandidateUI";', f'inline constexpr wchar_t kCandidateUIDescription[] = L"{ASCII}CandidateUI";'),
-    ('inline constexpr wchar_t kConfigurationDisplayname[] = L"Mozc Configuration";', f'inline constexpr wchar_t kConfigurationDisplayname[] = L"{ASCII} Configuration";'),
+    ('inline constexpr wchar_t kConfigurationDisplayname[] = L"Mozc Configuration";', f'inline constexpr wchar_t kConfigurationDisplayname[] = L"{DISPLAY} Configuration";'),
     ('inline constexpr wchar_t kMozcRegKey[] = L"Software\\\\Mozc Project\\\\Mozc";', f'inline constexpr wchar_t kMozcRegKey[] = L"Software\\\\{ASCII}";'),
     ('    L"Software\\\\Policies\\\\Mozc Project\\\\Mozc\\\\Preferences";', f'    L"Software\\\\Policies\\\\{ASCII}\\\\Preferences";'),
 ]:
@@ -123,18 +124,18 @@ for path, old in [("gui/tool/mozc_tool.rc", "Mozc Tool"), ("renderer/win32/mozc_
                   ("win32/cache_service/mozc_cache_service.rc", "Mozc Cache Service"),
                   ("win32/custom_action/custom_action.rc", "Mozc Installer Helper"),
                   ("win32/tip/tip_resource.rc", "Mozc TIP Module")]:
-    edit(path, f'#define MOZC_RES_FILE_DESCRIPTION "{old}"', f'#define MOZC_RES_FILE_DESCRIPTION "{old.replace("Mozc", ASCII)}"')
+    edit(path, f'#define MOZC_RES_FILE_DESCRIPTION "{old}"', f'#define MOZC_RES_FILE_DESCRIPTION "{old.replace("Mozc", DISPLAY)}"')
 
 # Input switcher names and other TIP strings (ja then en blocks).
 T = "win32/tip/tip_resource.rc"
 edit(T, 'IDS_IME_DISPLAYNAME     "Mozc"', f'IDS_IME_DISPLAYNAME     "{JA}"', 2)
 edit(T, 'IDS_TEXTSERVICE_DISPLAYNAME_SYNONYM  "Mozc"', f'IDS_TEXTSERVICE_DISPLAYNAME_SYNONYM  "{JA}"', 2)
 edit(T, 'IDS_ABOUT               "Mozc について"', f'IDS_ABOUT               "{JA} について"')
-edit(T, 'IDS_ABOUT               "About Mozc"', f'IDS_ABOUT               "About {ASCII}"')
+edit(T, 'IDS_ABOUT               "About Mozc"', f'IDS_ABOUT               "About {DISPLAY}"')
 for ja in ("サジェストウィンドウ", "サジェスト候補ウィンドウ", "候補ウィンドウ", "インジケータ ウィンドウ"):
     edit(T, f'"Mozc {ja}"', f'"{JA} {ja}"')
 for en in ("Suggestion Window", "Suggestion Candidate Window", "Candidate Window"):
-    edit(T, f'"Mozc {en}"', f'"{ASCII} {en}"')
+    edit(T, f'"Mozc {en}"', f'"{DISPLAY} {en}"')
 t = (src / T).read_text(encoding="utf-8")
 t = re.sub(r'"Mozc (Indicator Window)"', rf'"{ASCII} \1"', t)
 (src / T).write_text(t, encoding="utf-8", newline="")
@@ -145,15 +146,15 @@ edit("win32/tip/tip_text_service.cc", '"https://github.com/google/mozc"', f'"{UR
 # Cache service names shown in services.msc.
 S = "win32/cache_service/mozc_cache_service.rc"
 s = (src / S).read_text(encoding="utf-8")
-s = s.replace('"Mozc Cache Service"', f'"{ASCII} Cache Service"').replace("Mozc の", f"{JA} の").replace("of Mozc", f"of {ASCII}")
+s = s.replace('"Mozc Cache Service"', f'"{DISPLAY} Cache Service"').replace("Mozc の", f"{JA} の").replace("of Mozc", f"of {DISPLAY}")
 (src / S).write_text(s, encoding="utf-8", newline="")
 
 # Server message boxes, installer helper texts.
 edit("server/mozc_server_main.cc", 'L"Mozc - Zenzai Model"', f'L"{JA} - Zenzai Model"')
 edit("server/mozc_server_main.cc", 'L"Mozc - Error"', f'L"{JA} - エラー"')
-edit("win32/custom_action/custom_action.cc", "later from the Mozc settings.", f"later from the {ASCII} settings.")
+edit("win32/custom_action/custom_action.cc", "later from the Mozc settings.", f"later from the {DISPLAY} settings.")
 edit("win32/custom_action/custom_action.rc", '"Mozc インストーラー (バージョン %1!s!)"', f'"{JA} インストーラー (バージョン %1!s!)"')
-edit("win32/custom_action/custom_action.rc", '"Mozc Installer (Ver. %1!s!)"', f'"{ASCII} Installer (Ver. %1!s!)"')
+edit("win32/custom_action/custom_action.rc", '"Mozc Installer (Ver. %1!s!)"', f'"{DISPLAY} Installer (Ver. %1!s!)"')
 
 # Installer: name, maker, folder, cabinet, service, run value, messages.
 W = "win32/installer/installer_oss_64bit.wxs"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# CentaurIME 新版のお知らせ（マック用）
+# Centaur IME 新版のお知らせ（マック用）
 # curl と osascript（display notification）を使う。
 # 失敗したときは黙って終わる。外部に送るのは GitHub の releases API への GET だけ。
 
@@ -79,11 +79,11 @@ main() {
 
   url="${RELEASE_BASE}${latest}"
   # 押して開くのは難しいので、文に URL を入れる
-  msg="CentaurIMEの新しい版（${latest_ver}）があります。配布ページ: ${url}"
+  msg="Centaur IME の新しい版（${latest_ver}）があります。配布ページ: ${url}"
 
   if osascript \
       -e 'on run argv' \
-      -e 'display notification (item 1 of argv) with title "CentaurIME"' \
+      -e 'display notification (item 1 of argv) with title "Centaur IME"' \
       -e 'end run' -- "$msg" >/dev/null 2>&1; then
     printf 'checked=%s\nnotified=%s\n' "$now" "$latest" > "$STATE_FILE" 2>/dev/null
   fi
