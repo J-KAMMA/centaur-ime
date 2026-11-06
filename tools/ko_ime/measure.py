@@ -245,6 +245,37 @@ def main():
     wrong = sorted({f"  誤り {w} → {compose(w)}" for w in en_words if looks_korean(w)})[: args.examples]
     out += miss + wrong
 
+    # ブランド名（tools/data/brand-casing.tsv、日本語版・英語版と同じ表）: 韓国語の入力のまま英字のキーで打った
+    # ブランド名（iphone → ㅑㅔㅗㅐㅜㄷ）を見分け、英語の正式な書き方（iPhone）を候補に出す。組み立てると
+    # よく使う韓国語の語になるもの（打ったキーが韓国語として読める）は出さない。
+    brand_path = Path(__file__).resolve().parents[1] / "data" / "brand-casing.tsv"
+    brands = {}
+    if brand_path.exists():
+        for line in brand_path.read_text(encoding="utf-8").splitlines():
+            p = line.split("\t")
+            if len(p) == 2 and not line.startswith("#") and p[1] != "-" and re.fullmatch(r"[a-z]{3,}", p[0]):
+                brands[p[0]] = p[1]
+
+    def brand_of(keys):
+        """韓国語の入力のまま打ったキーがブランド名なら正式な書き方、違えば空。"""
+        low = keys.lower()
+        if low not in brands:
+            return ""
+        ko = compose(keys)
+        if all(map(is_syllable, ko)) and ko_vocab[ko] >= 2:
+            return ""  # よく使う韓国語の語になる（打ちたかったのは韓国語かもしれない）
+        return brands[low]
+
+    if brands:
+        found = [b for b in brands if brand_of(b)]
+        clash = sorted(b for b in brands if not brand_of(b))
+        # 韓国語の語を打ったのに、そのキーがブランド名と同じで誤って英語を出す数
+        ko_false = sum(bool(brand_of(to_keys(w))) for w in ko_words)
+        out.append(f"ブランド名（韓国語の入力のまま打った）: {len(brands)} 語のうち見分けた {len(found) / len(brands):.1%}、"
+                   f"韓国語の語と重なって出さない {len(clash)}、韓国語の語 {len(ko_words)} のうち誤って英語を出した "
+                   f"{ko_false / max(len(ko_words), 1):.2%}")
+        out += [f"  重なり {b}（{compose(b)}）" for b in clash[: args.examples]]
+
     Path(args.out).mkdir(parents=True, exist_ok=True)
     (Path(args.out) / "ko-measure.txt").write_text("\n".join(out) + "\n", encoding="utf-8")
     print("\n".join(l for l in out if not l.startswith("  ")))
