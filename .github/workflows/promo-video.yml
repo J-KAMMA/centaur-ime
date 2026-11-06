@@ -1,0 +1,35 @@
+name: promo-video
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/promo-video]
+    paths: [tools/promo/**, .github/workflows/promo-video.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  video:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: 道具
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q fonts-noto-cjk ffmpeg
+          pip install pillow==11.3.0
+      - name: 動画を作る
+        run: |
+          R=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+          B=/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc
+          python tools/promo/make_video.py --font-r $R --font-b $B --out centaur-ime-intro.mp4
+          python tools/promo/make_video.py --font-r $R --font-b $B --stills 1.5,10.5,18.0,24.0,28.0 --out stills
+          ls -la centaur-ime-intro.mp4 stills
+      - uses: actions/upload-artifact@v4
+        with:
+          name: promo-video
+          path: |
+            centaur-ime-intro.mp4
+            stills
