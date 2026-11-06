@@ -10,6 +10,9 @@ task:
   hi  ヒンディー語: ローマ字の文 → デーヴァナーガリーの文（自由に書かせる）。試験は Dakshina の test（hi_measure.py と同じ）。
       学習は Dakshina の dev の文の組と、ウィキの文に語の組の表から打ち方を付けて作った組（test は使わない）。
   ar  アラビア語（モロッコ方言）: Arabizi → アラビア文字（自由に書かせる）。試験は ar_measure.py と同じ 1 割。
+  en  英語: 字の単位の言語の模型（前の文脈に続く字を当てる）。表の仕組み（tools/en_ime/en_model.py）の候補
+      （直しの上位 10、補完の上位 8）を、表の点数＋重み×模型の点数で並べ替える。重み 0 が今の表の仕組み。
+      試験は compare.py と同じ確かめの文（Tatoeba、文の番号で 1 割のうち後半）。正しい綴りの別の語（form/from など）の直しも測る。
   zh  中国語（簡体字）: 声調なしの拼音（音節を空白で区切ったもの）→ 漢字。答えは字ごとに、その音節の読みを持つ字の中から
       選ばせる。試験は zh_ime/measure.py と同じ Tatoeba の確かめの枠（0.8 以上、5,000 文）。比べる相手: Rime の
       luna_pinyin_simp で まとまりが合った 53.3%、字の誤り 12.94%。音節の区切りは元の文から作った物を渡す
@@ -31,7 +34,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lang_measure"))
 from tiny_gpt import (BOS, EOS, SEP, TinyGPT, Vocab, batch_loss, generate, lr_at, make_example,  # noqa: E402
-                      next_logp, score_continuations)
+                      next_logp, score_batch, score_continuations)
 
 
 # ---------------------------------------------------------------- 材料
@@ -274,7 +277,117 @@ def task_zh(a):
     return pairs, evaluate
 
 
-TASKS = {"vi": task_vi, "ko": task_ko, "hi": task_hi, "ar": task_ar, "zh": task_zh}
+# 正しい綴りの別の語（打ち間違いでできやすい組）
+CONFUSABLE = [("from", "form"), ("their", "there"), ("then", "than"), ("lose", "loose"), ("quite", "quiet"),
+              ("were", "where"), ("your", "you're"), ("its", "it's"), ("affect", "effect"), ("advice", "advise"),
+              ("accept", "except"), ("though", "through"), ("whether", "weather"), ("dose", "does"), ("now", "know")]
+
+
+def task_en(a):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "en_ime"))
+    import en_model as E
+    import measure as M
+    train, test = [], []
+    for sid, text in M.read(a.tatoeba):
+        (test if M.unit(20261105, sid) < 0.1 else train).append(text)
+    rng = random.Random(20261105)
+    rng.shuffle(test)
+    verify = test[3000:3000 + min(3000, a.test_limit)]
+    model_ngram = E.Model(train)
+    model_ngram.word_penalty, model_ngram.oov_char, model_ngram.typo_weight = 3.0, 2.0, 8.0
+    lm_text = [" ".join(E.words_of(s)) for s in train]
+    for s in cc100_lines(a.cc100, a.extra):
+        lm_text.append(" ".join(E.words_of(s)))
+    pairs = [("", s) for s in lm_text if 3 <= len(s) <= 200]
+
+    def evaluate(model, vocab):
+        def lm(prefix_words, cands):
+            ctx = " ".join(w for w in prefix_words[-8:] if w != "<s>")
+            pre = [BOS, SEP] + vocab.encode(ctx + (" " if ctx else ""))
+            return score_batch(model, pre, [vocab.encode(c + " ") for c in cands])
+        betas = (0.0, 0.5, 1.0, 2.0)
+        fixed = {b: 0 for b in betas}
+        false_fix = {b: 0 for b in betas}
+        typed = {b: 0 for b in betas}
+        n_typo = n_clean = keys = 0
+        rng2 = random.Random(20261106)
+        for s in verify:
+            ws = E.words_of(s)
+            hist = ["<s>"]
+            for w in ws:
+                prev = hist[-1]
+                if len(w) >= 3 and rng2.random() < 0.3:
+                    wrong = M.typo(w, rng2)
+                    if wrong != w and wrong not in model_ngram.uni:
+                        cands = model_ngram.corrections(wrong, prev, 10)
+                        if cands:
+                            base = [model_ngram.logp(prev, c) - model_ngram.typo_weight * E.typo_cost(wrong, c) for c in cands]
+                            neural = lm(hist, cands)
+                            n_typo += 1
+                            for b in betas:
+                                best = max(range(len(cands)), key=lambda i: (base[i] + b * neural[i], -i))
+                                fixed[b] += cands[best] == w
+                elif n_clean < 4000:
+                    cands = model_ngram.corrections(w, prev, 10)
+                    if cands:
+                        base = [model_ngram.logp(prev, c) - model_ngram.typo_weight * E.typo_cost(w, c) for c in cands]
+                        neural = lm(hist, cands)
+                        n_clean += 1
+                        for b in betas:
+                            best = max(range(len(cands)), key=lambda i: (base[i] + b * neural[i], -i))
+                            false_fix[b] += cands[best] != w
+                hist.append(w)
+        # 補完（最初の 600 文）: 一番の候補が正しくなった時点で Tab
+        for s in verify[:600]:
+            hist = ["<s>"]
+            for w in E.words_of(s):
+                keys += len(w)
+                cost = {b: len(w) for b in betas}
+                for k in range(1, len(w)):
+                    lst = model_ngram.prefix.get(w[:k])
+                    if not lst:
+                        break
+                    base = [model_ngram.logp(hist[-1], c) for c in lst]
+                    neural = lm(hist, lst)
+                    for b in betas:
+                        if cost[b] == len(w):
+                            best = max(range(len(lst)), key=lambda i: (base[i] + b * neural[i], -i))
+                            if lst[best] == w:
+                                cost[b] = min(k + 1, len(w))
+                    if all(cost[b] < len(w) for b in betas):
+                        break
+                for b in betas:
+                    typed[b] += cost[b]
+                hist.append(w)
+        # 正しい綴りの別の語: 文の中の片方を、もう片方に替えた文で、元に戻せるか
+        conf = {b: 0 for b in betas}
+        n_conf = 0
+        pair_of = {}
+        for x, y in CONFUSABLE:
+            pair_of[x] = y
+            pair_of[y] = x
+        for s in verify:
+            ws = E.words_of(s)
+            for i, w in enumerate(ws):
+                if w in pair_of and n_conf < 1500:
+                    wrong = pair_of[w]
+                    hist = ["<s>"] + ws[:i]
+                    cands = [wrong, w]
+                    base = [model_ngram.logp(hist[-1], c) for c in cands]
+                    neural = lm(hist, cands)
+                    n_conf += 1
+                    for b in betas:
+                        best = max(range(2), key=lambda k: (base[k] + b * neural[k], -k))
+                        conf[b] += cands[best] == w
+        lines = [f"確かめの文 {len(verify)}、打ち間違い {n_typo}、正しい語 {n_clean}、補完の打数 {keys}、取り違えやすい語 {n_conf}"]
+        for b in betas:
+            lines.append(f"  重み {b}: 直し {fixed[b] / max(n_typo, 1):.1%}、正しい語を替えた {false_fix[b] / max(n_clean, 1):.2%}、"
+                         f"補完 {1 - typed[b] / max(keys, 1):.1%} 減、取り違えやすい語 {conf[b] / max(n_conf, 1):.1%}")
+        return "\n".join(lines)
+    return pairs, evaluate
+
+
+TASKS = {"en": task_en, "vi": task_vi, "ko": task_ko, "hi": task_hi, "ar": task_ar, "zh": task_zh}
 
 
 # ---------------------------------------------------------------- 学習

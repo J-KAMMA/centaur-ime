@@ -13,4 +13,6 @@ python $F tatoeba-kor data/ko
 python $F wiki-ko data/ko
 python $F cc100-ko data/ko --lines 300000
 python $F arabizi-darija data/darija
+python $F tatoeba-eng data/en
+python $F cc100-en data/en --lines 600000
 python repo/tools/models/zh_wiki_lines.py data/zh data/zh/wiki.txt 400000

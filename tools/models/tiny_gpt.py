@@ -143,6 +143,29 @@ def generate(model, prefix, max_new=128):
 
 
 @torch.no_grad()
+def score_batch(model, prefix, conts):
+    """score_continuations と同じ値を、候補をまとめて 1 回で計算する（並べ替えを速くする）。"""
+    conts = [c for c in conts]
+    if not conts:
+        return []
+    dev = next(model.parameters()).device
+    keep = model.max_len - max(len(c) for c in conts) - 1
+    pre = prefix[-keep:] if keep > 0 and len(prefix) > keep else prefix
+    n = len(pre) + max(len(c) for c in conts)
+    x = torch.full((len(conts), n), PAD, dtype=torch.long, device=dev)
+    for i, c in enumerate(conts):
+        x[i, : len(pre) + len(c)] = torch.tensor(pre + c, device=dev)
+    logp = F.log_softmax(model(x[:, :-1]), -1)
+    out = []
+    for i, c in enumerate(conts):
+        s = 0.0
+        for k, tok in enumerate(c):
+            s += logp[i, len(pre) - 1 + k, tok].item()
+        out.append(s)
+    return out
+
+
+@torch.no_grad()
 def next_logp(model, prefix):
     """prefix の次の字の対数の確からしさ（字の番号ごと）。"""
     ids = torch.tensor([prefix], device=next(model.parameters()).device)

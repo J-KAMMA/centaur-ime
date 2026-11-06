@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [zh, vi, hi, ko, ar]
+        task: [zh, vi, hi, ko, ar, en]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -39,6 +39,8 @@ jobs:
             ko) python3 tools/fetch_source.py tatoeba-kor data/ko
                 python3 tools/fetch_source.py cc100-ko data/ko --lines 3000 ;;
             ar) python3 tools/fetch_source.py arabizi-darija data/darija ;;
+            en) python3 tools/fetch_source.py tatoeba-eng data/en
+                python3 tools/fetch_source.py cc100-en data/en --lines 3000 ;;
           esac
       - name: 2 分だけ学習して少し測る
         run: |
@@ -50,6 +52,7 @@ jobs:
             hi) python3 tools/models/train_task.py --task hi --dakshina data/hi/dakshina_dataset_v1.0/hi $common ;;
             ko) python3 tools/models/train_task.py --task ko --tatoeba data/ko/kor_sentences.tsv.bz2 --cc100 data/ko/cc100-ko.3000.txt $common ;;
             ar) python3 tools/models/train_task.py --task ar --darija data/darija $common ;;
+            en) python3 tools/models/train_task.py --task en --tatoeba data/en/eng_sentences.tsv.bz2 --cc100 data/en/cc100-en.3000.txt $common ;;
           esac
           cat out/*-result.txt
           ls -la out
