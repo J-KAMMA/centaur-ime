@@ -34,6 +34,26 @@ SCENES = [
      [("hashidegohaxnwotaberu", [("箸でご飯を食べる", False)], 11)]),
 ]
 END = 30.0
+LOGO_SRC = Path(__file__).resolve().parents[1] / "data" / "compound-icon.png"  # 製品の印（半人半馬の射手）
+_logo_cache = {}
+
+
+def logo(size, alpha):
+    """白地の黒い線の絵を、透きとおった地の INK の色にして返す。"""
+    if size not in _logo_cache:
+        g = Image.open(LOGO_SRC).convert("L").resize((size, size), Image.LANCZOS)
+        im = Image.new("RGBA", (size, size), INK + (0,))
+        im.putalpha(g.point(lambda v: 255 - v))
+        _logo_cache[size] = im
+    im = _logo_cache[size]
+    if alpha >= 1:
+        return im
+    a = im.getchannel("A").point(lambda v: int(v * alpha))
+    out = im.copy()
+    out.putalpha(a)
+    return out
+
+
 CREDIT = ""  # 声を使うとき「音声: VOICEVOX:四国めたん」（--voice で入る）
 
 
@@ -62,17 +82,19 @@ def text_w(d, s, f):
     return d.textlength(s, font=f)
 
 
-def draw_title(d, F, t):
+def draw_title(im, d, F, t):
     a = ease(t / 0.8) * (1 - ease((t - 2.6) / 0.4))
     col = mix(BG, INK, a)
+    lg = logo(230, a)
+    im.paste(lg, ((W - 230) // 2, int(70 - 14 * (1 - ease(t / 0.8)))), lg)
     f1 = F.get(76, True)
     s = "Centaur IME"
-    d.text(((W - text_w(d, s, f1)) / 2, 250 - 20 * (1 - ease(t / 0.8))), s, font=f1, fill=col)
+    d.text(((W - text_w(d, s, f1)) / 2, 320 - 20 * (1 - ease((t - 0.15) / 0.8))), s, font=f1, fill=col)
     f2 = F.get(34)
     s2 = "文脈で選ぶ日本語入力"
-    d.text(((W - text_w(d, s2, f2)) / 2, 360), s2, font=f2, fill=mix(BG, SUB, a))
+    d.text(((W - text_w(d, s2, f2)) / 2, 430), s2, font=f2, fill=mix(BG, SUB, a))
     bar = 160 * ease((t - 0.4) / 0.8) * (1 - ease((t - 2.6) / 0.4))
-    d.rounded_rectangle(((W - bar) / 2, 430, (W + bar) / 2, 436), 3, fill=mix(BG, ACCENT, a))
+    d.rounded_rectangle(((W - bar) / 2, 500, (W + bar) / 2, 506), 3, fill=mix(BG, ACCENT, a))
 
 
 def draw_window(d, F, x0, y0, x1, y1):
@@ -151,9 +173,11 @@ def draw_scene(d, F, t, scene):
             d.text((96, by + 52), "← 余計な x が入った", font=F.get(22), fill=mix(BG, WARN, fade))
 
 
-def draw_end(d, F, t):
+def draw_end(im, d, F, t):
     lt = t - 25.0
     a = ease(lt / 0.6)
+    lg = logo(150, a)
+    im.paste(lg, ((W - 150) // 2, 40), lg)
     f1 = F.get(64, True)
     s = "Centaur IME 日本語"
     d.text(((W - text_w(d, s, f1)) / 2, 200 - 16 * (1 - a)), s, font=f1, fill=mix(BG, INK, a))
@@ -177,13 +201,13 @@ def frame(F, t):
     im = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(im)
     if t < 3.0:
-        draw_title(d, F, t)
+        draw_title(im, d, F, t)
     elif t < 25.0:
         for sc in SCENES:
             if sc[0] <= t < sc[1]:
                 draw_scene(d, F, t, sc)
     else:
-        draw_end(d, F, t)
+        draw_end(im, d, F, t)
     # 下の進み具合の線
     d.rectangle((0, H - 4, W * t / END, H), fill=ACCENT)
     return im
