@@ -1,0 +1,45 @@
+# 漢字を取り違えた文で、正しい字が区切りごとの候補の中にあるかを調べる（比べ用の枝だけ）。
+# 入力は .github/segcand/inputs.tsv（ローマ字<TAB>区切りの数。Tatoeba の確かめの文のうち Zenzai ありで漢字を取り違えた文）。
+name: Segment candidates
+
+on:
+  push:
+    branches: [work/zenzai-ablation]
+    paths: [.github/segcand/**, tools/segment_candidates.sh, .github/workflows/segment-candidates.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  candidates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-bin
+          path: bin
+          run-id: "42187436873"
+          github-token: ${{ github.token }}
+      - name: 候補を取り出す
+        run: |
+          set -eo pipefail
+          W=$GITHUB_WORKSPACE; E=$W/bin/engine
+          chmod +x $E/session_handler_main
+          curl -fsSL -o $W/model.gguf \
+            https://github.com/J-KAMMA/compound-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
+          echo "2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff  $W/model.gguf" | sha256sum -c
+          export LD_LIBRARY_PATH="$E${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          mkdir -p out
+          bash repo/tools/segment_candidates.sh $E/session_handler_main $E $W/model.gguf repo/.github/segcand/inputs.tsv out/segcand.tsv
+          head -5 out/segcand.tsv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: segcand
+          path: out/
+          retention-days: 14
