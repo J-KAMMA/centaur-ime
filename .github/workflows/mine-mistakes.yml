@@ -8,7 +8,7 @@ name: Mine mistakes
 on:
   # main に入れる前は、この枝に push したときに既定の値で動く
   push:
-    branches: [work/mine-homophones, work/mine-tatoeba, work/compare-general]
+    branches: [work/mine-homophones, work/mine-tatoeba, work/compare-general, work/zenzai-ablation]
   workflow_dispatch:
     inputs:
       bin_run:
@@ -111,7 +111,8 @@ jobs:
           export LD_LIBRARY_PATH="$E${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           mkdir -p out
           cut -f1 sentences/shard-${{ matrix.shard }} > in.txt
-          bash repo/tools/batch_convert.sh $E/session_handler_main $E $W/model.gguf in.txt out/conv-${{ matrix.shard }}.tsv 4
+          # 比べ: Zenzai を切る（模型の場所を空にする。ほかは公開した数字と同じ一式 41977170275）
+          bash repo/tools/batch_convert.sh $E/session_handler_main $E "" in.txt out/conv-${{ matrix.shard }}.tsv 4
           wc -l out/conv-${{ matrix.shard }}.tsv
       - uses: actions/upload-artifact@v4
         with:
@@ -121,6 +122,7 @@ jobs:
 
   # 一般的な IME との比べ: 上流の Mozc（Google 日本語入力の元。AI も CentaurIME の直しも入れない）で同じ文を変換する
   plain-mozc:
+    if: false
     needs: sentences
     runs-on: ubuntu-24.04
     timeout-minutes: 240
@@ -162,7 +164,7 @@ jobs:
           retention-days: 7
 
   collect:
-    needs: [convert, plain-mozc]
+    needs: [convert]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
