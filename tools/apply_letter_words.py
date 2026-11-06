@@ -77,38 +77,49 @@ namespace converter {
 // 英字 1 字＋語（tools/apply_letter_words.py）: 打った英字を英字の名前の読みに読み替えたキー（cgengo → shi-gengo）。
 // 辞書に「英字の大文字＋日本語」の語があり、英字の後ろのかなが、その語の続きの読みで始まるときだけ。英字は
 // 前後と組まずに残る子音か、部分の頭の母音。かなの切れ目が合わない（続きの読みが語の途中で終わる）なら替えない。
-std::optional<std::string> LetterWordKeys(const std::string& text, const jaen::RomajiParser& parse) {
+struct LetterWord {
+  std::string text;  // 読み替えた入力
+  size_t begin = 0, end = 0;  // text の中の語（英字の名前の読み＋続き）の場所
+};
+std::optional<LetterWord> LetterWordKeys(const std::string& text, const jaen::RomajiParser& parse) {
   const std::vector<jaen::Chunk> chunks = parse(text);
   std::string done;  // chunks[0..i) の raw
   for (size_t i = 0; i < chunks.size(); ++i) {
     const jaen::Chunk& c = chunks[i];
-    // 母音（a・o）は替えない: 「okyaku」（お客）が O脚 になるなど、ふつうのかなの語と重なるため
-    const bool lone_consonant = c.raw.size() == 1 && c.conversion.empty() && !c.pending.empty();
     const char letter = c.raw.empty() ? 0 : c.raw[0];
-    if (lone_consonant && letter >= 'a' && letter <= 'z') {
-      // 後ろのかな（チャンクの切れ目ごと）
+    // かなにならずに残った子音（c、b、ts の t、xs の x）。母音（a・o）は替えない: 「okyaku」（お客）が O脚 に
+    // なるなど、ふつうのかなの語と重なるため
+    const bool consonant = c.conversion.empty() && letter >= 'a' && letter <= 'z' &&
+                           std::string_view("aiueo").find(letter) == std::string_view::npos;
+    if (consonant) {
+      // 英字の後ろを読み直したかな（チャンクの切れ目ごと）
+      const std::string tail = text.substr(done.size() + 1);
       std::string kana;
-      std::vector<size_t> ends;  // kana の長さ → そこまでの raw の長さ
-      std::string after;
-      for (size_t j = i + 1; j < chunks.size(); ++j) {
-        if (chunks[j].conversion.empty()) break;
-        kana += chunks[j].conversion;
-        after += chunks[j].raw;
-        ends.push_back(kana.size());
+      std::vector<std::pair<size_t, size_t>> ends;  // かなの長さ, そこまでの raw の長さ
+      size_t raw_len = 0;
+      for (const jaen::Chunk& next : parse(tail)) {
+        if (next.conversion.empty()) break;
+        kana += next.conversion;
+        raw_len += next.raw.size();
+        ends.emplace_back(kana.size(), raw_len);
       }
       const char* keys = nullptr;
-      size_t longest = 0;  // 続きの読みが一番長い語（C言語 を C＋げん より先に）
+      size_t longest = 0, rest_raw = 0;  // 続きの読みが一番長い語（C言語 を C＋げん より先に）
       for (const auto& entry : kLetterWords) {
         if (entry[0][0] != letter) continue;
         const std::string_view rest = entry[1];
         if (rest.size() <= longest || kana.compare(0, rest.size(), rest) != 0) continue;
-        if (std::find(ends.begin(), ends.end(), rest.size()) == ends.end()) continue;
+        const auto at = std::find_if(ends.begin(), ends.end(), [&](const auto& e) { return e.first == rest.size(); });
+        if (at == ends.end()) continue;
         keys = entry[2];
         longest = rest.size();
+        rest_raw = at->second;
       }
       if (keys != nullptr) {
-        std::string out = done + keys;
-        for (size_t j = i + 1; j < chunks.size(); ++j) out += chunks[j].raw;
+        LetterWord out;
+        out.text = done + keys + tail;
+        out.begin = done.size();
+        out.end = done.size() + std::string_view(keys).size() + rest_raw;
         return out;
       }
     }
@@ -119,8 +130,11 @@ std::optional<std::string> LetterWordKeys(const std::string& text, const jaen::R
 """)
 
 edit("converter/converter.cc", """    if (!piece.english && !next_to_english) {""", """    if (!piece.english) {
-      if (std::optional<std::string> letter_word = LetterWordKeys(text, parse)) {
-        text = *std::move(letter_word);
+      if (std::optional<LetterWord> letter_word = LetterWordKeys(text, parse)) {
+        size_t at = 0;
+        for (const std::string& t : texts) at += t.size();
+        letter_spans.emplace_back(at + letter_word->begin, at + letter_word->end);
+        text = std::move(letter_word->text);
         split = true;
         fixed_any = true;
         if (typo_fixed) *typo_fixed = true;
@@ -129,4 +143,50 @@ edit("converter/converter.cc", """    if (!piece.english && !next_to_english) {"
       }
     }
     if (!piece.english && !next_to_english) {""")
+
+edit("converter/converter.cc", """  std::vector<std::string> texts;
+  bool fixed_any = false;
+""", """  std::vector<std::string> texts;
+  bool fixed_any = false;
+  std::vector<std::pair<size_t, size_t>> letter_spans;  // 読み替えた英字の語の場所（texts をつないだ中）
+""")
+
+# 読み替えた語（しーげんご）は 1 つの日本語の部分にする。前後と続けて変換すると「シー|言語」に分かれる
+edit("converter/converter.cc", """        texts.push_back(fixed_raw.substr(piece.begin, piece.end - piece.begin));
+      }
+    }
+  }
+""", """        texts.push_back(fixed_raw.substr(piece.begin, piece.end - piece.begin));
+      }
+    }
+  }
+  if (!letter_spans.empty()) {
+    std::string joined;
+    for (const std::string& t : texts) joined += t;
+    std::vector<jaen::Piece> cut;
+    size_t at = 0;
+    for (size_t p = 0; p < texts.size(); ++p) {
+      const size_t end = at + texts[p].size();
+      size_t b = at;
+      if (!pieces[p].english) {
+        for (const auto& [s, e] : letter_spans) {
+          if (s < b || e > end) continue;
+          if (s > b) cut.push_back(jaen::Piece{b, s, false});
+          cut.push_back(jaen::Piece{s, e, false});
+          b = e;
+        }
+      }
+      if (b < end) {
+        jaen::Piece rest = pieces[p];
+        rest.begin = b;
+        rest.end = end;
+        cut.push_back(std::move(rest));
+      }
+      at = end;
+    }
+    pieces = std::move(cut);
+    texts.clear();
+    for (const jaen::Piece& piece : pieces) texts.push_back(joined.substr(piece.begin, piece.end - piece.begin));
+  }
+""")
 print("letter words applied")
