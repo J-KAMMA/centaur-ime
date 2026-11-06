@@ -12,6 +12,8 @@ New-Item -ItemType Directory -Force $data | Out-Null
 Copy-Item (Join-Path $here 'x64\centaur_tip_en.dll') (Join-Path $dest 'centaur_tip_en64.dll') -Force
 Copy-Item (Join-Path $here 'x86\centaur_tip_en.dll') (Join-Path $dest 'centaur_tip_en32.dll') -Force
 Copy-Item (Join-Path $here 'table.bin') (Join-Path $data 'table.bin') -Force
+# ブランド名の正式な書き方（無くても動く）
+if (Test-Path (Join-Path $here 'casing.tsv')) { Copy-Item (Join-Path $here 'casing.tsv') (Join-Path $data 'casing.tsv') -Force }
 & "$env:windir\System32\regsvr32.exe" /s (Join-Path $dest 'centaur_tip_en64.dll')
 if ($LASTEXITCODE -ne 0) { throw '64 ビットの登録に失敗' }
 & "$env:windir\SysWOW64\regsvr32.exe" /s (Join-Path $dest 'centaur_tip_en32.dll')

@@ -90,6 +90,7 @@ class TextService : public ITfTextInputProcessorEx,
   // 今の候補（OnEndEdit で作り、キーの処理で使う）
   std::u32string word_;      // 候補を作ったときの語
   std::u32string insert_;    // Tab で足す文字（無ければ空）
+  std::u32string replace_;   // Tab で今の語ごと入れ替える語（gith → GitHub。無ければ空）
   Popup popup_;
 };
 

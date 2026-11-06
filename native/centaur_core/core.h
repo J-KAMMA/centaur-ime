@@ -43,6 +43,12 @@ class Model {
   // 一番の補完の候補。無ければ空。
   std::u32string Complete(const std::u32string& prefix, const std::u32string& prev) const;
 
+  // ブランド・サービス名の正式な書き方（github → GitHub）を読む。行は「打った形<TAB>正式な形」
+  // （tools/data/brand-casing.tsv と同じ形。# の行と、正式な形が「-」の行は使わない）。
+  bool LoadCasing(const std::filesystem::path& path);
+  // 小文字の語 w の正式な書き方。無ければ空。
+  std::u32string Cased(const std::u32string& w) const;
+
   size_t vocab() const { return words_.size(); }
   // 読み込みの内訳（ミリ秒）: 表を読む、消し字の索引、補完の一覧
   double load_ms[3] = {0, 0, 0};
@@ -56,6 +62,7 @@ class Model {
   std::unordered_map<std::u32string, int64_t> uni_;
   std::unordered_map<std::u32string, std::unordered_map<std::u32string, int64_t>> bi_;
   std::unordered_map<std::u32string, int64_t> left_;
+  std::unordered_map<std::u32string, std::u32string> casing_;  // 小文字 → 正式な書き方
   int64_t total_ = 0;
   size_t max_len_ = 1;
   int max_edit_ = 2;

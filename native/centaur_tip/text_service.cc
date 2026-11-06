@@ -44,6 +44,8 @@ void StartLoad() {
       m->typo_weight = 8.0;
       const auto path = TablePath();
       if (!path.empty() && m->Load(path)) {
+        // ブランド名の正式な書き方（無くても動く）
+        m->LoadCasing(path.parent_path() / L"casing.tsv");
         std::lock_guard<std::mutex> lock(g_model_mutex);
         g_model = std::move(m);
       }
@@ -295,6 +297,7 @@ void TextService::WatchDocument(ITfDocumentMgr* dim) {
 void TextService::Clear() {
   word_.clear();
   insert_.clear();
+  replace_.clear();
   popup_.Hide();
 }
 
@@ -366,11 +369,13 @@ STDMETHODIMP TextService::OnEndEdit(ITfContext* ctx, TfEditCookie ec, ITfEditRec
     for (char32_t ch : c.word) t.OnChar(ch);
     completion = t.Completion();
     insert_ = t.TabInsert();
+    replace_ = t.TabReplacement();
     corrections = t.Corrections();
     word_ = c.word;
   } else {
     word_.clear();
     insert_.clear();
+    replace_.clear();
   }
   RECT rc = {};
   BOOL clipped = FALSE;
@@ -393,18 +398,40 @@ STDMETHODIMP TextService::OnEndEdit(ITfContext* ctx, TfEditCookie ec, ITfEditRec
 }
 
 bool TextService::TabWanted(WPARAM key) const {
-  if (key != VK_TAB || insert_.empty()) return false;
+  if (key != VK_TAB || (insert_.empty() && replace_.empty())) return false;
   return GetKeyState(VK_SHIFT) >= 0 && GetKeyState(VK_CONTROL) >= 0 && GetKeyState(VK_MENU) >= 0;
 }
 
 void TextService::InsertCompletion(ITfContext* ctx) {
   const std::u32string want = word_;
   const std::wstring add = ToW(insert_);
-  auto* es = new EditSession([ctx, want, add](TfEditCookie ec) -> HRESULT {
+  const std::wstring whole = ToW(replace_);
+  auto* es = new EditSession([ctx, want, add, whole](TfEditCookie ec) -> HRESULT {
     std::wstring text;
     if (!ReadBeforeCaret(ctx, ec, &text, nullptr)) return S_OK;
     // 候補を作ったときと同じ語のままか確かめる（違えば何も入れない）
     if (ParseBeforeCaret(text).word != want) return S_OK;
+    if (!whole.empty()) {
+      // 打った語ごと入れ替える（gith → GitHub）: カーソルの前の打った語の分だけ範囲を広げて書き替える
+      TF_SELECTION sel = {};
+      ULONG fetched = 0;
+      if (FAILED(ctx->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &sel, &fetched)) || fetched != 1 || !sel.range) {
+        return S_OK;
+      }
+      LONG moved = 0;
+      const std::wstring typed = ToW(want);
+      sel.range->Collapse(ec, TF_ANCHOR_END);
+      if (SUCCEEDED(sel.range->ShiftStart(ec, -static_cast<LONG>(typed.size()), &moved, nullptr)) &&
+          moved == -static_cast<LONG>(typed.size()) &&
+          SUCCEEDED(sel.range->SetText(ec, 0, whole.c_str(), static_cast<LONG>(whole.size())))) {
+        sel.range->Collapse(ec, TF_ANCHOR_END);
+        sel.style.ase = TF_AE_NONE;
+        sel.style.fInterimChar = FALSE;
+        ctx->SetSelection(ec, 1, &sel);
+      }
+      sel.range->Release();
+      return S_OK;
+    }
     ITfInsertAtSelection* ins = nullptr;
     if (FAILED(ctx->QueryInterface(IID_ITfInsertAtSelection, reinterpret_cast<void**>(&ins)))) return S_OK;
     ITfRange* range = nullptr;

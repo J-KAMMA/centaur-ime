@@ -128,6 +128,44 @@ int main() {
     CHECK(t.Corrections().empty());
     CHECK(t.TabInsert().empty());
   }
+  {
+    // ブランド名の正式な書き方（github → GitHub）
+    const char* tpath = "word_tracker_test_brand.tsv";
+    const char* cpath = "word_tracker_test_casing.tsv";
+    {
+      std::ofstream f(tpath);
+      f << "U\tgithub\t30\nU\tgit\t5\nU\tthe\t100\nB\tthe\tgithub\t3\n";
+      std::ofstream g(cpath);
+      g << "# typed<TAB>official\ngithub\tGitHub\ngit\t-\n";
+    }
+    centaur::Model b;
+    CHECK(b.Load(tpath));
+    CHECK(b.LoadCasing(cpath));
+    std::remove(tpath);
+    std::remove(cpath);
+    CHECK(b.Cased(U"github") == U"GitHub");
+    CHECK(b.Cased(U"git").empty());  // 「-」は打ったまま
+    centaur::WordTracker t(&b);
+    Type(&t, U"gith");
+    CHECK(t.Completion() == U"GitHub");
+    CHECK(t.TabInsert().empty());            // 打った所の大文字が変わるので足すだけにしない
+    CHECK(t.TabReplacement() == U"GitHub");  // 語ごと入れ替える
+    centaur::WordTracker u(&b);
+    Type(&u, U"GITH");
+    CHECK(u.Completion() == U"GITHUB");      // 全部大文字なら全部大文字のまま
+    CHECK(u.TabInsert() == U"UB");
+    CHECK(u.TabReplacement().empty());
+    centaur::WordTracker v(&b);
+    Type(&v, U"GitH");
+    CHECK(v.Completion() == U"GitHub");
+    CHECK(v.TabInsert() == U"ub");           // 打った所がそのまま正式な形の頭なら足すだけ
+    centaur::WordTracker w(&b);
+    Type(&w, U"github");
+    CHECK(w.Corrections().size() == 1 && w.Corrections()[0] == U"GitHub");  // 打ち終えた語は見せるだけ
+    centaur::WordTracker x(&b);
+    Type(&x, U"GitHub");
+    CHECK(x.Corrections().empty());          // もう正式な形なら出さない
+  }
   std::printf("%s (%d)\n", failures ? "NG" : "OK", failures);
   return failures ? 1 : 0;
 }

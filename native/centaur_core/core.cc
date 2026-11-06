@@ -484,4 +484,29 @@ std::u32string Model::Complete(const std::u32string& prefix0, const std::u32stri
   return best ? *best : U"";
 }
 
+bool Model::LoadCasing(const std::filesystem::path& path) {
+  std::ifstream f(path, std::ios::binary);
+  if (!f) return false;
+  std::string line;
+  while (std::getline(f, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (line.empty() || line[0] == '#') continue;
+    const size_t tab = line.find('\t');
+    if (tab == std::string::npos) continue;
+    std::u32string typed = FromUtf8(line.substr(0, tab));
+    const std::u32string official = FromUtf8(line.substr(tab + 1));
+    if (typed.empty() || official.empty() || official == U"-") continue;
+    for (auto& ch : typed) {
+      if (ch >= U'A' && ch <= U'Z') ch = ch - U'A' + U'a';
+    }
+    casing_[typed] = official;
+  }
+  return true;
+}
+
+std::u32string Model::Cased(const std::u32string& w) const {
+  const auto it = casing_.find(w);
+  return it == casing_.end() ? U"" : it->second;
+}
+
 }  // namespace centaur

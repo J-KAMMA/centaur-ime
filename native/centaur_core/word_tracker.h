@@ -26,6 +26,8 @@ class WordTracker {
   std::u32string Completion() const;
   // Tab を押したときに足す文字（補完の残り）。無ければ空で、そのときは Tab を素通しにする。
   std::u32string TabInsert() const;
+  // Tab で今の語ごと入れ替える語（大文字・小文字が打った所から変わるとき。gith → GitHub）。無ければ空。
+  std::u32string TabReplacement() const;
   // Tab で補完を入れた後に呼ぶ。
   void OnCompletionInserted();
   // 直しの候補（今の語が表に無いときだけ。勝手には直さず、見せるだけ）。
