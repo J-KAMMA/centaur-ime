@@ -1,7 +1,7 @@
-# 複合IME（CompoundIME）
+# Centaur IME（CentaurIME）
 
 
-2026年10月に、見える名前を「コンパウンドIME」から「複合IME」に替えました。入れる場所（CompoundIME）や設定・学習の引き継ぎは前と同じで、前の版から上書きで入れられます。
+2026年11月に、名前を「複合IME」から「Centaur IME」に替えました（日本語、英語、中国語、韓国語へ広げるため）。前の版から上書きで入れられ、設定と学習は最初に起動したときに新しい置き場（CentaurIME）へ写します。前の置き場は消しません。
 **英語まじりの日本語を、そのまま打てる日本語入力。**
 ローマ字で打った英単語は英語のまま残り、日本語の部分だけが漢字かなになります。変換はすべてパソコンの中で動き、打った文字を外へ送りません。
 
@@ -12,24 +12,24 @@ kyohaatsui（打ち間違い）           →  今日は暑い
 denwabangouhazerokyuuzero        →  電話番号は090
 ```
 
-[![最新の版](https://img.shields.io/github/v/release/J-KAMMA/compound-ime?include_prereleases&label=%E6%9C%80%E6%96%B0%E3%81%AE%E7%89%88)](https://github.com/J-KAMMA/compound-ime/releases)
+[![最新の版](https://img.shields.io/github/v/release/J-KAMMA/centaur-ime?include_prereleases&label=%E6%9C%80%E6%96%B0%E3%81%AE%E7%89%88)](https://github.com/J-KAMMA/centaur-ime/releases)
 [![ライセンス](https://img.shields.io/badge/%E3%83%A9%E3%82%A4%E3%82%BB%E3%83%B3%E3%82%B9-MIT-blue)](LICENSE)
 ![対応](https://img.shields.io/badge/%E5%AF%BE%E5%BF%9C-Windows%20%7C%20Mac%20%7C%20Linux-informational)
 
-> **試用版です。** 問題があれば[課題欄](https://github.com/J-KAMMA/compound-ime/issues)で教えてください。
+> **試用版です。** 問題があれば[課題欄](https://github.com/J-KAMMA/centaur-ime/issues)で教えてください。
 > [Mozc](https://github.com/google/mozc) をもとにしていますが、Google とは関係がなく、Google が推奨するものでもありません。
 
 ---
 
 ## ダウンロード
 
-[**配布ページ（最新の版）**](https://github.com/J-KAMMA/compound-ime/releases) から、使うパソコンに合うファイルを取ってください。
+[**配布ページ（最新の版）**](https://github.com/J-KAMMA/centaur-ime/releases) から、使うパソコンに合うファイルを取ってください。
 
 | パソコン | ファイル | 確かめている環境 |
 |---|---|---|
-| ウィンドウズ | `CompoundIME-1.xxx-windows-x64.msi` | Windows 11（64ビット） |
-| マック | `CompoundIME-1.xxx-mac-arm64.pkg` | Apple シリコン、macOS 13 以降（試用） |
-| Linux | `compound-ime-1.xxx-linux-x64.tar.gz` | Ubuntu 24.04、ibus（試用） |
+| ウィンドウズ | `CentaurIME-1.xxx-windows-x64.msi` | Windows 11（64ビット） |
+| マック | `CentaurIME-1.xxx-mac-arm64.pkg` | Apple シリコン、macOS 13 以降（試用） |
+| Linux | `centaur-ime-1.xxx-linux-x64.tar.gz` | Ubuntu 24.04、ibus（試用） |
 
 版の名前は「1.141」のように、1 と通し番号です。インストーラーには署名がないので、配布ページの `SHA256SUMS.txt` でファイルが同じことを確かめてから使ってください。
 
@@ -83,21 +83,21 @@ denwabangouhazerokyuuzero        →  電話番号は090
 ### ウィンドウズ
 1. 配布ページから `.msi` を取って実行します。初めてのときは「発行元不明」の警告が出ます。
 2. インストール中に、変換用の人工知能（約74MB）を公式の配布元から取得します。
-3. **Windows キー＋スペース**で「複合IME」を選びます。
+3. **Windows キー＋スペース**で「Centaur IME 日本語」を選びます。
 
 公式の Mozc と並べて入れられるよう、名前や置き場所をすべて分けています。
 
 ### マック（試用）
 1. `.pkg` を**右クリック →「開く」**で開きます（署名がないため、ダブルクリックでは開けません）。
-2. 「システム設定」→「キーボード」→「入力ソース」の「編集」→「＋」→「日本語」から「複合IME」を追加します。
-3. 外すときは「アプリケーション」→「CompoundIME」→「UninstallCompoundIME」。
+2. 「システム設定」→「キーボード」→「入力ソース」の「編集」→「＋」→「日本語」から「Centaur IME」を追加します。
+3. 外すときは「アプリケーション」→「CentaurIME」→「UninstallCentaurIME」。
 
 ### Linux（ibus、試用）
 ```bash
-tar xzf compound-ime-1.xxx-linux-x64.tar.gz
-cd compound-ime-*/ && sudo ./install.sh && ibus restart
+tar xzf centaur-ime-1.xxx-linux-x64.tar.gz
+cd centaur-ime-*/ && sudo ./install.sh && ibus restart
 ```
-入力方式の設定で「複合IME」を追加します。外すときは `sudo ./uninstall.sh`。
+入力方式の設定で「Centaur IME 日本語」を追加します。外すときは `sudo ./uninstall.sh`。
 
 ---
 

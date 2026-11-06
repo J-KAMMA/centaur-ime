@@ -10,7 +10,7 @@
     様子見              そのあいだ（まだ決まっていない）
 
   -Remove <語> で、その語の記録を1つ消す（元に戻す）。ほかの語はそのまま。
-  既定の保存先は %USERPROFILE%\AppData\LocalLow\CompoundIME\jaen_choices.txt。
+  既定の保存先は %USERPROFILE%\AppData\LocalLow\CentaurIME\jaen_choices.txt。
   試すときは -Path で別のファイルを指す。
 
 .EXAMPLE
@@ -29,7 +29,7 @@ $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch { }
 
 if (-not $Path) {
-  $Path = Join-Path $env:USERPROFILE 'AppData\LocalLow\CompoundIME\jaen_choices.txt'
+  $Path = Join-Path $env:USERPROFILE 'AppData\LocalLow\CentaurIME\jaen_choices.txt'
 }
 if ($Now -le 0) { $Now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
 

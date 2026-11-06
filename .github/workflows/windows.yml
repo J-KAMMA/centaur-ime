@@ -297,7 +297,7 @@ jobs:
           mkdir -p $W/out
           cd $S
           python -X utf8 -B -m win32.installer.build_installer \
-            --output $W/out/CompoundIME_${VERSION}_x64.msi \
+            --output $W/out/CentaurIME_${VERSION}_x64.msi \
             --branding Mozc --arch x64 --vs_install_dir "$VS_VC" \
             --azookey_dll_dir $E --version_file $C/mozc_version.txt \
             --mozc_server $C/mozc_server.exe --mozc_tool $C/mozc_tool.exe \

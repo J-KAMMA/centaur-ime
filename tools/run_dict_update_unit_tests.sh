@@ -37,7 +37,7 @@ info = subprocess.run([tool, "info"], capture_output=True, text=True).stdout.spl
 sha = info[1].split("=")[1]
 cand = W / "candidate"
 os.makedirs(cand, exist_ok=True)
-base = "https://github.com/J-KAMMA/compound-ime/releases/download/dict-20261101"
+base = "https://github.com/J-KAMMA/centaur-ime/releases/download/dict-20261101"
 for kind, name, text in (("supplement", "supplement.tsv", "ぬぬぬぬぬぬ\t1851\t1851\t2500\tCandidateProbe\n"), ("english", "english-extra.tsv", "named\tcandidatetool\n")):
     (cand / name).write_text(text, encoding="utf-8")
 files = [(k, n, (cand / n).read_bytes(), f"{base}/{n}") for k, n in (("supplement", "supplement.tsv"), ("english", "english-extra.tsv"))]

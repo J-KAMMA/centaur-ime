@@ -4,7 +4,7 @@
   python tools/make_dict_release.py keygen                      # 署名の鍵の組を作る（秘密鍵は一度だけ表示）
   python tools/make_dict_release.py pos-info <id.def>           # 品詞の表の SHA-256 と行数
   python tools/make_dict_release.py build --supplement supplement.tsv --english english-extra.tsv \
-      --version 20261101 --pos-table-sha <sha> --url-base https://github.com/J-KAMMA/compound-ime/releases/download/dict-20261101 \
+      --version 20261101 --pos-table-sha <sha> --url-base https://github.com/J-KAMMA/centaur-ime/releases/download/dict-20261101 \
       --out release/ [--key-env DICT_SIGNING_KEY | --key-file key.hex]
   python tools/make_dict_release.py verify release/ --public-key <hex> --pos-table-sha <sha> [--pos-count N]
   python tools/make_dict_release.py check-key --public-key-file tools/dict-update/public-key.txt [--key-env DICT_SIGNING_KEY]
