@@ -1,4 +1,4 @@
-"""配布ページ用の紹介動画（30 秒、音なし）を作る。
+"""配布ページ用の紹介動画（35 秒）を作る。
 
 変換の例は全体試験（基準の結果）で実際に出た出力だけを使う。例を替えるときも試験の出力から選ぶ。
 
@@ -33,7 +33,12 @@ SCENES = [
     (19.0, 25.0, "打ち間違いも、文から直す", "余計なキーが混じっても、意味の通る文に",
      [("hashidegohaxnwotaberu", [("箸でご飯を食べる", False)], 11)]),
 ]
-END = 30.0
+STATS_AT = 25.0  # 性能の場面の始まり
+END_AT = 30.5    # 終わりの画面の始まり
+END = 35.0
+# 性能: 例文を打って漢字を取り違えた文の割合（2026-11 の計測。tools の比べの結果。少ないほど良い）
+STATS = [("Mozc", 13.6, False), ("MS-IME", 10.8, False), ("Centaur IME", 5.6, True)]
+STATS_NOTE = "Tatoeba の日本語の例文 2,979 文で計測（2026年11月）。MS-IME は Windows 11 の Microsoft IME"
 LOGO_SRC = Path(__file__).resolve().parents[1] / "data" / "compound-icon.png"  # 製品の印（半人半馬の射手）
 _logo_cache = {}
 
@@ -179,8 +184,28 @@ def draw_scene(d, F, t, scene):
             d.text((typo_x - text_w(d, "↑", f) / 2, by + 48), s, font=f, fill=mix(BG, WARN, fade))
 
 
+def draw_stats(d, F, t):
+    lt = t - STATS_AT
+    fade = ease(lt / 0.4) * (1 - ease((t - (END_AT - 0.35)) / 0.35))
+    d.text((96, 70 - 10 * (1 - ease(lt / 0.5))), "漢字の取り違えが、およそ半分", font=F.get(46, True),
+           fill=mix(BG, INK, fade))
+    d.text((98, 136), "例文を打って、漢字を取り違えた文の割合（少ないほど良い）", font=F.get(26), fill=mix(BG, SUB, fade))
+    fl, fv = F.get(32, True), F.get(34, True)
+    x0, bar_max, top = 330, 640, 230
+    for i, (name, val, ours) in enumerate(STATS):
+        y = top + i * 100
+        g = ease((lt - 0.4 - i * 0.35) / 0.7)
+        col = ACCENT if ours else (176, 178, 184)
+        d.text((x0 - 24 - text_w(d, name, fl), y + 8), name, font=fl, fill=mix(BG, INK if ours else SUB, fade))
+        w = bar_max * (val / 15.0) * g
+        d.rounded_rectangle((x0, y, x0 + max(w, 1), y + 56), 10, fill=mix(BG, col, fade))
+        s = f"{val * g:.1f}%"
+        d.text((x0 + w + 18, y + 7), s, font=fv, fill=mix(BG, ACCENT if ours else SUB, fade * g))
+    d.text((96, H - 70), STATS_NOTE, font=F.get(18), fill=mix(BG, SUB, fade))
+
+
 def draw_end(im, d, F, t):
-    lt = t - 25.0
+    lt = t - END_AT
     a = ease(lt / 0.6)
     lg = logo(150, a)
     im.paste(lg, ((W - 150) // 2, 40), lg)
@@ -208,10 +233,12 @@ def frame(F, t):
     d = ImageDraw.Draw(im)
     if t < 3.0:
         draw_title(im, d, F, t)
-    elif t < 25.0:
+    elif t < STATS_AT:
         for sc in SCENES:
             if sc[0] <= t < sc[1]:
                 draw_scene(d, F, t, sc)
+    elif t < END_AT:
+        draw_stats(d, F, t)
     else:
         draw_end(im, d, F, t)
     # 下の進み具合の線
@@ -221,7 +248,7 @@ def frame(F, t):
 
 def sound_events():
     """絵と同じ時刻の音の出来事（draw_scene の時刻の計算と合わせる）。"""
-    ev = [("title", 0.3), ("end", 25.0)]
+    ev = [("title", 0.3), ("end", END_AT)]
     for start, end, _, _, examples in SCENES:
         starts, _ = example_times(start, end, len(examples))
         for es, (keys, _, _) in zip(starts, examples):
