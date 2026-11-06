@@ -1178,7 +1178,7 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
         for (size_t x = 0; x + 3 <= at && !word_ends; ++x) {
           word_ends = original.edge[x] && lexicon.Contains(std::string_view(sub).substr(x, at - x));
         }
-        if (word_ends) splits.push_back(at);
+        (void)word_ends;
       }
       std::vector<Chunk> split_chunks;
       if (!splits.empty()) {
