@@ -1,0 +1,35 @@
+# ブランド・会社・ソフト・サービスの名前と正式な書き方を Wikidata（CC0）から集める（tools/build_brand_wikidata.py）。
+# 手で動かす（枝 work/brand-data への push でも動く）。できた表は成果物 brand-data に残す。
+name: Brand data
+
+on:
+  push:
+    branches: [work/brand-data]
+    paths: [tools/build_brand_wikidata.py, .github/workflows/brand-data.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: 表を作る
+        run: |
+          set -eo pipefail
+          curl -fsSL -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          sha256sum eng_sentences.tsv.bz2
+          mkdir -p out
+          python3 tools/build_brand_wikidata.py --eng eng_sentences.tsv.bz2 --out out/brand-casing-wikidata.tsv
+          wc -l out/brand-casing-wikidata.tsv
+          head -60 out/brand-casing-wikidata.tsv
+          echo "--- 今の表に無い、内側に大文字がある名前（例）"
+          awk -F'\t' 'NR>1 && $2 ~ /[a-z][A-Z]/' out/brand-casing-wikidata.tsv | head -40
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brand-data
+          path: out/
+          retention-days: 30
