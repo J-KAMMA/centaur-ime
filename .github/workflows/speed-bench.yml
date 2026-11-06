@@ -1,0 +1,25 @@
+name: Speed bench
+
+# 並べ替えの模型の CPU での速さ（tools/models/speed_bench.py）。手元の CPU が混んでいるときの代わり。
+on:
+  push:
+    branches: [work/lang-measure]
+    paths: [tools/models/speed_bench.py, tools/models/tiny_gpt.py, .github/workflows/speed-bench.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python3 -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          nproc; lscpu | grep 'Model name'
+          python3 tools/models/speed_bench.py
