@@ -22,10 +22,9 @@ jobs:
           pip install pillow==11.3.0 numpy==2.3.4
       - name: 声（VOICEVOX、四国めたん）
         run: |
-          docker run -d --rm -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
+          docker run -d --rm -p 127.0.0.1:50021:50021 voicevox/voicevox_engine@sha256:46fe4ddaef27e8bfc2ff4f9709d27f3e38e295d405c5f9351d7c62056e0b4ca7
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:50021/version && break; sleep 3; done
           echo
-          docker image inspect voicevox/voicevox_engine:cpu-latest --format '{{index .RepoDigests 0}}'
           python tools/promo/narrate.py --out voice
       - name: 動画を作る
         run: |
