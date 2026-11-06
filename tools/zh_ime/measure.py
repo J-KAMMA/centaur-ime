@@ -181,12 +181,14 @@ def main():
     # ブランド名（tools/data/brand-casing.tsv、日本語版・英語版と同じ表）を拼音の入力のまま打ったとき。
     # 決まり: 拼音として全部は読めない並び（github）なら、英語のまま正式な書き方（GitHub）で残す。
     # 拼音としても読める並び（nike = ni ke）は、Rime の答えを一番にして、ブランド名は次の候補に置く。
-    brand_path = Path(__file__).resolve().parents[1] / "data" / "brand-casing.tsv"
+    # Wikidata（CC0、5,500 語）のあとに手で作った表を読む（後が勝つ）
+    brand_paths = [Path(__file__).resolve().parents[1] / "data" / n for n in ("brand-casing-wikidata.tsv", "brand-casing.tsv")]
+    brand_path = brand_paths[-1]
     if args.keys == "pinyin" and brand_path.exists():
         brands = {}
-        for line in brand_path.read_text(encoding="utf-8").splitlines():
+        for line in (l for bp in brand_paths if bp.exists() for l in bp.read_text(encoding="utf-8").splitlines()):
             p = line.split("\t")
-            if len(p) == 2 and not line.startswith("#") and p[1] != "-" and re.fullmatch(r"[a-z]{3,}", p[0]):
+            if len(p) >= 2 and not line.startswith("#") and p[1] != "-" and re.fullmatch(r"[a-z]{3,}", p[0]):
                 brands[p[0]] = p[1]
         valid = set()
         for code in range(0x4E00, 0xA000):
