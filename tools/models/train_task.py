@@ -172,11 +172,12 @@ def task_hi(a):
         ok = n_words = sent = 0
         for r, n in test:
             got = vocab.decode(generate(model, [BOS] + vocab.encode(" ".join(r).lower()) + [SEP], 160)).split()
-            idx = [i for i, w in enumerate(n) if deva.match(w)]
-            want = [n[i] for i in idx]
-            have = [got[i] if i < len(got) else "" for i in idx]
+            want = [w for w in n if deva.match(w)]
+            have = [w for w in got if deva.match(w)]
+            # 語の数がずれても、並びを対応させて合った語を数える（位置だけで比べると 1 語のずれで全部外れる）
+            import difflib
             n_words += len(want)
-            ok += sum(x == y for x, y in zip(want, have))
+            ok += sum(b.size for b in difflib.SequenceMatcher(None, want, have, autojunk=False).get_matching_blocks())
             sent += want == have
         return f"Dakshina test（文 {len(test)}）: 語 {ok / max(n_words, 1):.1%}、文 {sent / max(len(test), 1):.1%}"
     return pairs, evaluate
@@ -229,7 +230,7 @@ def task_zh(a):
         if Z.stable_unit(20261017, sid) >= 0.8:
             test_sents.append((sid, cs))
         else:
-            train_chunks.extend(cs)
+            train_chunks.extend(cs * a.oversample)  # 会話の文を重くする
     test_sents.sort(key=lambda s: Z.stable_unit(20261018, s[0]))
     test_sents = test_sents[:min(5000, a.test_limit)]
     extra = 0
@@ -288,6 +289,7 @@ def main():
     ap.add_argument("--wiki-text", help="ウィキの文を 1 行 1 文にしたもの（中国語の足しの材料）")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--heads", type=int, default=4)
+    ap.add_argument("--oversample", type=int, default=1, help="会話の文（Tatoeba）の組を何倍に重くするか（中国語）")
     ap.add_argument("--amp", action="store_true", help="GPU で半精度を使う（速くなる見込み。採る前に数字を比べる）")
     ap.add_argument("--test-limit", type=int, default=10 ** 9, help="試験の文の数の上限（動くかを確かめるとき用）")
     ap.add_argument("--extra", type=int, default=300000, help="足す材料の文の数（CC-100・作った組）")
