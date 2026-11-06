@@ -10,11 +10,14 @@
   丸ごと合った割合、文が丸ごと合った割合を出す。比べる相手は kiwipiepy の space（入っていれば）。
 英語モードの見分け: 試験の韓国語の語を 2 ボル式のキーの並びにしたもの（例 dkssud）を「直すべき」、
   Tatoeba の英語の語を「直してはいけない」として、見分けの当たりを数える。
+--nbest-out を付けると、分かち書きの上位の候補（空白の入れ方の違う文）を JSON lines で書く（AI の並べ替え、
+tools/models/train_task.py --task rr-ko）。dev は基準選びと同じ 0.1〜0.15 の文、試験は Tatoeba の試験の文。
 """
 import argparse
 import bz2
 import collections
 import hashlib
+import json
 import math
 import re
 import sys
@@ -108,6 +111,26 @@ class Spacer:
                 den += w
         return num / den if den else 0.0
 
+    def nbest(self, text, n=16, beam=64):
+        """空白の入れ方の上位 n 個を [(点数, 語の並び), ...] で返す。点数は間ごとの確からしさを基準で割った対数の和で、
+        1 番目は space() と同じ（基準以上なら空白）。"""
+        chars = [c for c in text if c != " "]
+        if not chars:
+            return [(0.0, [])]
+        eps, th = 1e-3, self.threshold
+        paths = [(0.0, chars[0])]
+        for i in range(1, len(chars)):
+            p = min(max(self.prob(chars, i), eps), 1 - eps)
+            add_sp = math.log(p) - math.log(th)
+            add_no = math.log(1 - p) - math.log(1 - th)
+            nxt = []
+            for s, txt in paths:
+                nxt.append((s + add_sp, txt + " " + chars[i]))
+                nxt.append((s + add_no, txt + chars[i]))
+            nxt.sort(key=lambda x: (-x[0], x[1]))
+            paths = nxt[:beam]
+        return [(s, txt.split()) for s, txt in paths[:n]]
+
     def space(self, text):
         chars = [c for c in text if c != " "]
         out = [chars[0]] if chars else []
@@ -168,6 +191,8 @@ def main():
     ap.add_argument("--test", type=int, default=2000)
     ap.add_argument("--wiki-limit", type=int, default=120000)
     ap.add_argument("--examples", type=int, default=25)
+    ap.add_argument("--nbest-out", help="分かち書きの上位の候補を書く JSON lines のファイル")
+    ap.add_argument("--nbest", type=int, default=16)
     args = ap.parse_args()
 
     # 0.1 未満は試験、0.1〜0.15 は基準選び（dev）、残りは表づくり
@@ -202,6 +227,15 @@ def main():
                     best = (eoj, mode, th, mc)
     _, sp.mode, sp.threshold, sp.min_count = best
     out.append(f"基準選び（dev {len(dev)} 文）: 並び {sp.mode}、基準 {sp.threshold}、最少の数 {sp.min_count}、語 {best[0]}%")
+
+    if args.nbest_out:
+        with open(args.nbest_out, "w", encoding="utf-8") as f:
+            for split, rows in (("dev", dev), ("test", tat_test)):
+                for s in rows:
+                    nb = sp.nbest(s.replace(" ", ""), args.nbest)
+                    f.write(json.dumps({"split": split, "gold": s.split(), "cands": [c for _, c in nb],
+                                        "base": [x for x, _ in nb]}, ensure_ascii=False) + "\n")
+        out.append(f"並べ替えの候補: dev {len(dev)} 文、試験 {len(tat_test)} 文 → {args.nbest_out}")
 
     kiwi = None
     try:

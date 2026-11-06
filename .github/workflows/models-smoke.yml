@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [rr-vi, rr-hi, rr-ar]
+        task: [rr-ko]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,6 +48,9 @@ jobs:
                 python3 tools/lang_measure/hi_measure.py --dakshina data/hi/dakshina_dataset_v1.0/hi --out m --test 100 --lm-limit 20000 --nbest-out nbest.jsonl ;;
             rr-ar) python3 tools/fetch_source.py arabizi-darija data/darija
                 python3 tools/lang_measure/ar_measure.py --data data/darija --out m --nbest-out nbest.jsonl ;;
+            rr-ko) python3 tools/fetch_source.py tatoeba-kor data/ko
+                python3 tools/fetch_source.py cc100-ko data/ko --lines 3000
+                python3 tools/ko_ime/measure.py --tatoeba data/ko/kor_sentences.tsv.bz2 --out m --test 100 --nbest-out nbest.jsonl ;;
           esac
           [ -f nbest.jsonl ] && { wc -l nbest.jsonl; head -c 400 nbest.jsonl; echo; cat m/*-measure.txt | head -12; }
       - name: 2 分だけ学習して少し測る
@@ -64,6 +67,7 @@ jobs:
             rr-vi) python3 tools/models/train_task.py --task rr-vi --tatoeba data/vi/vie_sentences.tsv.bz2 --cc100 data/vi/cc100-vi.3000.txt --nbest-file nbest.jsonl $common ;;
             rr-hi) python3 tools/models/train_task.py --task rr-hi --dakshina data/hi/dakshina_dataset_v1.0/hi --nbest-file nbest.jsonl $common ;;
             rr-ar) python3 tools/models/train_task.py --task rr-ar --darija data/darija --nbest-file nbest.jsonl $common ;;
+            rr-ko) python3 tools/models/train_task.py --task rr-ko --tatoeba data/ko/kor_sentences.tsv.bz2 --cc100 data/ko/cc100-ko.3000.txt --nbest-file nbest.jsonl $common ;;
           esac
           cat out/*-result.txt
           ls -la out

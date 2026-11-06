@@ -17,9 +17,10 @@ task:
       選ばせる。試験は zh_ime/measure.py と同じ Tatoeba の確かめの枠（0.8 以上、5,000 文）。比べる相手: Rime の
       luna_pinyin_simp で まとまりが合った 53.3%、字の誤り 12.94%。音節の区切りは元の文から作った物を渡す
       （実際の入力では拼音を音節に分ける段が要る）。
-  rr-vi・rr-hi・rr-ar  並べ替え: 今の方法（lattice.py）の上位 8 個の候補を、その言語の文だけで学んだ字の模型の点数で
+  rr-vi・rr-hi・rr-ar・rr-ko  並べ替え: 今の方法（lattice.py）の上位 8 個の候補を、その言語の文だけで学んだ字の模型の点数で
       並べ替える（今の方法の点数＋重み×模型の点数）。重みは dev の文で決める。重み 0 が今の方法と同じなので悪くならない。
-      候補は vi_measure.py・hi_measure.py・ar_measure.py の --nbest-out で作り、--nbest-file で渡す。
+      候補は vi_measure.py・hi_measure.py・ar_measure.py・ko_ime/measure.py の --nbest-out で作り、--nbest-file で渡す。
+      韓国語は分かち書き（空白の入れ方の上位 16 通り）を並べ替え、語（어절）の切れ目が合った数と文で測る。
       （2026-11-06 vi・hi で模型に 1 から変換させたら今の方法に負けたので、この形にした）
 学習は決めた分数で止め（--minutes）、そのあと試験の文で測る。結果は out/<task>-result.txt と模型 out/<task>.pt。
 """
@@ -427,6 +428,20 @@ def task_rerank(a, lang):
             for r, w in (t for t in (A.tokens(x, y) for x, y in A.pairs_from(f)) if t):
                 if A.unit(" ".join(r)) >= 0.12:
                     texts.append(" ".join(w))
+    elif lang == "ko":
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ko_ime"))
+        import measure as K  # tools/ko_ime/measure.py（試験は 0.1 未満、dev は 0.1〜0.15）
+        for sid, s in K.read_tatoeba(a.tatoeba, "kor"):
+            if K.KO_LINE.match(s) and " " in s and K.unit(20261106, "t" + sid) >= 0.15:
+                texts.append(s)
+        if a.wiki:
+            for aid, s in K.read_wiki(a.wiki, a.extra):
+                if K.unit(20261106, "w" + aid) >= 0.15:
+                    texts.append(s)
+        for s in cc100_lines(a.cc100, a.extra):
+            s = " ".join(s.split())
+            if K.KO_LINE.match(s) and " " in s and 8 <= len(s) <= 120:
+                texts.append(s)
     texts = [t for t in texts if len(t) <= 200]
     pairs = [("", t) for t in texts]
     rows = [json.loads(l) for l in open(a.nbest_file, encoding="utf-8") if l.strip()]
@@ -447,7 +462,17 @@ def task_rerank(a, lang):
                 best = max(range(len(r["cands"])), key=lambda i: (r["base"][i] + beta * nn[i], -i))
                 got, want = r["cands"][best], r["gold"]
                 n += len(want)
-                ok += sum(x == y for x, y in zip(want, got))
+                if lang == "ko":
+                    # 分かち書きは語（어절）の切れ目が丸ごと合った数（ko_ime/measure.py の「語が合った」と同じ）
+                    def spans(ws):
+                        out, pos = set(), 0
+                        for w in ws:
+                            out.add((pos, pos + len(w)))
+                            pos += len(w)
+                        return out
+                    ok += len(spans(want) & spans(got))
+                else:
+                    ok += sum(x == y for x, y in zip(want, got))
                 sent += got == want
             return ok / max(n, 1), sent / max(len(rows), 1)
 
@@ -455,7 +480,7 @@ def task_rerank(a, lang):
         betas = (0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0)
         dev_res = {b: measure(dev, dev_s, b) for b in betas}
         beta = max(betas, key=lambda b: (dev_res[b][1], dev_res[b][0], -b))
-        unit_name = "音節" if lang == "vi" else "語"
+        unit_name = {"vi": "音節", "ko": "語（어절）"}.get(lang, "語")
         oracle = sum(r["gold"] in r["cands"] for r in test) / max(len(test), 1)
         lines = [f"並べ替え（{lang}）: dev {len(dev)} 文で重みを決め、試験 {len(test)} 文で測る。候補 {len(rows[0]['cands']) if rows else 0} 個、"
                  f"正解が候補に入っている文 {oracle:.1%}"]
@@ -470,7 +495,7 @@ def task_rerank(a, lang):
 
 TASKS = {"en": task_en, "vi": task_vi, "ko": task_ko, "hi": task_hi, "ar": task_ar, "zh": task_zh,
          "rr-vi": lambda a: task_rerank(a, "vi"), "rr-hi": lambda a: task_rerank(a, "hi"),
-         "rr-ar": lambda a: task_rerank(a, "ar")}
+         "rr-ar": lambda a: task_rerank(a, "ar"), "rr-ko": lambda a: task_rerank(a, "ko")}
 
 
 # ---------------------------------------------------------------- 学習
