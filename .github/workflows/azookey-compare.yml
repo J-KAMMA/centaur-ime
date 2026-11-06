@@ -1,0 +1,97 @@
+# azooKey（Zenzai つき）の変換で、比べの文（Tatoeba の確かめ用 2,980 文）を変換する。
+# 問いのかなは MS-IME の比べと同じ msime_compare.to_kana で作ったもの（.github/azk/q-*.json）。
+# azooKey: AzooKeyKanaKanjiConverter v0.11.2（MIT）、模型 zenz-v3.2-small-gguf（CC BY-SA 4.0）。
+name: azooKey compare
+
+on:
+  push:
+    branches: [work/azookey-compare]
+    paths: [.github/azk/**, .github/workflows/azookey-compare.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  convert:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["00", "01", "02", "03", "04", "05"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift 6.1
+        run: |
+          set -eo pipefail
+          curl -fsSL -o swift.tar.gz https://download.swift.org/swift-6.1-release/ubuntu2404/swift-6.1-RELEASE/swift-6.1-RELEASE-ubuntu24.04.tar.gz
+          sha256sum swift.tar.gz
+          mkdir -p "$HOME/swift" && tar xzf swift.tar.gz -C "$HOME/swift" --strip-components 1
+          echo "$HOME/swift/usr/bin" >> "$GITHUB_PATH"
+      - name: llama.cpp b4846（共有ライブラリ）
+        run: |
+          set -eo pipefail
+          git clone -q --depth 1 -b b4846 https://github.com/ggml-org/llama.cpp.git llama
+          git -C llama log -1 --format='%H'
+          cmake -S llama -B llama/build -DBUILD_SHARED_LIBS=ON -DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release > /dev/null
+          cmake --build llama/build --target llama -j 4 > /dev/null
+          find llama/build -name 'lib*.so*' | head
+          mkdir -p libs && find llama/build -name 'lib*.so*' -exec cp -P {} libs/ \;
+      - name: azooKey v0.11.2
+        run: |
+          set -eo pipefail
+          git clone -q --depth 1 -b v0.11.2 --recurse-submodules --shallow-submodules \
+            https://github.com/azooKey/AzooKeyKanaKanjiConverter.git azk
+          git -C azk log -1 --format='%H'
+          cd azk
+          swift build -c release --product CliTool --traits ZenzaiCPU -Xlinker -L"$GITHUB_WORKSPACE/libs" 2>&1 | tail -5
+          ls .build/release | head -30
+      - name: 模型 zenz-v3.2-small
+        run: |
+          set -eo pipefail
+          curl -fsSL -o zenz.gguf \
+            https://huggingface.co/Miwa-Keita/zenz-v3.2-small-gguf/resolve/c67e03e07d215c869f591b274c1631170d3e11fe/ggml-model-Q5_K_M.gguf
+          sha256sum zenz.gguf
+      - name: 変換
+        run: |
+          set -eo pipefail
+          export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/libs"
+          cd azk
+          ./.build/release/CliTool evaluate --help | head -30
+          time ./.build/release/CliTool evaluate "$GITHUB_WORKSPACE/.github/azk/q-${{ matrix.shard }}.json" \
+            --output "$GITHUB_WORKSPACE/out-${{ matrix.shard }}.json" --zenz "$GITHUB_WORKSPACE/zenz.gguf"
+          head -c 600 "$GITHUB_WORKSPACE/out-${{ matrix.shard }}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: azk-${{ matrix.shard }}
+          path: out-${{ matrix.shard }}.json
+
+  join:
+    needs: convert
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+      - name: 1 つにまとめる（ローマ字 TAB 結果 TAB 結果）
+        run: |
+          python3 - <<'EOF'
+          import json, glob
+          rows = []
+          for s in range(6):
+              idx = open(f".github/azk/index-{s:02d}.txt", encoding="utf-8").read().split("\n")[:-1]
+              out = json.load(open(glob.glob(f"parts/azk-{s:02d}/out-{s:02d}.json")[0], encoding="utf-8"))
+              items = out["items"]
+              assert len(items) == len(idx), (s, len(items), len(idx))
+              for r, it in zip(idx, items):
+                  o = it["outputs"][0]["text"] if it.get("outputs") else ""
+                  rows.append(f"{r}\t{o}\t{o}")
+          open("converted-azk.tsv", "w", encoding="utf-8").write("\n".join(rows) + "\n")
+          print(len(rows))
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: converted-azk
+          path: converted-azk.tsv
