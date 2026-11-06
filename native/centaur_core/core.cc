@@ -494,7 +494,9 @@ bool Model::LoadCasing(const std::filesystem::path& path) {
     const size_t tab = line.find('\t');
     if (tab == std::string::npos) continue;
     std::u32string typed = FromUtf8(line.substr(0, tab));
-    const std::u32string official = FromUtf8(line.substr(tab + 1));
+    // 3 列目から先（Wikidata の表の sitelinks と種類）は使わない
+    const size_t tab2 = line.find('\t', tab + 1);
+    const std::u32string official = FromUtf8(line.substr(tab + 1, tab2 == std::string::npos ? std::string::npos : tab2 - tab - 1));
     if (typed.empty() || official.empty() || official == U"-") continue;
     for (auto& ch : typed) {
       if (ch >= U'A' && ch <= U'Z') ch = ch - U'A' + U'a';

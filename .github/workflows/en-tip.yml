@@ -64,7 +64,9 @@ jobs:
           Copy-Item build64/Release/centaur_tip_en.dll pkg/x64/
           Copy-Item build32/Release/centaur_tip_en.dll pkg/x86/
           Copy-Item table.bin, native/centaur_tip/package/* pkg/
-          Copy-Item tools/data/brand-casing.tsv pkg/casing.tsv
+          # ブランド名の書き方: Wikidata の表（5,500 語）のあとに手で作った表を足す（後の行が勝つので、手の表が優先）
+          Get-Content tools/data/brand-casing-wikidata.tsv, tools/data/brand-casing.tsv -Encoding utf8 | Set-Content pkg/casing.tsv -Encoding utf8NoBOM
+          (Get-Content pkg/casing.tsv).Count
           Get-ChildItem -Recurse pkg | Format-Table FullName, Length
       - uses: actions/upload-artifact@v4
         with:

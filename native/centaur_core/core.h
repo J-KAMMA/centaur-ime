@@ -44,7 +44,8 @@ class Model {
   std::u32string Complete(const std::u32string& prefix, const std::u32string& prev) const;
 
   // ブランド・サービス名の正式な書き方（github → GitHub）を読む。行は「打った形<TAB>正式な形」
-  // （tools/data/brand-casing.tsv と同じ形。# の行と、正式な形が「-」の行は使わない）。
+  // （tools/data/brand-casing.tsv と同じ形。# の行と、正式な形が「-」の行は使わない。3 列目から先は読み飛ばす。
+  // 同じ打つ形が何度も出たら後の行が勝つ）。
   bool LoadCasing(const std::filesystem::path& path);
   // 小文字の語 w の正式な書き方。無ければ空。
   std::u32string Cased(const std::u32string& w) const;
