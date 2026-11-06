@@ -155,10 +155,14 @@ def draw_scene(d, F, t, scene):
     if key_line:
         typed, typo, after = key_line
         by = 560
-        d.text((96, by + 8), "打ったローマ字", font=F.get(22), fill=mix(BG, SUB, fade))
-        x = 230
+        label = "打ったローマ字"
+        d.text((96, by + 8), label, font=F.get(22), fill=mix(BG, SUB, fade))
+        x = 96 + text_w(d, label, F.get(22)) + 24  # 見出しの幅に合わせて、重ならないように
+        typo_x = None
         for j, ch in enumerate(typed):
             col = WARN if typo is not None and j == typo else INK
+            if col == WARN:
+                typo_x = x + text_w(d, ch, fkey) / 2
             d.text((x, by), ch, font=fkey, fill=mix(BG, col, fade))
             x += text_w(d, ch, fkey)
         if 0 < after < 99:
@@ -169,8 +173,10 @@ def draw_scene(d, F, t, scene):
             s = "Space"
             d.text((bx + (bw - text_w(d, s, F.get(24, True))) / 2, by + 5), s, font=F.get(24, True),
                    fill=mix(BG, (255, 255, 255), a))
-        if typo is not None and len(typed) > typo:
-            d.text((96, by + 52), "← 余計な x が入った", font=F.get(22), fill=mix(BG, WARN, fade))
+        if typo_x is not None:
+            s = "↑ 余計な x"
+            f = F.get(22)
+            d.text((typo_x - text_w(d, "↑", f) / 2, by + 48), s, font=f, fill=mix(BG, WARN, fade))
 
 
 def draw_end(im, d, F, t):
