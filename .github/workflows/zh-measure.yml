@@ -54,7 +54,7 @@ jobs:
             printf 'patch:\n  translator/enable_user_dict: false\n' > "rime-user/$schema.custom.yaml"
             python3 tools/zh_ime/measure.py --tatoeba cmn_sentences.tsv.bz2 --rime ./rime_convert \
               --shared /usr/share/rime-data --schema "$schema" --user-dir rime-user --out out \
-              --script "$script" --keys "$keys" --test ${{ inputs.test || '5000' }} | tee -a out/summary.txt || echo "$schema は失敗"
+              --script "$script" --keys "$keys" --test ${{ inputs.test || '5000' }}               --dump "out/rime-chunks-$schema.tsv" --dev 2000 | tee -a out/summary.txt || echo "$schema は失敗"
           done
       - name: 同音字の手がかりを集めて当てる
         run: |

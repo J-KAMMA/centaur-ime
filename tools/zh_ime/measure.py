@@ -96,6 +96,8 @@ def main():
     ap.add_argument("--seed", type=int, default=20261017)
     ap.add_argument("--test", type=int, default=5000)
     ap.add_argument("--examples", type=int, default=40)
+    ap.add_argument("--dump", help="まとまりごとの Rime の答えを書く（AI と組み合わせて選ぶ rr_zh.py 用）")
+    ap.add_argument("--dev", type=int, default=0, help="--dump に、試験の次の文から dev として足す数")
     args = ap.parse_args()
 
     t2s = OpenCC("t2s")
@@ -115,6 +117,7 @@ def main():
         if chunks:
             sents.append((sid, chunks))
     sents.sort(key=lambda s: stable_unit(args.seed + 1, s[0]))
+    dev_sents = sents[args.test: args.test + args.dev]
     sents = sents[: args.test]
 
     flat = [(i, c, py) for i, (_, chunks) in enumerate(sents) for c, py in chunks]
@@ -140,6 +143,15 @@ def main():
             for a, b in zip(ref, hyp):
                 if a != b:
                     confusions[(a, b)] += 1
+    if args.dump:
+        dev_flat = [(sid, c, py) for sid, chunks in dev_sents for c, py in chunks]
+        dev_got = run_rime(args, args.user_dir, ["".join(py) for _, _, py in dev_flat]) if dev_flat else []
+        with open(args.dump, "w", encoding="utf-8") as f:
+            f.write("split\tid\tpinyin\tref\trime\n")
+            for (i, ref, py), (hyp, _) in zip(flat, got):
+                f.write(f"test\t{sents[i][0]}\t{' '.join(py)}\t{ref}\t{hyp}\n")
+            for (sid, ref, py), (hyp, _) in zip(dev_flat, dev_got):
+                f.write(f"dev\t{sid}\t{' '.join(py)}\t{ref}\t{hyp}\n")
     (out_dir / f"mistakes-{args.schema}.tsv").write_text(
         "id\tpinyin\tref\tgot\n" + "\n".join(rows) + "\n", encoding="utf-8")
     (out_dir / f"confusions-{args.schema}.tsv").write_text(
