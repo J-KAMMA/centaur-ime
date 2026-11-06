@@ -1317,10 +1317,17 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
           const size_t seg = static_cast<size_t>(it - plain.bounds.begin()) - 1;
           return plain.bounds[seg] != at && seg < plain.known.size() && plain.known[seg];
         };
+        // 隣に別の英単語の走りがつながる走り（same|data、game|mode）は、英語の続きの一部なので止めない
+        std::vector<bool> begins(len + 1, false), ends(len + 1, false);
+        for (const Run& run : runs) {
+          begins[run.begin] = true;
+          ends[run.end] = true;
+        }
         for (size_t r = 0; r < runs.size(); ++r) {
           const Run& run = runs[r];
           if (!run.cuts.empty() || !readable(run.begin, run.end) ||
-              lexicon.IsCurated(std::string_view(sub).substr(run.begin, run.end - run.begin))) {
+              lexicon.IsCurated(std::string_view(sub).substr(run.begin, run.end - run.begin)) ||
+              begins[run.end] || ends[run.begin]) {
             continue;
           }
           if (inside_known_word(out[r].from) || inside_known_word(out[r].to)) out[r].cost += kStraddleCost;
