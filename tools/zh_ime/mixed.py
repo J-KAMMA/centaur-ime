@@ -65,9 +65,10 @@ class Splitter:
                 w = s[i:j]
                 opts = []
                 if j - i <= self.max_syl and w in self.syl:
-                    opts.append((1.0, False))
+                    # 1 字だけで読める拼音（n、m、a、e、o: 感動詞など）は重くする（英語がその間に入り込まないように）
+                    opts.append((2.5 if len(w) == 1 or w in ("ng", "hm") else 1.0, False))
                 if j - i >= 3 and w in self.eng:
-                    opts.append((1.0 + (3.0 if self.is_pinyin(w) else 0.0), True))
+                    opts.append((1.5 + (3.0 if self.is_pinyin(w) else 0.0), True))
                 elif j - i >= 3 and not self.is_pinyin(w):
                     opts.append((2.0 + 0.7 * (j - i), True))
                 for cost, eng in opts:
@@ -107,7 +108,8 @@ def main():
             c = line.rstrip("\n").split("\t")
             if len(c) >= 3 and c[1] == "eng":
                 count.update(w.lower() for w in LATIN.findall(c[2]))
-    english = {w for w, n in count.items() if n >= 3 and len(w) >= 3}
+    # ふつうの英単語は 4 字以上で、英語の文に 20 回以上出る語。3 字の語は名前の表（ブランド・コンピュータ用語）だけ
+    english = {w for w, n in count.items() if n >= 20 and len(w) >= 4}
     data = Path(__file__).resolve().parents[1] / "data"
     for name in ("brand-casing-wikidata.tsv", "brand-casing.tsv"):
         p = data / name
@@ -130,7 +132,9 @@ def main():
                 mixed.append(s)
         if len(mixed) >= a.test:
             break
+    known_chunks = sum(all(w.lower() in english for w in LATIN.findall(s)) for s in mixed)
     ok_word = n_word = ok_chunk = 0
+    k_ok = k_n = 0
     bad = []
     for s in mixed:
         typed, gold = "", []
@@ -145,10 +149,16 @@ def main():
         n_word += len(gold)
         ok_word += sum(1 for g in gold if g in got)
         ok_chunk += got == gold
+        for g in gold:
+            if g in english:
+                k_n += 1
+                k_ok += g in got
         if got != gold and len(bad) < 25:
             bad.append(f"  {s}  → 英語 {got}（正しくは {gold}）")
     out.append(f"英単語まじりの句 {len(mixed)}: 英単語を英語として取れた {ok_word / max(n_word, 1):.1%}"
                f"（{ok_word}/{n_word}）、句が全部合った {ok_chunk / max(len(mixed), 1):.1%}")
+    out.append(f"  うち英語の一覧にある語（製品・技術の名前、ふつうの英単語）: 取れた {k_ok / max(k_n, 1):.1%}（{k_ok}/{k_n}）、"
+               f"一覧にある語だけの句 {known_chunks}")
     out += bad
 
     # ふつうの中国語の句（Tatoeba の確かめの枠）
