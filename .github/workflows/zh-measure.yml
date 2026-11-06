@@ -60,6 +60,16 @@ jobs:
         run: |
           set -eo pipefail
           python3 tools/zh_ime/cues.py --tatoeba cmn_sentences.tsv.bz2 --mistakes out/mistakes-luna_pinyin_simp.tsv             --out out --test ${{ inputs.test || '5000' }} | tee -a out/summary.txt
+      - name: 拼音の中の英単語を残す（tools/zh_ime/mixed.py）
+        run: |
+          set -eo pipefail
+          python3 -m pip install -q pyarrow==21.0.0
+          curl -fsSL -o zh.parquet \
+            https://huggingface.co/datasets/wikimedia/wikipedia/resolve/b04c8d1ceb2f5cd4588862100d08de323dccfbaa/20231101.zh/train-00002-of-00006.parquet
+          echo "ec8f6c0dd1418b8fcd454278fb4f2bc7cd0ce8312f29c80b672533942601338f  zh.parquet" | sha256sum -c
+          curl -fsSL -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          sha256sum eng_sentences.tsv.bz2
+          python3 tools/zh_ime/mixed.py --tatoeba cmn_sentences.tsv.bz2 --wiki zh.parquet --eng eng_sentences.tsv.bz2 --out out | tee -a out/summary.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
