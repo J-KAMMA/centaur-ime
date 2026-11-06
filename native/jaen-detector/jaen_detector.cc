@@ -1333,7 +1333,11 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
           }
           // 止めるのは、英単語の始まりが日本語の辞書の語の途中にあるときだけ（それ|まで の れまで、けど の どね）。
           // 終わりだけが語の途中にある形（私は|madonna が、本は|dubai に、この|media を）は英語として残す。
-          if (inside_known_word(out[r].from)) out[r].cost += kStraddleCost;
+          // ローマ字で読むと ぢ・づ になる綴り（media の di、dubai の du）は日本語ではまず打たないので、英語として残す
+          // （この|め|ぢあ の め が「木の芽」の途中に見えても止めない）。
+          const std::string_view word = std::string_view(sub).substr(run.begin, run.end - run.begin);
+          const bool rare_kana = word.find("di") != std::string_view::npos || word.find("du") != std::string_view::npos;
+          if (!rare_kana && inside_known_word(out[r].from)) out[r].cost += kStraddleCost;
         }
         return out;
       };
