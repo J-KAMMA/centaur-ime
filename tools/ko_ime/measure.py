@@ -248,12 +248,14 @@ def main():
     # ブランド名（tools/data/brand-casing.tsv、日本語版・英語版と同じ表）: 韓国語の入力のまま英字のキーで打った
     # ブランド名（iphone → ㅑㅔㅗㅐㅜㄷ）を見分け、英語の正式な書き方（iPhone）を候補に出す。組み立てると
     # よく使う韓国語の語になるもの（打ったキーが韓国語として読める）は出さない。
-    brand_path = Path(__file__).resolve().parents[1] / "data" / "brand-casing.tsv"
+    # Wikidata（CC0、5,500 語）のあとに手で作った表を読む（後が勝つ）
+    brand_paths = [Path(__file__).resolve().parents[1] / "data" / n for n in ("brand-casing-wikidata.tsv", "brand-casing.tsv")]
+    brand_path = brand_paths[-1]
     brands = {}
     if brand_path.exists():
-        for line in brand_path.read_text(encoding="utf-8").splitlines():
+        for line in (l for bp in brand_paths if bp.exists() for l in bp.read_text(encoding="utf-8").splitlines()):
             p = line.split("\t")
-            if len(p) == 2 and not line.startswith("#") and p[1] != "-" and re.fullmatch(r"[a-z]{3,}", p[0]):
+            if len(p) >= 2 and not line.startswith("#") and p[1] != "-" and re.fullmatch(r"[a-z]{3,}", p[0]):
                 brands[p[0]] = p[1]
 
     def brand_of(keys):
