@@ -96,6 +96,11 @@ STDAPI DllRegisterServer() {
       !SetKey(HKEY_CLASSES_ROOT, clsid + L"\\InprocServer32", L"ThreadingModel", L"Apartment")) {
     return SELFREG_E_CLASS;
   }
+  // 64 ビットの OS の上の 32 ビットの処理（WOW64）では、部品（CLSID）の登録だけにする。入力方式の登録は
+  // 64 ビット版がした 1 つを両方で使う（もう一度登録しようとすると断られる。2026-11-06 の試用で 32 ビット版が失敗）。
+  BOOL wow64 = FALSE;
+  IsWow64Process(GetCurrentProcess(), &wow64);
+  if (wow64) return S_OK;
   const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   HRESULT hr = E_FAIL;
   ITfInputProcessorProfileMgr* mgr = nullptr;
@@ -117,6 +122,12 @@ STDAPI DllRegisterServer() {
 }
 
 STDAPI DllUnregisterServer() {
+  BOOL wow64 = FALSE;
+  IsWow64Process(GetCurrentProcess(), &wow64);
+  if (wow64) {
+    RegDeleteTreeW(HKEY_CLASSES_ROOT, (L"CLSID\\" + GuidString(kClsidTextService)).c_str());
+    return S_OK;
+  }
   const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   ITfCategoryMgr* cat = nullptr;
   if (SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr,
