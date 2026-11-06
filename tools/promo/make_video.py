@@ -24,13 +24,13 @@ LINE = (226, 226, 230)
 # 場面: (始まり秒, 終わり秒, 見出し, 説明, 例の並び)
 # 例: (打ったキー, 結果の区切り [(文字, 目立たせるか)], 打ち間違いのキーの位置)
 SCENES = [
-    (3.0, 11.0, "前後の言葉で漢字を選ぶ", "同じ「はし」でも、文に合う字に",
+    (3.0, 11.0, "同じ読みでも、文に合う漢字に", "「はし」を、食べる話なら箸、渡る話なら橋に",
      [("hashidegohanwotaberu", [("箸", True), ("でご飯を食べる", False)], None),
       ("hashiwowatattekouennheiku", [("橋", True), ("を渡って公園へ行く", False)], None)]),
-    (11.0, 19.0, "英単語は切り替えずにそのまま", "日本語の中の英語を、打ったまま残す",
+    (11.0, 19.0, "英単語は、そのまま打てる", "入力を英語に切り替えなくても、英単語は英語のまま",
      [("githubnipushshita", [("GitHub", True), ("に", False), ("push", True), ("した", False)], None),
       ("ashitanomeetingha10jikara", [("明日の", False), ("meeting", True), ("は10時から", False)], None)]),
-    (19.0, 25.0, "打ち間違いも文脈で直す", "余計なキーが入っても、正しい文に",
+    (19.0, 25.0, "打ち間違いも、文から直す", "余計なキーが混じっても、意味の通る文に",
      [("hashidegohaxnwotaberu", [("箸でご飯を食べる", False)], 11)]),
 ]
 END = 30.0
@@ -91,7 +91,7 @@ def draw_title(im, d, F, t):
     s = "Centaur IME"
     d.text(((W - text_w(d, s, f1)) / 2, 320 - 20 * (1 - ease((t - 0.15) / 0.8))), s, font=f1, fill=col)
     f2 = F.get(34)
-    s2 = "文脈で選ぶ日本語入力"
+    s2 = "文の流れを読んで変換する日本語入力"
     d.text(((W - text_w(d, s2, f2)) / 2, 430), s2, font=f2, fill=mix(BG, SUB, a))
     bar = 160 * ease((t - 0.4) / 0.8) * (1 - ease((t - 2.6) / 0.4))
     d.rounded_rectangle(((W - bar) / 2, 500, (W + bar) / 2, 506), 3, fill=mix(BG, ACCENT, a))
@@ -155,7 +155,7 @@ def draw_scene(d, F, t, scene):
     if key_line:
         typed, typo, after = key_line
         by = 560
-        d.text((96, by + 8), "打ったキー", font=F.get(22), fill=mix(BG, SUB, fade))
+        d.text((96, by + 8), "打ったローマ字", font=F.get(22), fill=mix(BG, SUB, fade))
         x = 230
         for j, ch in enumerate(typed):
             col = WARN if typo is not None and j == typo else INK
@@ -181,7 +181,7 @@ def draw_end(im, d, F, t):
     f1 = F.get(64, True)
     s = "Centaur IME 日本語"
     d.text(((W - text_w(d, s, f1)) / 2, 200 - 16 * (1 - a)), s, font=f1, fill=mix(BG, INK, a))
-    lines = ["変換はすべてパソコンの中で", "Windows 11 ・ macOS ・ Linux（試用）"]
+    lines = ["無料。変換はすべてパソコンの中で", "Windows 11 ・ macOS ・ Linux（試用）"]
     for i, s in enumerate(lines):
         b = ease((lt - 0.4 - i * 0.25) / 0.5)
         f = F.get(32)
