@@ -1327,6 +1327,7 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
           const Run& run = runs[r];
           if (!run.cuts.empty() || !readable(run.begin, run.end) ||
               lexicon.IsCurated(std::string_view(sub).substr(run.begin, run.end - run.begin)) ||
+              lexicon.IsNamed(std::string_view(sub).substr(run.begin, run.end - run.begin)) ||  // dubai・madonna
               begins[run.end] || ends[run.begin]) {
             continue;
           }
