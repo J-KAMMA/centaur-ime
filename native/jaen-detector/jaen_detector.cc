@@ -1331,7 +1331,9 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
               begins[run.end] || ends[run.begin]) {
             continue;
           }
-          if (inside_known_word(out[r].from) || inside_known_word(out[r].to)) out[r].cost += kStraddleCost;
+          // 止めるのは、英単語の始まりが日本語の辞書の語の途中にあるときだけ（それ|まで の れまで、けど の どね）。
+          // 終わりだけが語の途中にある形（私は|madonna が、本は|dubai に、この|media を）は英語として残す。
+          if (inside_known_word(out[r].from)) out[r].cost += kStraddleCost;
         }
         return out;
       };
