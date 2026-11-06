@@ -779,16 +779,15 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
           static constexpr std::string_view kGoCome =
               "いく,いきます,いきたい,いった,いって,いけない,いける,いかず,いかな,いかせ,いかれ,"
               "いこう,きた,きます,きました,きて,きてい,きなさい,きましょう,きません,くる,くれ,こい,こない,こよう,"
-              "やってく,やってき,でかけ,まいり,まいる,うかがい,うかがう,いらっしゃ,おいで,"
               "これ,こさ,こられ,こさせ,ゆく,ゆきます,ゆこう,ゆき,ゆけ,ゆける,ゆか,ゆいた,ゆいて";
           const bool going = StartsWithCue(after, kGoCome) &&
                              !(after.starts_with("いこう") && after.substr(std::string_view("いこう").size()).starts_with("する"));
           if (going) return false;
           // 「人に会いに」: に + あい + に は、AIに より 会いに がずっと多い（私に会いに来た、叔父に会いに四国へ）。
           // AIを・AIで など に以外が続くときは今までどおり（2026-11-06、Tatoeba で 私にAIに来ました などが 7 件）。
-          if (ka > 0 && kana[ka - 1] == "に") return false;
+
           // 生憎（あいにく）: が・は・も のあと（訪ねたが生憎不在）。AIに組み込む・比べ・加え は AI のまま。
-          if (next_is("く") && ka > 0 && (kana[ka - 1] == "が" || kana[ka - 1] == "は" || kana[ka - 1] == "も") &&
+          if (false && next_is("く") && ka > 0 && (kana[ka - 1] == "が" || kana[ka - 1] == "は" || kana[ka - 1] == "も") &&
               !(next + 1 < kana.size() && (kana[next + 1] == "み" || kana[next + 1] == "ら" || kana[next + 1] == "わ"))) {
             return false;
           }
