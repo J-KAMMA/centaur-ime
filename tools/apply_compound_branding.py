@@ -371,4 +371,7 @@ subprocess.run([sys.executable, str(Path(__file__).with_name("apply_version_disp
 
 # 旧名（CompoundIME）の設定と学習を新しい置き場へ写す（変換の常駐が最初に起きたとき一度だけ）。
 subprocess.run([sys.executable, str(Path(__file__).with_name("apply_centaur_migration.py")), str(src)], check=True)
+
+# 打ち始めにアプリが組み立てを打ち切ったとき、かなになる前のローマ字（ｓ）を確定しない（sita が「ｓいた」に）。
+subprocess.run([sys.executable, str(Path(__file__).with_name("apply_tip_first_key.py")), str(src)], check=True)
 print("branding applied")
