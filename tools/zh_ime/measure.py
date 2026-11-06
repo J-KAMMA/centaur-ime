@@ -177,8 +177,43 @@ def main():
     lines += [f"  {a}→{b} {n}" for (a, b), n in confusions.most_common(args.examples)]
     lines.append("誤りの例:")
     lines += ["  " + r for r in rows[: args.examples]]
+
+    # ブランド名（tools/data/brand-casing.tsv、日本語版・英語版と同じ表）を拼音の入力のまま打ったとき。
+    # 決まり: 拼音として全部は読めない並び（github）なら、英語のまま正式な書き方（GitHub）で残す。
+    # 拼音としても読める並び（nike = ni ke）は、Rime の答えを一番にして、ブランド名は次の候補に置く。
+    brand_path = Path(__file__).resolve().parents[1] / "data" / "brand-casing.tsv"
+    if args.keys == "pinyin" and brand_path.exists():
+        brands = {}
+        for line in brand_path.read_text(encoding="utf-8").splitlines():
+            p = line.split("\t")
+            if len(p) == 2 and not line.startswith("#") and p[1] != "-" and re.fullmatch(r"[a-z]{3,}", p[0]):
+                brands[p[0]] = p[1]
+        valid = set()
+        for code in range(0x4E00, 0xA000):
+            for r in lazy_pinyin(chr(code), style=Style.NORMAL, errors="ignore"):
+                if r.isascii() and r.isalpha():
+                    valid.add(r)
+
+        def is_pinyin(s):
+            ok = [True] + [False] * len(s)
+            for i in range(len(s)):
+                if ok[i]:
+                    for j in range(i + 1, min(len(s), i + 6) + 1):
+                        if s[i:j] in valid:
+                            ok[j] = True
+            return ok[len(s)]
+        names = sorted(brands)
+        got_b = run_rime(args, args.user_dir, names)
+        readable = [b for b in names if is_pinyin(b)]
+        kept_by_rime = sum(h.lower() == b for b, (h, _) in zip(names, got_b))
+        lines.append(f"ブランド名（拼音の入力のまま打った）: {len(names)} 語。拼音としても読める {len(readable)}、"
+                     f"読めない {len(names) - len(readable)}（英語のまま残す）。Rime だけで英字のまま残った {kept_by_rime}")
+        lines += [f"  拼音としても読める {b} → Rime {h}" for b, (h, _) in zip(names, got_b) if b in readable][: args.examples]
+        lines += [f"  読めない {b} → Rime {h}（残すのは {brands[b]}）"
+                  for b, (h, _) in zip(names, got_b) if b not in readable][:10]
     (out_dir / f"zh-measure-{args.schema}.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines[:5]))
+    print("\n".join(l for l in lines if l.startswith("ブランド名")))
 
 
 if __name__ == "__main__":
