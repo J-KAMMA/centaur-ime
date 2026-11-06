@@ -490,6 +490,18 @@ def task_rerank(a, lang):
         w1, s1 = measure(test, test_s, beta)
         lines.append(f"  試験 重み 0（今の方法）: {unit_name} {w0:.1%}、文 {s0:.1%}")
         lines.append(f"  試験 重み {beta}（dev で決めた）: {unit_name} {w1:.1%}、文 {s1:.1%}")
+        # 候補を上位 K 個に減らしたとき（AI が採点する数が減ると速くなる）。重みは K ごとに dev で決め直す
+        def top(rows_, scores_, k):
+            return ([dict(r, cands=r["cands"][:k], base=r["base"][:k]) for r in rows_], [s[:k] for s in scores_])
+        for k in (2, 4, 8, 16):
+            if not rows or k >= max(len(r["cands"]) for r in rows):
+                continue
+            dv, ds = top(dev, dev_s, k)
+            tv, ts = top(test, test_s, k)
+            bk = max(betas, key=lambda b: (measure(dv, ds, b)[1], measure(dv, ds, b)[0], -b))
+            wk, sk = measure(tv, ts, bk)
+            ok_k = sum(r["gold"] in r["cands"] for r in tv) / max(len(tv), 1)
+            lines.append(f"  候補 {k} 個だけ: 試験 {unit_name} {wk:.1%}、文 {sk:.1%}（重み {bk}、正解が候補に {ok_k:.1%}）")
         return "\n".join(lines)
     return pairs, evaluate
 
@@ -522,6 +534,7 @@ def main():
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--out", default="out")
+    ap.add_argument("--name", help="模型と結果のファイルの名前（既定は task の名前。大きさを変えて比べるとき用）")
     ap.add_argument("--load", help="学習済みの模型（.pt）を読んで、学習せずに測るだけにする")
     a = ap.parse_args()
     torch.manual_seed(20261106)
@@ -540,7 +553,7 @@ def main():
         print("\n".join(log), flush=True)
         out = Path(a.out)
         out.mkdir(parents=True, exist_ok=True)
-        (out / f"{a.task}-result.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
+        (out / f"{a.name or a.task}-result.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
         return
     vocab = Vocab([s + t for s, t in pairs], min_count=2)
     exs = [e for e in (make_example(vocab, s, t, 256) for s, t in pairs) if e]
@@ -586,12 +599,12 @@ def main():
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     # 測る前に模型を保存する（測る所で落ちても学習の分を失わない）
-    torch.save({"config": model.config, "vocab": vocab.state(), "state": model.state_dict()}, out / f"{a.task}.pt")
-    (out / f"{a.task}-result.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
+    torch.save({"config": model.config, "vocab": vocab.state(), "state": model.state_dict()}, out / f"{a.name or a.task}.pt")
+    (out / f"{a.name or a.task}-result.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
     t1 = time.time()
     log.append(evaluate(model, vocab) + f"（測るのに {time.time() - t1:.0f} 秒）")
     print("\n".join(log[-2:]), flush=True)
-    (out / f"{a.task}-result.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
+    (out / f"{a.name or a.task}-result.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

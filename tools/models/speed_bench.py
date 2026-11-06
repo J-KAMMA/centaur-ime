@@ -14,8 +14,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tiny_gpt import TinyGPT  # noqa: E402
 
 torch.manual_seed(0)
-CASES = [("韓国語", 1922, 384, 8, 6, 16, 34), ("ベトナム語", 99, 384, 8, 6, 8, 47), ("中国語", 6000, 512, 8, 8, 2, 42)]
-for threads in (1, 2, 4):
+CASES = [("韓国語", 1922, 384, 8, 6, 16, 34), ("ベトナム語", 99, 384, 8, 6, 8, 47), ("中国語", 6000, 512, 8, 8, 2, 42),
+         # 小さくした形（d 256・4 層、d 192・4 層、d 128・3 層）と、候補を減らした形
+         ("韓国語 d256・4層", 1922, 256, 4, 4, 16, 34), ("韓国語 d192・4層", 1922, 192, 4, 4, 16, 34),
+         ("韓国語 d128・3層", 1922, 128, 3, 4, 16, 34), ("韓国語 d256・4層・4候補", 1922, 256, 4, 4, 4, 34),
+         ("韓国語 d192・4層・4候補", 1922, 192, 4, 4, 4, 34), ("中国語 d256・4層", 6000, 256, 4, 4, 2, 42)]
+for threads in (1, 2):
     torch.set_num_threads(threads)
     for name, v, d, layers, heads, batch, length in CASES:
         m = TinyGPT(v, d=d, layers=layers, heads=heads, max_len=256).eval()
