@@ -47,6 +47,17 @@ int wmain(int argc, wchar_t** argv) {
     mgr->Release();
   }
   CoUninitialize();
-  std::printf("Centaur IME English: %s\n", found ? "registered" : "not registered");
-  return found == want ? 0 : 1;
+  // 一覧の取り方は機械の言語の設定に左右されるので、入力方式の登録の場所（レジストリ）も直接見る
+  wchar_t clsid[64], profile[64];
+  StringFromGUID2(kClsidTextService, clsid, 64);
+  StringFromGUID2(kGuidProfile, profile, 64);
+  wchar_t path[256];
+  swprintf(path, 256, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%ls\\LanguageProfile\\0x%08x\\%ls", clsid,
+           static_cast<unsigned>(kLangId), profile);
+  HKEY key = nullptr;
+  const bool in_registry =
+      RegOpenKeyExW(HKEY_LOCAL_MACHINE, path, 0, KEY_READ | KEY_WOW64_64KEY, &key) == ERROR_SUCCESS;
+  if (key) RegCloseKey(key);
+  std::printf("Centaur IME English: profile list %s, registry %s\n", found ? "yes" : "no", in_registry ? "yes" : "no");
+  return in_registry == want ? 0 : 1;
 }
