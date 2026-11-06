@@ -32,7 +32,8 @@ jobs:
       - name: llama.cpp b4846（共有ライブラリ）
         run: |
           set -eo pipefail
-          git clone -q --depth 1 -b b4846 https://github.com/ggml-org/llama.cpp.git llama
+          # azooKey の CI と同じ fork（上流の b4846 では CPU だけのとき main_gpu の確かめで模型を読めない）
+          git clone -q --depth 1 -b b4846 https://github.com/fkunn1326/llama.cpp.git llama
           git -C llama log -1 --format='%H'
           cmake -S llama -B llama/build -DBUILD_SHARED_LIBS=ON -DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release > /dev/null
           cmake --build llama/build --target llama -j 4 > /dev/null
@@ -56,11 +57,13 @@ jobs:
       - name: 変換
         run: |
           set -eo pipefail
+          # 模型を読めなかったら止める（AI なしの azooKey と比べないため）
           export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/libs"
           cd azk
           ./.build/release/CliTool evaluate --help | head -30
           time ./.build/release/CliTool evaluate "$GITHUB_WORKSPACE/.github/azk/q-${{ matrix.shard }}.json" \
-            --output "$GITHUB_WORKSPACE/out-${{ matrix.shard }}.json" --zenz "$GITHUB_WORKSPACE/zenz.gguf"
+            --output "$GITHUB_WORKSPACE/out-${{ matrix.shard }}.json" --zenz "$GITHUB_WORKSPACE/zenz.gguf" 2>&1 | tee log.txt
+          if grep -q 'invalid value for main_gpu\|failed to load model' log.txt; then echo '模型を読めなかった'; exit 1; fi
           head -c 600 "$GITHUB_WORKSPACE/out-${{ matrix.shard }}.json"
       - uses: actions/upload-artifact@v4
         with:
