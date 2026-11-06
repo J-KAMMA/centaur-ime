@@ -19,17 +19,19 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q fonts-noto-cjk ffmpeg
-          pip install pillow==11.3.0
+          pip install pillow==11.3.0 numpy==2.3.4
       - name: 動画を作る
         run: |
           R=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
           B=/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc
-          python tools/promo/make_video.py --font-r $R --font-b $B --out centaur-ime-intro.mp4
+          python tools/promo/make_video.py --font-r $R --font-b $B --audio full --out centaur-ime-intro.mp4
+          python tools/promo/make_video.py --font-r $R --font-b $B --audio fx --out centaur-ime-intro-fx.mp4
+          python tools/promo/make_video.py --font-r $R --font-b $B --out centaur-ime-intro-silent.mp4
           python tools/promo/make_video.py --font-r $R --font-b $B --stills 1.5,10.5,18.0,24.0,28.0 --out stills
-          ls -la centaur-ime-intro.mp4 stills
+          ls -la *.mp4 stills
       - uses: actions/upload-artifact@v4
         with:
           name: promo-video
           path: |
-            centaur-ime-intro.mp4
+            *.mp4
             stills

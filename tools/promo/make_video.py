@@ -185,12 +185,27 @@ def frame(F, t):
     return im
 
 
+def sound_events():
+    """絵と同じ時刻の音の出来事（draw_scene の時刻の計算と合わせる）。"""
+    ev = [("title", 0.3), ("end", 25.0)]
+    for start, end, _, _, examples in SCENES:
+        starts, _ = example_times(start, end, len(examples))
+        for es, (keys, _, _) in zip(starts, examples):
+            for k in range(len(keys)):
+                ev.append(("key", es + (k + 1) / 17.0))
+            type_dur = len(keys) / 17.0
+            ev.append(("space", es + type_dur + 0.02))
+            ev.append(("convert", es + type_dur + 0.45))
+    return ev
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--font-r", required=True)
     ap.add_argument("--font-b", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--stills", default="")
+    ap.add_argument("--audio", choices=["none", "fx", "full"], default="none")
     a = ap.parse_args()
     F = Fonts(a.font_r, a.font_b)
     if a.stills:
@@ -199,9 +214,16 @@ def main():
         for s in a.stills.split(","):
             frame(F, float(s)).save(out / f"still-{float(s):05.1f}.png")
         return
+    audio_in, audio_out = [], []
+    if a.audio != "none":
+        from sound import render
+        wav = Path(a.out).with_suffix(".wav")
+        render(sound_events(), END, a.audio, wav)
+        audio_in = ["-i", str(wav)]
+        audio_out = ["-c:a", "aac", "-b:a", "160k", "-shortest"]
     p = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
-                          "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "slow",
-                          "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", a.out],
+                          "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", *audio_in, "-c:v", "libx264", "-preset", "slow",
+                          "-crf", "20", "-pix_fmt", "yuv420p", *audio_out, "-movflags", "+faststart", a.out],
                          stdin=subprocess.PIPE)
     for i in range(int(END * FPS)):
         p.stdin.write(frame(F, i / FPS).tobytes())
