@@ -1309,7 +1309,7 @@ std::vector<Piece> SplitEnglish(const std::vector<Chunk>& chunks, const Lexicon&
       const bool english_near = after_english || before_english || follows_text;
       const auto aligned_edges = [&](const LatticeResult& plain) {
         std::vector<EnglishEdge> out = edges;
-        if (english_near) return out;
+        if (true) return out;
         // 位置 at が辞書の語の途中か
         const auto inside_known_word = [&](size_t at) {
           const auto it = std::ranges::upper_bound(plain.bounds, at);
