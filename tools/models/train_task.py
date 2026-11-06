@@ -452,7 +452,8 @@ def task_rerank(a, lang):
         def neural(rows):
             out = []
             for r in rows:
-                conts = [vocab.encode(" ".join(c)) + [EOS] for c in r["cands"]]
+                # 模型の長さ（max_len）を超える候補は先頭を残して切る（BOS・SEP の分を引く。候補どうしは同じだけ切れる）
+                conts = [(vocab.encode(" ".join(c)) + [EOS])[: model.max_len - 3] for c in r["cands"]]
                 out.append(score_batch(model, [BOS, SEP], conts))
             return out
 
@@ -521,11 +522,26 @@ def main():
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--out", default="out")
+    ap.add_argument("--load", help="学習済みの模型（.pt）を読んで、学習せずに測るだけにする")
     a = ap.parse_args()
     torch.manual_seed(20261106)
     torch.set_num_threads(max(1, torch.get_num_threads()))
     t0 = time.time()
     pairs, evaluate = TASKS[a.task](a)
+    if a.load:
+        # 学習済みの模型を読んで測るだけ（測る所で落ちたときの測り直し）
+        ck = torch.load(a.load, map_location=a.device)
+        vocab = Vocab.from_state(ck["vocab"])
+        model = TinyGPT(**ck["config"]).to(a.device)
+        model.load_state_dict(ck["state"])
+        model.eval()
+        t1 = time.time()
+        log = [f"{a.task}: 学習済みの模型 {a.load} を読んで測る", evaluate(model, vocab) + f"（測るのに {time.time() - t1:.0f} 秒）"]
+        print("\n".join(log), flush=True)
+        out = Path(a.out)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / f"{a.task}-result.txt").write_text("\n".join(log) + "\n", encoding="utf-8")
+        return
     vocab = Vocab([s + t for s, t in pairs], min_count=2)
     exs = [e for e in (make_example(vocab, s, t, 256) for s, t in pairs) if e]
     random.Random(1).shuffle(exs)
