@@ -34,6 +34,7 @@ SCENES = [
      [("hashidegohaxnwotaberu", [("箸でご飯を食べる", False)], 11)]),
 ]
 END = 30.0
+CREDIT = ""  # 声を使うとき「音声: VOICEVOX:四国めたん」（--voice で入る）
 
 
 def ease(x):
@@ -167,6 +168,9 @@ def draw_end(d, F, t):
     w = text_w(d, s, f)
     d.rounded_rectangle(((W - w) / 2 - 24, 480, (W + w) / 2 + 24, 536), 12, fill=mix(BG, ACCENT, c))
     d.text(((W - w) / 2, 490), s, font=f, fill=mix(BG, (255, 255, 255), c))
+    if CREDIT:
+        f = F.get(20)
+        d.text((W - 40 - text_w(d, CREDIT, f), H - 44), CREDIT, font=f, fill=mix(BG, SUB, c))
 
 
 def frame(F, t):
@@ -206,7 +210,15 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--stills", default="")
     ap.add_argument("--audio", choices=["none", "fx", "full"], default="none")
+    ap.add_argument("--voice", default="", help="narrate.py の出力の置き場")
     a = ap.parse_args()
+    global CREDIT
+    voices = []
+    if a.voice:
+        import json
+        meta = json.loads((Path(a.voice) / "lines.json").read_text(encoding="utf-8"))
+        CREDIT = "音声: " + meta["credit"]
+        voices = [(m["at"], Path(a.voice) / m["file"]) for m in meta["lines"]]
     F = Fonts(a.font_r, a.font_b)
     if a.stills:
         out = Path(a.out)
@@ -218,7 +230,7 @@ def main():
     if a.audio != "none":
         from sound import render
         wav = Path(a.out).with_suffix(".wav")
-        render(sound_events(), END, a.audio, wav)
+        render(sound_events(), END, a.audio, wav, voices)
         audio_in = ["-i", str(wav)]
         audio_out = ["-c:a", "aac", "-b:a", "160k", "-shortest"]
     p = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",

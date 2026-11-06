@@ -71,10 +71,29 @@ def pad(length):
     return out * g * 0.012
 
 
-def render(events, length, mode, path, seed=20261106):
+def load_wav(path):
+    with wave.open(str(path)) as w:
+        sr, ch = w.getframerate(), w.getnchannels()
+        x = np.frombuffer(w.readframes(w.getnframes()), dtype="<i2").astype(np.float64) / 32768
+    if ch > 1:
+        x = x.reshape(-1, ch).mean(axis=1)
+    if sr != SR:
+        t_new = np.arange(int(len(x) * SR / sr)) / SR
+        x = np.interp(t_new, np.arange(len(x)) / sr, x)
+    return x
+
+
+def render(events, length, mode, path, voices=(), seed=20261106):
+    """voices: [(始まり秒, wav のパス)]。声のある間は、ほかの音を小さくする。"""
     rng = np.random.default_rng(seed)
     n = int(length * SR)
     mixbuf = np.zeros(n)
+    voice = np.zeros(n)
+    for at, p in voices:
+        x = load_wav(p)
+        i = int(at * SR)
+        j = min(n, i + len(x))
+        voice[i:j] += x[: j - i] * 0.95
 
     def put(sig, at):
         i = int(at * SR)
@@ -96,6 +115,12 @@ def render(events, length, mode, path, seed=20261106):
             put(chime([392.0, 523.25, 659.25, 1046.5], 2.0, 0.24), at)
     if mode == "full":
         mixbuf += pad(length)
+    if voices:
+        # 声の大きさをなめらかにして、声のある所はほかを 45% に
+        k = int(0.15 * SR)
+        level = np.convolve(np.abs(voice), np.ones(k) / k, mode="same")
+        duck = 1.0 - 0.55 * np.clip(level / 0.02, 0, 1)
+        mixbuf = mixbuf * duck + voice
     peak = np.max(np.abs(mixbuf))
     if peak > 0.89:
         mixbuf *= 0.89 / peak

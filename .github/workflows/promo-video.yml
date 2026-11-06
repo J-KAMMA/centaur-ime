@@ -20,18 +20,27 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q fonts-noto-cjk ffmpeg
           pip install pillow==11.3.0 numpy==2.3.4
+      - name: 声（VOICEVOX、四国めたん）
+        run: |
+          docker run -d --rm -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:50021/version && break; sleep 3; done
+          echo
+          docker image inspect voicevox/voicevox_engine:cpu-latest --format '{{index .RepoDigests 0}}'
+          python tools/promo/narrate.py --out voice
       - name: 動画を作る
         run: |
           R=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
           B=/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc
+          python tools/promo/make_video.py --font-r $R --font-b $B --audio full --voice voice --out centaur-ime-intro-voice.mp4
           python tools/promo/make_video.py --font-r $R --font-b $B --audio full --out centaur-ime-intro.mp4
           python tools/promo/make_video.py --font-r $R --font-b $B --audio fx --out centaur-ime-intro-fx.mp4
           python tools/promo/make_video.py --font-r $R --font-b $B --out centaur-ime-intro-silent.mp4
-          python tools/promo/make_video.py --font-r $R --font-b $B --stills 1.5,10.5,18.0,24.0,28.0 --out stills
+          python tools/promo/make_video.py --font-r $R --font-b $B --stills 1.5,10.5,18.0,24.0,28.0 --voice voice --out stills
           ls -la *.mp4 stills
       - uses: actions/upload-artifact@v4
         with:
           name: promo-video
           path: |
             *.mp4
+            voice/lines.json
             stills
