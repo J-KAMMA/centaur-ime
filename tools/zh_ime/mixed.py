@@ -54,6 +54,10 @@ class Splitter:
 
     def split(self, s):
         """[(部分, 英語か)] を返す。"""
+        # 全部を拼音として読めるなら英語は取らない（「nide」を ni|de でなく n|ide、「wanshang」の wan|der のように、
+        # 拼音の音節をまたいで英単語を見つけてしまうため）。ふつうの中国語の入力は必ず拼音として読める
+        if self.is_pinyin(s):
+            return [(s, False)]
         n = len(s)
         best = [None] * (n + 1)
         best[0] = (0.0, None)
