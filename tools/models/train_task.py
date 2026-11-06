@@ -17,11 +17,16 @@ task:
       選ばせる。試験は zh_ime/measure.py と同じ Tatoeba の確かめの枠（0.8 以上、5,000 文）。比べる相手: Rime の
       luna_pinyin_simp で まとまりが合った 53.3%、字の誤り 12.94%。音節の区切りは元の文から作った物を渡す
       （実際の入力では拼音を音節に分ける段が要る）。
+  rr-vi・rr-hi・rr-ar  並べ替え: 今の方法（lattice.py）の上位 8 個の候補を、その言語の文だけで学んだ字の模型の点数で
+      並べ替える（今の方法の点数＋重み×模型の点数）。重みは dev の文で決める。重み 0 が今の方法と同じなので悪くならない。
+      候補は vi_measure.py・hi_measure.py・ar_measure.py の --nbest-out で作り、--nbest-file で渡す。
+      （2026-11-06 vi・hi で模型に 1 から変換させたら今の方法に負けたので、この形にした）
 学習は決めた分数で止め（--minutes）、そのあと試験の文で測る。結果は out/<task>-result.txt と模型 out/<task>.pt。
 """
 import argparse
 import bz2
 import collections
+import json
 import random
 import re
 import sys
@@ -387,7 +392,85 @@ def task_en(a):
     return pairs, evaluate
 
 
-TASKS = {"en": task_en, "vi": task_vi, "ko": task_ko, "hi": task_hi, "ar": task_ar, "zh": task_zh}
+def task_rerank(a, lang):
+    """今の方法（lattice.py）の上位の候補を、その言語の文だけで学んだ字の模型で並べ替える。
+
+    候補は vi_measure.py・hi_measure.py・ar_measure.py の --nbest-out（a.nbest_file）。重みは dev の文で決め、
+    試験の文はその重みで 1 回だけ測る。重み 0 が今の方法（AI なし）と同じ。
+    模型が学ぶのは答えの側の文だけ（打った文との組は使わない）。試験と dev の文は学習に入れない。
+    """
+    texts = []
+    if lang == "vi":
+        import vi_measure as V
+        for key, s in V.read_tatoeba(a.tatoeba):
+            syl = V.syllables(s)
+            if len(syl) >= 2 and V.unit(20261106, key) >= 0.12:
+                texts.append(" ".join(syl))
+        for s in cc100_lines(a.cc100, a.extra):
+            syl = V.syllables(s)
+            if 2 <= len(syl) <= 40:
+                texts.append(" ".join(syl))
+    elif lang == "hi":
+        import gzip
+        deva = re.compile(r"^[ऀ-ॿ]+$")
+        wiki = next((Path(a.dakshina) / "native_script_wikipedia").glob("*train.text*"))
+        with (gzip.open(wiki, "rt", encoding="utf-8") if wiki.suffix == ".gz" else open(wiki, encoding="utf-8")) as f:
+            for line in f:
+                ws = [w for w in line.split() if deva.match(w)]
+                if 2 <= len(ws) <= 30:
+                    texts.append(" ".join(ws))
+                if len(texts) >= a.extra:
+                    break
+    elif lang == "ar":
+        import ar_measure as A
+        for f in sorted(Path(a.darija).glob("*.parquet")):
+            for r, w in (t for t in (A.tokens(x, y) for x, y in A.pairs_from(f)) if t):
+                if A.unit(" ".join(r)) >= 0.12:
+                    texts.append(" ".join(w))
+    texts = [t for t in texts if len(t) <= 200]
+    pairs = [("", t) for t in texts]
+    rows = [json.loads(l) for l in open(a.nbest_file, encoding="utf-8") if l.strip()]
+    dev = [r for r in rows if r["split"] == "dev"][: a.test_limit]
+    test = [r for r in rows if r["split"] == "test"][: a.test_limit]
+
+    def evaluate(model, vocab):
+        def neural(rows):
+            out = []
+            for r in rows:
+                conts = [vocab.encode(" ".join(c)) + [EOS] for c in r["cands"]]
+                out.append(score_batch(model, [BOS, SEP], conts))
+            return out
+
+        def measure(rows, scores, beta):
+            ok = n = sent = 0
+            for r, nn in zip(rows, scores):
+                best = max(range(len(r["cands"])), key=lambda i: (r["base"][i] + beta * nn[i], -i))
+                got, want = r["cands"][best], r["gold"]
+                n += len(want)
+                ok += sum(x == y for x, y in zip(want, got))
+                sent += got == want
+            return ok / max(n, 1), sent / max(len(rows), 1)
+
+        dev_s, test_s = neural(dev), neural(test)
+        betas = (0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0)
+        dev_res = {b: measure(dev, dev_s, b) for b in betas}
+        beta = max(betas, key=lambda b: (dev_res[b][1], dev_res[b][0], -b))
+        unit_name = "音節" if lang == "vi" else "語"
+        oracle = sum(r["gold"] in r["cands"] for r in test) / max(len(test), 1)
+        lines = [f"並べ替え（{lang}）: dev {len(dev)} 文で重みを決め、試験 {len(test)} 文で測る。候補 {len(rows[0]['cands']) if rows else 0} 個、"
+                 f"正解が候補に入っている文 {oracle:.1%}"]
+        lines += [f"  dev 重み {b}: {unit_name} {dev_res[b][0]:.1%}、文 {dev_res[b][1]:.1%}" for b in betas]
+        w0, s0 = measure(test, test_s, 0.0)
+        w1, s1 = measure(test, test_s, beta)
+        lines.append(f"  試験 重み 0（今の方法）: {unit_name} {w0:.1%}、文 {s0:.1%}")
+        lines.append(f"  試験 重み {beta}（dev で決めた）: {unit_name} {w1:.1%}、文 {s1:.1%}")
+        return "\n".join(lines)
+    return pairs, evaluate
+
+
+TASKS = {"en": task_en, "vi": task_vi, "ko": task_ko, "hi": task_hi, "ar": task_ar, "zh": task_zh,
+         "rr-vi": lambda a: task_rerank(a, "vi"), "rr-hi": lambda a: task_rerank(a, "hi"),
+         "rr-ar": lambda a: task_rerank(a, "ar")}
 
 
 # ---------------------------------------------------------------- 学習
@@ -399,6 +482,7 @@ def main():
     ap.add_argument("--cc100")
     ap.add_argument("--dakshina")
     ap.add_argument("--darija")
+    ap.add_argument("--nbest-file", help="並べ替えの候補（*_measure.py --nbest-out）。rr-* の task で使う")
     ap.add_argument("--wiki-text", help="ウィキの文を 1 行 1 文にしたもの（中国語の足しの材料）")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--heads", type=int, default=4)

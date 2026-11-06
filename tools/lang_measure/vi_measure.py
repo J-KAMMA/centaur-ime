@@ -6,7 +6,10 @@
 文の番号の SHA-256 で 1 割を試験、残りを表づくりに使う。
 音節ごとに、記号を外した形が同じ記号つきの音節を候補にし、音節の 2 つの並びの表で選ぶ（lattice.py）。
 比べる基準は「その形で一番よく出る記号つきの音節を選ぶだけ」。大文字・小文字は小文字にそろえて測る。
+--nbest-out を付けると、AI の並べ替え（tools/models/train_task.py --task rerank）に渡す上位の候補を 1 行 1 文の
+JSON で書く。Tatoeba の番号で 0.1〜0.12 の文は「重みを決める文（dev）」にして、表づくりにも試験にも使わない。
 """
+import json
 import argparse
 import bz2
 import collections
@@ -18,7 +21,7 @@ import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lattice import Bigram, viterbi  # noqa: E402
+from lattice import Bigram, nbest, viterbi  # noqa: E402
 
 SYL = re.compile(r"[a-zàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+")
 
@@ -65,17 +68,23 @@ def main():
     ap.add_argument("--seed", type=int, default=20261106)
     ap.add_argument("--test", type=int, default=2000)
     ap.add_argument("--wiki-limit", type=int, default=300000)
+    ap.add_argument("--nbest-out", help="上位の候補を書く JSON lines のファイル")
+    ap.add_argument("--nbest", type=int, default=8)
     args = ap.parse_args()
 
-    train, tests = [], {"Tatoeba": [], "ウィキ": []}
+    train, tests, dev = [], {"Tatoeba": [], "ウィキ": []}, []
     sources = [read_tatoeba(args.tatoeba)] + ([read_wiki(args.wiki, args.wiki_limit)] if args.wiki else [])
     for src in sources:
         for key, s in src:
             syl = syllables(s)
             if len(syl) < 2:
                 continue
-            if unit(args.seed, key) < 0.1:
+            u = unit(args.seed, key)
+            if u < 0.1:
                 tests["Tatoeba" if key[0] == "t" else "ウィキ"].append(syl)
+            elif u < 0.12 and args.nbest_out:
+                if key[0] == "t":
+                    dev.append(syl)
             else:
                 train.append(syl)
     lm = Bigram()
@@ -111,6 +120,16 @@ def main():
             f"{k} 音節 {ok[k] / max(n, 1):.1%}・文 {sent[k] / max(len(test), 1):.1%}" for k in ok)
             + f"、1 文平均 {t / max(len(test), 1) * 1000:.2f} ミリ秒")
         out += bad
+    if args.nbest_out:
+        with open(args.nbest_out, "w", encoding="utf-8") as f:
+            for split, rows in (("dev", dev[: args.test]), ("test", tests["Tatoeba"][: args.test])):
+                for syl in rows:
+                    plain = [strip(x) for x in syl]
+                    cands = [sorted(forms[p], key=lambda c: (-forms[p][c], c)) or [p] for p in plain]
+                    nb = nbest(cands, lm, lambda i, c: 0.0, args.nbest)
+                    f.write(json.dumps({"split": split, "gold": syl, "cands": [c for _, c in nb],
+                                        "base": [s for s, _ in nb]}, ensure_ascii=False) + "\n")
+        out.append(f"並べ替えの候補: dev {len(dev[: args.test])} 文、試験 {len(tests['Tatoeba'][: args.test])} 文 → {args.nbest_out}")
     Path(args.out).mkdir(parents=True, exist_ok=True)
     (Path(args.out) / "vi-measure.txt").write_text("\n".join(out) + "\n", encoding="utf-8")
     print("\n".join(l for l in out if not l.startswith("  ")))

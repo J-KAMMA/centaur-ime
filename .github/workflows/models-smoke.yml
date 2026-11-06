@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [zh, vi, hi, ko, ar, en]
+        task: [rr-vi, rr-hi, rr-ar]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,7 +41,15 @@ jobs:
             ar) python3 tools/fetch_source.py arabizi-darija data/darija ;;
             en) python3 tools/fetch_source.py tatoeba-eng data/en
                 python3 tools/fetch_source.py cc100-en data/en --lines 3000 ;;
+            rr-vi) python3 tools/fetch_source.py tatoeba-vie data/vi
+                python3 tools/fetch_source.py cc100-vi data/vi --lines 3000
+                python3 tools/lang_measure/vi_measure.py --tatoeba data/vi/vie_sentences.tsv.bz2 --out m --test 100 --nbest-out nbest.jsonl ;;
+            rr-hi) python3 tools/fetch_source.py dakshina data/hi --member 'dakshina_dataset_v1.0/hi/*'
+                python3 tools/lang_measure/hi_measure.py --dakshina data/hi/dakshina_dataset_v1.0/hi --out m --test 100 --lm-limit 20000 --nbest-out nbest.jsonl ;;
+            rr-ar) python3 tools/fetch_source.py arabizi-darija data/darija
+                python3 tools/lang_measure/ar_measure.py --data data/darija --out m --nbest-out nbest.jsonl ;;
           esac
+          [ -f nbest.jsonl ] && { wc -l nbest.jsonl; head -c 400 nbest.jsonl; echo; cat m/*-measure.txt | head -12; }
       - name: 2 分だけ学習して少し測る
         run: |
           set -eo pipefail
@@ -53,6 +61,9 @@ jobs:
             ko) python3 tools/models/train_task.py --task ko --tatoeba data/ko/kor_sentences.tsv.bz2 --cc100 data/ko/cc100-ko.3000.txt $common ;;
             ar) python3 tools/models/train_task.py --task ar --darija data/darija $common ;;
             en) python3 tools/models/train_task.py --task en --tatoeba data/en/eng_sentences.tsv.bz2 --cc100 data/en/cc100-en.3000.txt $common ;;
+            rr-vi) python3 tools/models/train_task.py --task rr-vi --tatoeba data/vi/vie_sentences.tsv.bz2 --cc100 data/vi/cc100-vi.3000.txt --nbest-file nbest.jsonl $common ;;
+            rr-hi) python3 tools/models/train_task.py --task rr-hi --dakshina data/hi/dakshina_dataset_v1.0/hi --nbest-file nbest.jsonl $common ;;
+            rr-ar) python3 tools/models/train_task.py --task rr-ar --darija data/darija --nbest-file nbest.jsonl $common ;;
           esac
           cat out/*-result.txt
           ls -la out

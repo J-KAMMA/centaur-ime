@@ -57,3 +57,19 @@ def viterbi(cands, lm, emit, beam=16):
         w = back[i][w][1]
         out.append(w)
     return out[::-1]
+
+
+def nbest(cands, lm, emit, n=8, beam=64):
+    """上位 n 個の候補の並びを [(点数, [語...]), ...] で返す（AI の並べ替えに渡す候補）。
+
+    viterbi と違い、同じ最後の語でも別の道を残す（道ごとの beam）。1 番目は viterbi とほぼ同じになる。
+    """
+    paths = [(0.0, ("<s>",))]
+    for i, cs in enumerate(cands):
+        nxt = []
+        for score, path in paths:
+            for c in cs:
+                nxt.append((score + lm.logp(path[-1], c) + emit(i, c), path + (c,)))
+        nxt.sort(key=lambda sp: (-sp[0], sp[1]))
+        paths = nxt[:beam]
+    return [(s, list(p[1:])) for s, p in paths[:n]]

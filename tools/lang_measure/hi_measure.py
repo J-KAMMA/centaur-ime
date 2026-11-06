@@ -9,8 +9,11 @@
 選び方: 語ごとに、そのローマ字で書かれた元の語を候補にし、ローマ字との組の重みと 2 語の並びで選ぶ（lattice.py）。
 表に無いローマ字は indic_transliteration の決まった読み方（ITRANS）で直す。
 比べる基準: ①決まった読み方だけ ②組の重みだけ（並びを見ない）。
+--nbest-out を付けると、AI の並べ替え（train_task.py --task rerank）に渡す上位の候補を JSON lines で書く。
+重みを決める文（dev）は romanized/hi.romanized.rejoined.dev（表づくりにも試験にも使っていない）。
 """
 import argparse
+import json
 import collections
 import math
 import re
@@ -19,7 +22,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lattice import Bigram, viterbi  # noqa: E402
+from lattice import Bigram, nbest, viterbi  # noqa: E402
 
 DEVA = re.compile(r"^[ऀ-ॿ]+$")
 
@@ -38,6 +41,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--lm-limit", type=int, default=300000)
     ap.add_argument("--test", type=int, default=3000)
+    ap.add_argument("--nbest-out", help="上位の候補を書く JSON lines のファイル")
+    ap.add_argument("--nbest", type=int, default=8)
     args = ap.parse_args()
     d = Path(args.dakshina)
 
@@ -68,6 +73,22 @@ def main():
     pairs = [(r, n) for r, n in pairs if len(r) == len(n)][: args.test]
     out = [f"組の表のローマ字 {len(table)}、並びの表の語 {len(lm.uni)}、試験の文 {len(pairs)}（語の数が合う文だけ）"]
 
+    def lattice_of(rs):
+        cands, emits, n_oov = [], [], 0
+        for w in rs:
+            c = table.get(w)
+            if c:
+                tot = sum(c.values())
+                cs = sorted(c, key=lambda x: (-c[x], x))[:8]
+                cands.append(cs)
+                emits.append({x: math.log(c[x] / tot) for x in cs})
+            else:
+                n_oov += 1
+                x = rule(w)
+                cands.append([x])
+                emits.append({x: 0.0})
+        return cands, emits, n_oov
+
     ok = collections.Counter()
     sent = collections.Counter()
     n_words = 0
@@ -80,19 +101,8 @@ def main():
         want = [n[i] for i in idx]
         if not want:
             continue
-        cands, emits = [], []
-        for w in rs:
-            c = table.get(w)
-            if c:
-                tot = sum(c.values())
-                cs = sorted(c, key=lambda x: (-c[x], x))[:8]
-                cands.append(cs)
-                emits.append({x: math.log(c[x] / tot) for x in cs})
-            else:
-                oov += 1
-                x = rule(w)
-                cands.append([x])
-                emits.append({x: 0.0})
+        cands, emits, n_oov = lattice_of(rs)
+        oov += n_oov
         t0 = time.perf_counter()
         got = viterbi(cands, lm, lambda i, x: emits[i][x])
         t += time.perf_counter() - t0
@@ -109,6 +119,23 @@ def main():
     out.append(f"並びも見るときの 1 文平均 {t / max(len(pairs), 1) * 1000:.2f} ミリ秒")
     out.append("誤りの例:")
     out += bad
+    if args.nbest_out:
+        dev_r = lines("romanized", "hi.romanized.rejoined.dev.roman.txt")
+        dev_n = lines("romanized", "hi.romanized.rejoined.dev.native.txt")
+        dev = [(r.split(), n.split()) for r, n in zip(dev_r, dev_n) if r.strip()]
+        dev = [(r, n) for r, n in dev if len(r) == len(n)][: args.test]
+        with open(args.nbest_out, "w", encoding="utf-8") as f:
+            for split, rows in (("dev", dev), ("test", pairs)):
+                for r, n in rows:
+                    idx = [i for i, w in enumerate(n) if DEVA.match(w)]
+                    want = [n[i] for i in idx]
+                    if not want:
+                        continue
+                    cands, emits, _ = lattice_of([r[i].lower() for i in idx])
+                    nb = nbest(cands, lm, lambda i, x: emits[i][x], args.nbest)
+                    f.write(json.dumps({"split": split, "gold": want, "cands": [c for _, c in nb],
+                                        "base": [s for s, _ in nb]}, ensure_ascii=False) + "\n")
+        out.append(f"並べ替えの候補: dev {len(dev)} 文、試験 {len(pairs)} 文 → {args.nbest_out}")
     Path(args.out).mkdir(parents=True, exist_ok=True)
     (Path(args.out) / "hi-measure.txt").write_text("\n".join(out) + "\n", encoding="utf-8")
     print("\n".join(out[: 6]))

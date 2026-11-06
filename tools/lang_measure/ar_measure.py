@@ -9,6 +9,8 @@
 組（Arabizi の文、アラビア文字の文）は語の数が同じものだけ使い、文の SHA-256 で 1 割を試験にする（材料ごとに数える）。
 選び方はヒンディー語と同じ（lattice.py）: 語ごとに、そのローマ字で書かれたアラビア文字の語を候補にし、組の重みと 2 語の並びで選ぶ。
 表に無いローマ字は決まった読み方（3→ع、7→ح など）で直す。比べる基準: ①決まった読み方だけ ②組の重みだけ。
+--nbest-out を付けると、AI の並べ替え（train_task.py --task rerank）に渡す上位の候補を JSON lines で書く。
+そのときは SHA-256 で 0.1〜0.12 の文を「重みを決める文（dev）」にして、表づくりにも試験にも使わない。
 """
 import argparse
 import collections
@@ -21,7 +23,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lattice import Bigram, viterbi  # noqa: E402
+from lattice import Bigram, nbest, viterbi  # noqa: E402
 
 AR = re.compile(r"[؀-ۿ]")
 AR_WORD = re.compile(r"^[ء-ي٠-٩ٱ-ۓ]+$")
@@ -97,6 +99,8 @@ def main():
     ap.add_argument("--wiki")
     ap.add_argument("--out", required=True)
     ap.add_argument("--wiki-limit", type=int, default=200000)
+    ap.add_argument("--nbest-out", help="上位の候補を書く JSON lines のファイル")
+    ap.add_argument("--nbest", type=int, default=8)
     args = ap.parse_args()
 
     sets = {}
@@ -108,17 +112,21 @@ def main():
     out = []
     table = collections.defaultdict(collections.Counter)
     lm = Bigram()
-    tests = {}
+    tests, devs = {}, {}
     for name, ps in sets.items():
-        test = []
+        test, dev = [], []
         for r, a in ps:
-            if unit(" ".join(r)) < 0.1:
+            u = unit(" ".join(r))
+            if u < 0.1:
                 test.append((r, a))
+            elif u < 0.12 and args.nbest_out:
+                dev.append((r, a))
             else:
                 for x, y in zip(r, a):
                     table[x][y] += 1
                 lm.add(a)
         tests[name] = test
+        devs[name] = dev
         out.append(f"材料 {name}: 組 {len(ps)}（語の数が合うもの）、試験 {len(test)}")
     if args.wiki:
         import pyarrow.parquet as pq
@@ -134,25 +142,30 @@ def main():
         out.append(f"ウィキの文 {n} を並びの表に足した")
     out.append(f"組の表のローマ字 {len(table)}、並びの表の語 {len(lm.uni)}")
 
+    def lattice_of(r):
+        cands, emits, n_oov = [], [], 0
+        for w in r:
+            c = table.get(w)
+            if c:
+                tot = sum(c.values())
+                cs = sorted(c, key=lambda x: (-c[x], x))[:8]
+                cands.append(cs)
+                emits.append({x: math.log(c[x] / tot) for x in cs})
+            else:
+                n_oov += 1
+                x = rule(w)
+                cands.append([x])
+                emits.append({x: 0.0})
+        return cands, emits, n_oov
+
     for name, test in tests.items():
         if not test:
             continue
         ok, sent, nw, oov, t = collections.Counter(), collections.Counter(), 0, 0, 0.0
         bad = []
         for r, want in test:
-            cands, emits = [], []
-            for w in r:
-                c = table.get(w)
-                if c:
-                    tot = sum(c.values())
-                    cs = sorted(c, key=lambda x: (-c[x], x))[:8]
-                    cands.append(cs)
-                    emits.append({x: math.log(c[x] / tot) for x in cs})
-                else:
-                    oov += 1
-                    x = rule(w)
-                    cands.append([x])
-                    emits.append({x: 0.0})
+            cands, emits, n_oov = lattice_of(r)
+            oov += n_oov
             t0 = time.perf_counter()
             got = viterbi(cands, lm, lambda i, x: emits[i][x])
             t += time.perf_counter() - t0
@@ -166,6 +179,16 @@ def main():
         out.append(f"{name}（文 {len(test)}、語 {nw}、表に無いローマ字 {oov / max(nw, 1):.1%}）: " + "、".join(
             f"{k} 語 {ok[k] / max(nw, 1):.1%}・文 {sent[k] / max(len(test), 1):.1%}" for k in ok))
         out += bad
+    if args.nbest_out:
+        with open(args.nbest_out, "w", encoding="utf-8") as f:
+            for name in tests:
+                for split, rows in (("dev", devs[name]), ("test", tests[name])):
+                    for r, want in rows:
+                        cands, emits, _ = lattice_of(r)
+                        nb = nbest(cands, lm, lambda i, x: emits[i][x], args.nbest)
+                        f.write(json.dumps({"split": split, "set": name, "gold": want, "cands": [c for _, c in nb],
+                                            "base": [s for s, _ in nb]}, ensure_ascii=False) + "\n")
+        out.append(f"並べ替えの候補: dev {sum(map(len, devs.values()))} 文、試験 {sum(map(len, tests.values()))} 文 → {args.nbest_out}")
     Path(args.out).mkdir(parents=True, exist_ok=True)
     (Path(args.out) / "ar-measure.txt").write_text("\n".join(out) + "\n", encoding="utf-8")
     print("\n".join(l for l in out if not l.startswith("  ")))
