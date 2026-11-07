@@ -11,6 +11,8 @@
 比べる基準: ①決まった読み方だけ ②組の重みだけ（並びを見ない）。
 --nbest-out を付けると、AI の並べ替え（train_task.py --task rerank）に渡す上位の候補を JSON lines で書く。
 重みを決める文（dev）は romanized/hi.romanized.rejoined.dev（表づくりにも試験にも使っていない）。
+--aksharantar: AI4Bharat の Aksharantar（hin.zip、人が集めた部分は CC BY、自動で集めた部分は CC0）のローマ字と元の語の
+組を表に足す（重み 1）。Dakshina から来た組（source が Dakshina）は試験と重なりうるので足さない。
 """
 import argparse
 import json
@@ -43,6 +45,8 @@ def main():
     ap.add_argument("--test", type=int, default=3000)
     ap.add_argument("--nbest-out", help="上位の候補を書く JSON lines のファイル")
     ap.add_argument("--nbest", type=int, default=8)
+    ap.add_argument("--aksharantar", help="AI4Bharat Aksharantar の hin.zip")
+    ap.add_argument("--aks-weight", type=float, default=1.0, help="Aksharantar の組 1 つの重み")
     args = ap.parse_args()
     d = Path(args.dakshina)
 
@@ -60,6 +64,24 @@ def main():
         p = line.split("\t")
         if len(p) >= 3:
             table[p[1].lower()][p[0]] += int(p[2])
+    n_aks = 0
+    if args.aksharantar:
+        import zipfile
+        with zipfile.ZipFile(args.aksharantar) as z:
+            for name in z.namelist():
+                if not name.endswith("train.json") and not name.endswith("valid.json"):
+                    continue  # 試験の組（test）は使わない
+                for raw in z.read(name).decode("utf-8").splitlines():
+                    try:
+                        e = json.loads(raw)
+                    except ValueError:
+                        continue
+                    if "dakshina" in str(e.get("source", "")).lower():
+                        continue
+                    nat, rom = e.get("native word", ""), e.get("english word", "").lower()
+                    if DEVA.match(nat) and rom.isalpha():
+                        table[rom][nat] += args.aks_weight
+                        n_aks += 1
     lm = Bigram()
     wiki = next((d / "native_script_wikipedia").glob("*train.text*"))
     with text_open(wiki) as f:
@@ -71,7 +93,8 @@ def main():
     native = lines("romanized", "hi.romanized.rejoined.test.native.txt")
     pairs = [(r.split(), n.split()) for r, n in zip(roman, native) if r.strip()]
     pairs = [(r, n) for r, n in pairs if len(r) == len(n)][: args.test]
-    out = [f"組の表のローマ字 {len(table)}、並びの表の語 {len(lm.uni)}、試験の文 {len(pairs)}（語の数が合う文だけ）"]
+    out = [f"組の表のローマ字 {len(table)}（Aksharantar の組 {n_aks}）、並びの表の語 {len(lm.uni)}、"
+           f"試験の文 {len(pairs)}（語の数が合う文だけ）"]
 
     def lattice_of(rs):
         cands, emits, n_oov = [], [], 0

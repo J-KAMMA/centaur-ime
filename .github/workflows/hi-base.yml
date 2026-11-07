@@ -1,0 +1,52 @@
+name: Hindi base
+
+# ヒンディー語の土台（AI なし）を、組の表と並びの表の材料を変えて比べる（tools/lang_measure/hi_measure.py）。
+#   材料: Google Dakshina 1.0（CC BY-SA 4.0）、AI4Bharat Aksharantar の hin.zip（CC BY / CC0、版を固定）。
+#   試験は今と同じ Dakshina の romanized の test。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/lang-measure]
+    paths: ['tools/lang_measure/hi_measure.py', '.github/workflows/hi-base.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  hi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 材料
+        run: |
+          set -eo pipefail
+          python3 -m pip install -q indic_transliteration==2.3.69 || echo "indic_transliteration なし"
+          curl -fsSL --retry 3 https://storage.googleapis.com/gresearch/dakshina/dakshina_dataset_v1.0.tar \
+            | tar -x --wildcards 'dakshina_dataset_v1.0/hi/*'
+          curl -fsSL --retry 3 -o hin.zip \
+            https://huggingface.co/datasets/ai4bharat/Aksharantar/resolve/e418c1fc928d9f5393af33268472cf20c1891be8/hin.zip
+          echo "a24570eb563cc33a2ab47914e3b7874428538d5047f70bfec7852865697651fb  hin.zip" | sha256sum -c
+          unzip -l hin.zip
+      - name: 測る
+        run: |
+          set -eo pipefail
+          D=dakshina_dataset_v1.0/hi
+          for spec in "0:300000:1" "1:300000:1" "1:3000000:1" "1:3000000:0.3"; do
+            IFS=: read aks lm w <<< "$spec"
+            a=""
+            [ "$aks" = 1 ] && a="--aksharantar hin.zip --aks-weight $w"
+            echo "=== Aksharantar $aks（重み $w）、並びの表の行 $lm"
+            python3 tools/lang_measure/hi_measure.py --dakshina $D --out "out/$aks-$lm-$w" --lm-limit $lm $a
+          done 2>&1 | tee out-summary.txt
+          mkdir -p out && mv out-summary.txt out/summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hi-base
+          path: out/
+          retention-days: 14
