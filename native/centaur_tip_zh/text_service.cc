@@ -230,6 +230,7 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* tm, TfClientId id, DWORD) {
     keys->Release();
   }
   if (app_allowed_) StartLoad();
+  Trace("activate", 0);
   return S_OK;
 }
 
@@ -432,6 +433,7 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM key, LPARAM lparam, 
 }
 
 STDMETHODIMP TextService::OnKeyDown(ITfContext* ctx, WPARAM key, LPARAM lparam, BOOL* eaten) {
+  Trace("down", key);
   int k = 0;
   const Action a = Decide(key, lparam, &k);
   *eaten = a != Action::kPass;
@@ -477,7 +479,8 @@ STDMETHODIMP TextService::OnTestKeyUp(ITfContext* ctx, WPARAM key, LPARAM, BOOL*
   return S_OK;
 }
 
-STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM, LPARAM, BOOL* eaten) {
+STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM key, LPARAM, BOOL* eaten) {
+  Trace("up", key);
   *eaten = FALSE;
   return S_OK;
 }
