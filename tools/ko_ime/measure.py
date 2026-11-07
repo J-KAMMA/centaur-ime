@@ -193,6 +193,8 @@ def main():
     ap.add_argument("--examples", type=int, default=25)
     ap.add_argument("--nbest-out", help="分かち書きの上位の候補を書く JSON lines のファイル")
     ap.add_argument("--nbest", type=int, default=16)
+    ap.add_argument("--extra", help="分かち書きの表づくりに足す文（CC-100 など、1 行 1 文のテキスト）")
+    ap.add_argument("--extra-limit", type=int, default=300000)
     args = ap.parse_args()
 
     # 0.1 未満は試験、0.1〜0.15 は基準選び（dev）、残りは表づくり
@@ -208,8 +210,18 @@ def main():
     if args.wiki:
         for aid, s in read_wiki(args.wiki, args.wiki_limit):
             place(unit(args.seed, "w" + aid), s, wiki_test)
+    n_extra = 0
+    if args.extra:
+        with open(args.extra, encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                s = line.strip()
+                if 8 <= len(s) <= 200 and " " in s and KO_LINE.match(s):
+                    train.append(s)
+                    n_extra += 1
+                    if n_extra >= args.extra_limit:
+                        break
     tat_test, wiki_test = tat_test[: args.test], wiki_test[: args.test]
-    out = [f"表づくりの文 {len(train)}（Tatoeba {n_tat}、ウィキ {len(train) - n_tat}）、"
+    out = [f"表づくりの文 {len(train)}（Tatoeba {n_tat}、ウィキ {len(train) - n_tat - n_extra}、足した文 {n_extra}）、"
            f"試験 Tatoeba {len(tat_test)}・ウィキ {len(wiki_test)}"]
     t0 = time.time()
     sp = Spacer(train)

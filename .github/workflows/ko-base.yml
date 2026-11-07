@@ -1,0 +1,49 @@
+name: Korean base
+
+# 韓国語の分かち書きの土台（AI なし）を、表づくりの材料を変えて比べる（tools/ko_ime/measure.py）。
+#   材料: Tatoeba（CC BY 2.0 FR）、ウィキペディア（CC BY-SA 4.0）、CC-100 の韓国語（先頭から、tools/fetch_source.py）。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/lang-measure]
+    paths: ['tools/ko_ime/measure.py', '.github/workflows/ko-base.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  ko:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 材料
+        run: |
+          set -eo pipefail
+          python3 -m pip install -q pyarrow==21.0.0
+          python3 tools/fetch_source.py tatoeba-kor data/ko
+          python3 tools/fetch_source.py wiki-ko data/ko
+          python3 tools/fetch_source.py cc100-ko data/ko --lines 1500000
+          ls -la data/ko
+      - name: 測る
+        run: |
+          set -eo pipefail
+          W=$(ls data/ko/*.parquet | head -1)
+          for n in 0 300000 1000000; do
+            extra=""
+            [ "$n" != 0 ] && extra="--extra data/ko/cc100-ko.1500000.txt --extra-limit $n"
+            echo "=== CC-100 $n 文"
+            /usr/bin/time -f "  時間 %e 秒、記憶 %M KB" python3 tools/ko_ime/measure.py --tatoeba data/ko/kor_sentences.tsv.bz2 \
+              --wiki "$W" --out "out/$n" $extra | grep -E "表づくり|基準選び|分かち書き（Centaur"
+          done 2>&1 | tee out-summary.txt
+          mkdir -p out && mv out-summary.txt out/summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ko-base
+          path: out/
+          retention-days: 14
