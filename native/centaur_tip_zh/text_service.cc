@@ -78,6 +78,15 @@ bool AppExcluded() {
 
 bool Down(int vk) { return GetKeyState(vk) < 0; }
 
+void Trace(const char* what, WPARAM key) {
+  wchar_t path[MAX_PATH];
+  if (!GetEnvironmentVariableW(L"CENTAUR_ZH_TRACE", path, MAX_PATH)) return;
+  if (FILE* f = _wfopen(path, L"ab")) {
+    fprintf(f, "%s %02x\n", what, static_cast<unsigned>(key));
+    fclose(f);
+  }
+}
+
 class EditSession : public ITfEditSession {
  public:
   explicit EditSession(std::function<void(TfEditCookie)> f) : f_(std::move(f)) {}
@@ -415,6 +424,7 @@ STDMETHODIMP TextService::OnSetFocus(BOOL) { return S_OK; }
 
 STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM key, LPARAM lparam, BOOL* eaten) {
   // Shift はアプリへ渡すので OnKeyDown は呼ばれない。ここで「Shift だけ」かを覚える
+  Trace("test-down", key);
   shift_alone_ = key == VK_SHIFT;
   int k = 0;
   *eaten = Decide(key, lparam, &k) != Action::kPass;
@@ -450,6 +460,7 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* ctx, WPARAM key, LPARAM lparam, 
 
 STDMETHODIMP TextService::OnTestKeyUp(ITfContext* ctx, WPARAM key, LPARAM, BOOL* eaten) {
   *eaten = FALSE;  // 離したキーはアプリへ渡す（OnKeyUp は呼ばれない）
+  Trace(shift_alone_ ? "test-up alone" : "test-up", key);
   // Shift だけを押して離したら切り替える。組み立て中の英字は、あとの編集セッションで打ったまま確定する
   if (key == VK_SHIFT && shift_alone_ && ctx) {
     shift_alone_ = false;

@@ -129,6 +129,11 @@ int main() {
   SetFocus(g_edit);
   Pump(500);
 
+  wchar_t trace[MAX_PATH];
+  GetTempPathW(MAX_PATH, trace);
+  wcscat_s(trace, L"centaur-zh-trace.txt");
+  DeleteFileW(trace);
+  SetEnvironmentVariableW(L"CENTAUR_ZH_TRACE", trace);
   ITfInputProcessorProfileMgr* mgr = nullptr;
   HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
                                 IID_ITfInputProcessorProfileMgr, reinterpret_cast<void**>(&mgr));
@@ -155,7 +160,7 @@ int main() {
       {"nihao\x1b", L"", "Esc で取り消す"},
       {"nihao\n", L"nihao", "Enter で打った英字のまま"},
       {"nihao,", L"你好，", "記号で一番の候補を確定し、記号は全角"},
-      {"wo.", L"我。", "句点"},
+      {"wo.", L"我。", "句点で一番の候補を確定（ページ送りにしない）"},
       {"123", L"123", "組み立てていないときの数字はそのまま"},
       {"~hello world~", L"hello world", "Shift+Space で英語にして戻す"},
       {"^hello^", L"hello", "Shift だけで英語にして戻す"},
@@ -176,6 +181,16 @@ int main() {
                 Utf8(got).c_str(), Utf8(c.want).c_str());
   }
   std::printf("%zu 例のうち合った %zu\n", cases.size(), cases.size() - bad);
+  // IME が受け取ったキーの記録（Shift の例の原因を見る）
+  if (FILE* f = _wfopen(trace, L"rb")) {
+    char line[128];
+    int n = 0;
+    std::printf("受け取ったキー（終わりの 60）:\n");
+    std::vector<std::string> lines;
+    while (fgets(line, sizeof(line), f)) lines.emplace_back(line);
+    fclose(f);
+    for (size_t i = lines.size() > 60 ? lines.size() - 60 : 0; i < lines.size(); ++i, ++n) std::printf("  %s", lines[i].c_str());
+  }
   mgr->Release();
   DestroyWindow(top);
   CoUninitialize();

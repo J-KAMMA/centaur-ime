@@ -2,6 +2,9 @@
 
 #include <rime_api.h>
 
+#include <cstdio>
+#include <cstring>
+
 namespace centaur_zh {
 namespace {
 
@@ -43,11 +46,28 @@ bool RimeEngine::Start(const std::filesystem::path& dll, const std::filesystem::
   api_ = api;
   std::error_code ec;
   std::filesystem::create_directories(user, ec);
-  // 簡体字の全拼だけを使い、候補は 1 ページ 9 つ（利用者の置き場の default.custom.yaml。あれば触らない）
+  // 簡体字の全拼だけを使い、候補は 1 ページ 9 つ、ページ送りは - と = だけ（「,」「.」は句読点として確定する）。
+  // 利用者の置き場の default.custom.yaml。頭に印のある、自分で書いたものだけを書き直す（利用者が書いたものは触らない）
+  const char kPatch[] =
+      "# Centaur IME（この印がある間は入れ直しのたびに書き直す。自分で直すときは、この行を消す）\n"
+      "patch:\n"
+      "  schema_list:\n"
+      "    - schema: luna_pinyin_simp\n"
+      "  menu/page_size: 9\n"
+      "  key_binder/bindings:\n"
+      "    - { when: has_menu, accept: minus, send: Page_Up }\n"
+      "    - { when: has_menu, accept: equal, send: Page_Down }\n";
   const auto custom = user / L"default.custom.yaml";
-  if (!std::filesystem::exists(custom, ec)) {
+  bool ours = !std::filesystem::exists(custom, ec);
+  if (!ours) {
+    if (FILE* f = _wfopen(custom.c_str(), L"rb")) {
+      char head[16] = {};
+      ours = fread(head, 1, 14, f) == 14 && memcmp(head, "# Centaur IME", 13) == 0;
+      fclose(f);
+    }
+  }
+  if (ours) {
     if (FILE* f = _wfopen(custom.c_str(), L"wb")) {
-      const char kPatch[] = "patch:\n  schema_list:\n    - schema: luna_pinyin_simp\n  menu/page_size: 9\n";
       fwrite(kPatch, 1, sizeof(kPatch) - 1, f);
       fclose(f);
     }
