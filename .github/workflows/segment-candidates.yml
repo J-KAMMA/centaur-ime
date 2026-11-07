@@ -24,7 +24,7 @@ jobs:
         with:
           name: linux-bin
           path: bin
-          run-id: "42187436873"
+          run-id: "42362874288"
           github-token: ${{ github.token }}
       - name: 候補を取り出す
         run: |
