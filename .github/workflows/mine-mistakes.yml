@@ -20,6 +20,9 @@ on:
       source:
         description: 文の出どころ（wiki か tatoeba）
         default: wiki
+      seed:
+        description: ウィキペディアの文を選ぶ乱数の種（変えると別の文になる）
+        default: '20261104'
 
 permissions:
   contents: read
@@ -63,7 +66,7 @@ jobs:
             fi
           else
             venv/bin/python tools/wiki_typing_test.py --wiki wiki.parquet --table romanji-hiragana.tsv \
-              --out out/all.tsv --count ${{ inputs.count || '20000' }} --seed 20261104
+              --out out/all.tsv --count ${{ inputs.count || '20000' }} --seed ${{ inputs.seed || '20261104' }}
           fi
           grep -v '^#' out/all.tsv > out/body.tsv
           wc -l out/body.tsv
