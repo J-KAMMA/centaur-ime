@@ -133,6 +133,9 @@ jobs:
           Copy-Item pkg\x64\centaur_tip_zh.dll stage\
           Copy-Item pkg\x64\rime.dll stage\x64\
           Copy-Item pkg\data stage\ -Recurse
+          # AI の通り道が動くか（でたらめな重みの模型。重みを大きくして答えは Rime のまま）
+          Copy-Item lm-random.bin stage\data\zh-lm.bin
+          Set-Content stage\data\zh-lm-beta.txt '1e9'
           $dll = (Resolve-Path stage\centaur_tip_zh.dll).Path
           .\build64\Release\tip_check_zh.exe register $dll
           if ($LASTEXITCODE -ne 0) { throw 'register failed' }

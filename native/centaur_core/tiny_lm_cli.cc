@@ -35,8 +35,9 @@ int main(int argc, char** argv) {
     std::stringstream ps(col[0]);
     for (std::string s; ps >> s;) py.push_back(s);
     const auto t0 = std::chrono::steady_clock::now();
-    const std::string mine = lm.Greedy(py);
-    const double sr = lm.Score(py, col[1]), sm = lm.Score(py, col[2]);
+    const centaur::TinyLm::Judged j = lm.Judge(py, col[1]);
+    const std::string& mine = j.model;
+    const double sr = j.rime_score, sm = j.model_score;
     ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
     const double want_r = std::stod(col[3]), want_m = std::stod(col[4]);
     const double diff = std::max(std::fabs(sr - want_r), std::fabs(sm - want_m));

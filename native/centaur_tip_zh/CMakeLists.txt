@@ -15,7 +15,7 @@ add_executable(zh_probe zh_probe.cc rime_engine.cc)
 
 set(EN ${CMAKE_CURRENT_SOURCE_DIR}/../centaur_tip)
 set(CORE ${CMAKE_CURRENT_SOURCE_DIR}/../centaur_core)
-add_library(centaur_tip_zh SHARED dllmain.cc text_service.cc rime_engine.cc ${EN}/popup.cc ${CORE}/zh_mixed.cc tip.def)
+add_library(centaur_tip_zh SHARED dllmain.cc text_service.cc rime_engine.cc ${EN}/popup.cc ${CORE}/zh_mixed.cc ${CORE}/tiny_lm.cc tip.def)
 target_link_libraries(centaur_tip_zh PRIVATE ole32 oleaut32 uuid user32 gdi32 advapi32 shell32)
 
 # 登録できたかを確かめる小さな道具（GitHub の流れで使う）

@@ -29,14 +29,22 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--check")
     ap.add_argument("--tatoeba")
+    ap.add_argument("--rime-chunks", help="Tatoeba の代わりに rr_zh.py と同じ Rime の答えの表（試験の行）から句を取る")
     ap.add_argument("--n", type=int, default=200)
     a = ap.parse_args()
 
-    import measure as Z  # zh_ime/measure.py（拼音の音節）
     from pypinyin import Style, pinyin
 
     chunks = []
+    if a.rime_chunks:
+        with open(a.rime_chunks, encoding="utf-8") as f:
+            next(f)
+            for line in f:
+                split, sid, py, ref, rime = line.rstrip("\n").split("\t")
+                if split == "test" and len(chunks) < a.n:
+                    chunks.append((py.split(), ref))
     if a.tatoeba:
+        import measure as Z  # zh_ime/measure.py（拼音の音節。OpenCC が要る）
         for sid, text in Z.read_tatoeba(a.tatoeba):
             if Z.stable_unit(20261017, sid) < 0.8:
                 continue
@@ -52,7 +60,7 @@ def main():
         vocab = Vocab(texts)
         model = TinyGPT(len(vocab), d=64, layers=2, heads=4, max_len=256)
     else:
-        ck = torch.load(a.model, map_location="cpu")
+        ck = torch.load(a.model, map_location="cpu", weights_only=True)
         vocab = Vocab.from_state(ck["vocab"])
         model = TinyGPT(**ck["config"])
         model.load_state_dict(ck["state"])

@@ -26,7 +26,17 @@ class TinyLm {
   // 「<始め>音節を空白でつないだもの<区切り>」の後に text が続く対数の確からしさ。長すぎれば非常に小さい値。
   double Score(const std::vector<std::string>& syllables, const std::string& text) const;
 
+  // Greedy と、その答えと rime の答えの Score を、拼音の部分の計算を 1 回で済ませてまとめて出す（IME で使う形）。
+  struct Judged {
+    std::string model;          // 模型の答え（空なら使えない）
+    double model_score = -1e30;
+    double rime_score = -1e30;  // rime が model と同じなら model_score と同じ
+  };
+  Judged Judge(const std::vector<std::string>& syllables, const std::string& rime) const;
+
   size_t vocab() const { return chars_.size(); }
+  // 音節の読みを持つ字を知っているか
+  bool Reads(const std::string& syllable) const { return readings_.count(syllable) > 0; }
 
   static constexpr int kPad = 0, kBos = 1, kSep = 2, kEos = 3, kSpecial = 4;
 
@@ -39,8 +49,13 @@ class TinyLm {
     std::vector<std::vector<float>> k, v;  // 層ごと: [位置 * d]
     int n = 0;
   };
-  // 次の字を読み、その後に続く字の対数の確からしさ（全部の字）を返す
-  std::vector<float> Step(State* st, int id) const;
+  // 次の字を読み、その後に続く字の対数の確からしさ（全部の字）を返す。head が false なら読むだけ（空を返す。
+  // 最後の字の表の計算がいちばん重いので、確からしさの要らない拼音の部分では省く）
+  std::vector<float> Step(State* st, int id, bool head = true) const;
+  // 拼音の部分を読んだ様子と、その次の字の確からしさ
+  bool ReadPrefix(const std::vector<std::string>& syllables, size_t extra, State* st, std::vector<float>* lp) const;
+  // st の後に text が続く対数の確からしさ（st と lp は進む）
+  double Continue(State* st, std::vector<float> lp, const std::vector<int>& cont) const;
   std::vector<int> Prefix(const std::vector<std::string>& syllables) const;
 
   int vocab_size_ = 0, d_ = 0, layers_ = 0, heads_ = 0, max_len_ = 0;

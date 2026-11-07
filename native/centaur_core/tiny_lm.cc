@@ -6,6 +6,11 @@
 #include <cstring>
 #include <fstream>
 
+#if defined(_M_X64) || defined(_M_IX86) || defined(__x86_64__) || defined(__i386__)
+#include <immintrin.h>
+#define CENTAUR_SSE 1
+#endif
+
 namespace centaur {
 namespace {
 
@@ -33,13 +38,30 @@ void LayerNorm(const float* x, const std::vector<float>& w, const std::vector<fl
   for (int i = 0; i < d; ++i) out[i] = static_cast<float>((x[i] - mean) * inv) * w[i] + b[i];
 }
 
+// a · b（SSE で 4 つずつ、16 ずつの 4 本の和。足す順が変わるので答えは 32 ビットの丸めの分だけずれる）
+float Dot(const float* a, const float* b, int n) {
+  int i = 0;
+  float s = 0;
+#ifdef CENTAUR_SSE
+  __m128 s0 = _mm_setzero_ps(), s1 = _mm_setzero_ps(), s2 = _mm_setzero_ps(), s3 = _mm_setzero_ps();
+  for (; i + 16 <= n; i += 16) {
+    s0 = _mm_add_ps(s0, _mm_mul_ps(_mm_loadu_ps(a + i), _mm_loadu_ps(b + i)));
+    s1 = _mm_add_ps(s1, _mm_mul_ps(_mm_loadu_ps(a + i + 4), _mm_loadu_ps(b + i + 4)));
+    s2 = _mm_add_ps(s2, _mm_mul_ps(_mm_loadu_ps(a + i + 8), _mm_loadu_ps(b + i + 8)));
+    s3 = _mm_add_ps(s3, _mm_mul_ps(_mm_loadu_ps(a + i + 12), _mm_loadu_ps(b + i + 12)));
+  }
+  float buf[4];
+  _mm_storeu_ps(buf, _mm_add_ps(_mm_add_ps(s0, s1), _mm_add_ps(s2, s3)));
+  s = (buf[0] + buf[1]) + (buf[2] + buf[3]);
+#endif
+  for (; i < n; ++i) s += a[i] * b[i];
+  return s;
+}
+
 // out[r] = W[r, :] · x + b[r]（W は rows × cols、行ごとに並ぶ。PyTorch の Linear と同じ）
 void MatVec(const std::vector<float>& w, const float* b, const float* x, int rows, int cols, float* out) {
   for (int r = 0; r < rows; ++r) {
-    const float* row = w.data() + static_cast<size_t>(r) * cols;
-    float s = 0;
-    for (int c = 0; c < cols; ++c) s += row[c] * x[c];
-    out[r] = s + (b ? b[r] : 0.0f);
+    out[r] = Dot(w.data() + static_cast<size_t>(r) * cols, x, cols) + (b ? b[r] : 0.0f);
   }
 }
 
@@ -113,7 +135,7 @@ std::vector<int> TinyLm::Encode(const std::string& utf8) const {
   return out;
 }
 
-std::vector<float> TinyLm::Step(State* st, int id) const {
+std::vector<float> TinyLm::Step(State* st, int id, bool head) const {
   const int d = d_, dh = d_ / heads_, t = st->n;
   if (st->k.empty()) {
     st->k.resize(static_cast<size_t>(layers_));
@@ -135,10 +157,7 @@ std::vector<float> TinyLm::Step(State* st, int id) const {
       const float* q = qkv.data() + hd * dh;
       float mx = -1e30f;
       for (int j = 0; j <= t; ++j) {
-        const float* kk = K.data() + static_cast<size_t>(j) * d + hd * dh;
-        float dot = 0;
-        for (int c = 0; c < dh; ++c) dot += q[c] * kk[c];
-        s[j] = dot * scale;
+        s[j] = Dot(q, K.data() + static_cast<size_t>(j) * d + hd * dh, dh) * scale;
         mx = std::max(mx, s[j]);
       }
       double sum = 0;
@@ -157,6 +176,8 @@ std::vector<float> TinyLm::Step(State* st, int id) const {
     MatVec(w.fc2_w, w.fc2_b.data(), m.data(), d, 4 * d, y.data());
     for (int i = 0; i < d; ++i) x[i] += y[i];
   }
+  st->n = t + 1;
+  if (!head) return {};
   LayerNorm(x.data(), ln_w_, ln_b_, d, h.data());
   std::vector<float> logits(static_cast<size_t>(vocab_size_));
   MatVec(tok_, nullptr, h.data(), vocab_size_, d, logits.data());  // 出の重みは入りの重みと同じ
@@ -166,7 +187,6 @@ std::vector<float> TinyLm::Step(State* st, int id) const {
   for (float z : logits) sum += std::exp(static_cast<double>(z - mx));
   const float lse = mx + static_cast<float>(std::log(sum));
   for (auto& z : logits) z -= lse;
-  st->n = t + 1;
   return logits;
 }
 
@@ -179,18 +199,44 @@ std::vector<int> TinyLm::Prefix(const std::vector<std::string>& syllables) const
   return ids;
 }
 
-std::string TinyLm::Greedy(const std::vector<std::string>& syllables) const {
-  if (!loaded()) return {};
+bool TinyLm::ReadPrefix(const std::vector<std::string>& syllables, size_t extra, State* st,
+                        std::vector<float>* lp) const {
+  if (!loaded()) return false;
   const std::vector<int> prefix = Prefix(syllables);
-  if (static_cast<int>(prefix.size() + syllables.size()) > max_len_) return {};
+  if (prefix.size() + extra > static_cast<size_t>(max_len_)) return false;
+  for (size_t i = 0; i < prefix.size(); ++i) {
+    std::vector<float> r = Step(st, prefix[i], i + 1 == prefix.size());
+    if (i + 1 == prefix.size()) *lp = std::move(r);
+  }
+  return true;
+}
+
+double TinyLm::Continue(State* st, std::vector<float> lp, const std::vector<int>& cont) const {
+  double s = 0;
+  for (size_t k = 0; k < cont.size(); ++k) {
+    s += lp[cont[k]];
+    if (k + 1 < cont.size()) lp = Step(st, cont[k]);
+  }
+  return s;
+}
+
+TinyLm::Judged TinyLm::Judge(const std::vector<std::string>& syllables, const std::string& rime) const {
+  Judged j;
+  const std::vector<int> rime_ids = Encode(rime);
   State st;
   std::vector<float> lp;
-  for (int id : prefix) lp = Step(&st, id);
-  std::string out;
+  if (!ReadPrefix(syllables, std::max(syllables.size(), rime_ids.size()), &st, &lp)) return j;
+  const State after_prefix = st;
+  const std::vector<float> lp_prefix = lp;
+  // 音節ごとに、読みの合う字の中で一番確からしい字（同点は字の大きい方。rr_zh.py と同じ）
+  double score = 0;
+  bool missing = false;
   for (const auto& s : syllables) {
     const auto it = readings_.find(s);
     if (it == readings_.end() || it->second.empty()) {
-      out += "?";  // rr_zh.py と同じ（読みの合う字が無い音節）
+      // rr_zh.py と同じ: 読みの合う字が無い音節は「?」にし、次の字は「?」を読まずに選ぶ（点数は後で数え直す）
+      j.model += "?";
+      missing = true;
       continue;
     }
     int best = -1;
@@ -199,26 +245,32 @@ std::string TinyLm::Greedy(const std::vector<std::string>& syllables) const {
         best = id;
       }
     }
-    out += chars_[best - kSpecial];
+    j.model += chars_[best - kSpecial];
+    score += lp[best];
     lp = Step(&st, best);
   }
-  return out;
+  if (missing) {
+    State st3 = after_prefix;
+    score = Continue(&st3, lp_prefix, Encode(j.model));
+  }
+  j.model_score = score;
+  if (rime == j.model) {
+    j.rime_score = score;
+  } else {
+    State st2 = after_prefix;
+    j.rime_score = Continue(&st2, lp_prefix, rime_ids);
+  }
+  return j;
 }
 
+std::string TinyLm::Greedy(const std::vector<std::string>& syllables) const { return Judge(syllables, "").model; }
+
 double TinyLm::Score(const std::vector<std::string>& syllables, const std::string& text) const {
-  if (!loaded()) return -1e30;
-  const std::vector<int> prefix = Prefix(syllables);
-  const std::vector<int> cont = Encode(text);
-  if (static_cast<int>(prefix.size() + cont.size()) > max_len_) return -1e30;
   State st;
   std::vector<float> lp;
-  for (int id : prefix) lp = Step(&st, id);
-  double s = 0;
-  for (size_t k = 0; k < cont.size(); ++k) {
-    s += lp[cont[k]];
-    if (k + 1 < cont.size()) lp = Step(&st, cont[k]);
-  }
-  return s;
+  const std::vector<int> cont = Encode(text);
+  if (!ReadPrefix(syllables, cont.size(), &st, &lp)) return -1e30;
+  return Continue(&st, lp, cont);
 }
 
 }  // namespace centaur

@@ -8,7 +8,12 @@
 #include <mutex>
 #include <thread>
 
+#include "../centaur_core/tiny_lm.h"
 #include "../centaur_core/zh_mixed.h"
+
+#include <chrono>
+#include <condition_variable>
+#include <fstream>
 
 extern HINSTANCE g_instance;
 extern std::atomic<long> g_dll_ref;
@@ -24,6 +29,91 @@ std::mutex g_engine_mutex;
 std::unique_ptr<centaur_zh::RimeEngine> g_engine;  // 始まったら入る（以後は差し替えない）
 std::unique_ptr<centaur_zh::RimeEngine> g_helper;  // 英単語まじりの文の拼音の部分を変換する別のセッション
 std::unique_ptr<centaur::ZhMixed> g_mixed;          // 英単語まじりの決まり（表が無ければ入らない）
+std::unique_ptr<centaur::TinyLm> g_lm;              // AI の字の模型（data/zh-lm.bin が無ければ入らない）
+double g_beta = 1e9;                                // Rime の答えに足す重み（大きいほど Rime に寄る）
+
+// ---- AI の計算をする裏の糸（頼みは最後の 1 つだけ覚え、古いものは捨てる） ----
+constexpr UINT kAiReady = WM_APP + 1;
+struct AiJob {
+  std::wstring key;  // 打った英字
+  std::vector<std::string> syllables;
+  std::string rime;  // Rime の一番の候補（UTF-8）
+  HWND notify = nullptr;
+};
+std::mutex g_ai_mutex;
+std::condition_variable g_ai_cv;
+bool g_ai_has_job = false, g_ai_busy = false;
+AiJob g_ai_job;
+std::wstring g_ai_done_key, g_ai_done_text;  // 終わった頼みの入力と、AI が選んだ文（Rime のままなら空）
+std::once_flag g_ai_thread_once;
+
+std::wstring WideOf(const std::string& s) {
+  if (s.empty()) return {};
+  const int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), nullptr, 0);
+  std::wstring w(n, L' ');
+  MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), w.data(), n);
+  return w;
+}
+
+std::string Utf8Of(const std::wstring& w) {
+  if (w.empty()) return {};
+  const int n = WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+  std::string s(n, ' ');
+  WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), s.data(), n, nullptr, nullptr);
+  return s;
+}
+
+void AiLoop() {
+  for (;;) {
+    AiJob job;
+    {
+      std::unique_lock<std::mutex> lock(g_ai_mutex);
+      g_ai_cv.wait(lock, [] { return g_ai_has_job; });
+      job = g_ai_job;
+      g_ai_has_job = false;
+      g_ai_busy = true;
+    }
+    std::wstring chosen;
+    if (g_lm) {
+      const centaur::TinyLm::Judged j = g_lm->Judge(job.syllables, job.rime);
+      if (!j.model.empty() && j.model != job.rime && j.model.find('?') == std::string::npos &&
+          j.model_score > j.rime_score + g_beta) {
+        chosen = WideOf(j.model);
+      }
+    }
+    {
+      std::lock_guard<std::mutex> lock(g_ai_mutex);
+      g_ai_done_key = job.key;
+      g_ai_done_text = chosen;
+      g_ai_busy = false;
+    }
+    g_ai_cv.notify_all();
+    if (job.notify) PostMessageW(job.notify, kAiReady, 0, 0);
+  }
+}
+
+void AiRequest(AiJob job) {
+  std::call_once(g_ai_thread_once, [] {
+    ++g_dll_ref;  // 裏の糸は処理の終わりまで動くので、DLL を外させない
+    std::thread(AiLoop).detach();
+  });
+  {
+    std::lock_guard<std::mutex> lock(g_ai_mutex);
+    g_ai_job = std::move(job);
+    g_ai_has_job = true;
+  }
+  g_ai_cv.notify_all();
+}
+
+// key の頼みが終わっていれば true と答え。まだなら最大 wait だけ待つ
+bool AiResult(const std::wstring& key, std::wstring* text, int wait_ms) {
+  std::unique_lock<std::mutex> lock(g_ai_mutex);
+  const auto done = [&] { return g_ai_done_key == key && !g_ai_busy && !(g_ai_has_job && g_ai_job.key == key); };
+  if (!done() && wait_ms > 0) g_ai_cv.wait_for(lock, std::chrono::milliseconds(wait_ms), done);
+  if (!done()) return false;
+  *text = g_ai_done_text;
+  return true;
+}
 std::once_flag g_load_once;
 
 std::filesystem::path ModuleDir() {
@@ -57,11 +147,23 @@ void StartLoad() {
         const bool mixed_ok = mixed->Load(dir / L"data" / L"zh-mixed.tsv");
         if (mixed_ok) mixed->LoadCasing(dir / L"data" / L"casing.tsv");
         const bool helper_ok = mixed_ok && helper->Start(dll, dir / L"data", user);
+        auto lm = std::make_unique<centaur::TinyLm>();
+        const bool lm_ok = lm->Load(dir / L"data" / L"zh-lm.bin");
+        double beta = 1e9;
+        if (lm_ok) {
+          std::ifstream bf(dir / L"data" / L"zh-lm-beta.txt");
+          bf >> beta;
+          if (!bf) beta = 1e9;
+        }
         std::lock_guard<std::mutex> lock(g_engine_mutex);
         g_engine = std::move(e);
         if (helper_ok) {
           g_helper = std::move(helper);
           g_mixed = std::move(mixed);
+        }
+        if (lm_ok) {
+          g_lm = std::move(lm);
+          g_beta = beta;
         }
       }
       --g_dll_ref;
@@ -284,11 +386,23 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* tm, TfClientId id, DWORD) {
     keys->Release();
   }
   if (app_allowed_) StartLoad();
+  WNDCLASSW wc = {};
+  wc.lpfnWndProc = NotifyProc;
+  wc.hInstance = g_instance;
+  wc.lpszClassName = L"CentaurIMEChineseNotify";
+  RegisterClassW(&wc);  // 2 度目は失敗するが、作った種類はそのまま使える
+  notify_ = CreateWindowExW(0, wc.lpszClassName, L"", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, g_instance, nullptr);
+  if (notify_) SetWindowLongPtrW(notify_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
   Trace("activate", 0);
   return S_OK;
 }
 
 STDMETHODIMP TextService::Deactivate() {
+  if (notify_) {
+    SetWindowLongPtrW(notify_, GWLP_USERDATA, 0);
+    DestroyWindow(notify_);
+    notify_ = nullptr;
+  }
   if (auto* e = Engine()) e->Clear();
   if (composition_) {
     composition_->Release();
@@ -394,6 +508,8 @@ void TextService::SetCompositionText(ITfContext* ctx, TfEditCookie ec, const std
 
 void TextService::EndComposition(TfEditCookie ec) {
   mixed_.clear();
+  ai_.clear();
+  ai_key_.clear();
   if (composition_) {
     composition_->EndComposition(ec);
     composition_->Release();
@@ -433,15 +549,75 @@ void TextService::Sync(ITfContext* ctx, TfEditCookie ec) {
   // 英単語まじり（打った英字は ASCII だけ）
   const std::wstring raw_w = e->Input();
   mixed_ = MixedText(std::string(raw_w.begin(), raw_w.end()));
+  // AI: Rime の一番の候補が打った音節を全部覆うときだけ頼む（選んだ候補を変えた後やページを送った後は頼まない）
+  ai_.clear();
+  ai_key_.clear();
+  bool lm_ready = false;
+  {
+    std::lock_guard<std::mutex> lock(g_engine_mutex);
+    lm_ready = g_lm != nullptr;
+  }
+  if (lm_ready && mixed_.empty() && st.page == 0 && st.highlighted == 0 && !st.candidates.empty()) {
+    std::vector<std::string> syl;
+    std::string cur;
+    for (wchar_t c : st.preedit) {
+      if (c == L' ' || c == L'\'') {
+        if (!cur.empty()) syl.push_back(cur);
+        cur.clear();
+      } else if (c >= L'a' && c <= L'z') {
+        cur += static_cast<char>(c);
+      } else {
+        syl.clear();  // 拼音でない字がある
+        cur = "#";
+        break;
+      }
+    }
+    if (cur != "#" && !cur.empty()) syl.push_back(cur);
+    bool readable = !syl.empty() && cur != "#";
+    for (const auto& s : syl) readable = readable && g_lm->Reads(s);
+    const std::wstring& rime = st.candidates[0];
+    size_t rime_chars = 0;
+    for (wchar_t c : rime) rime_chars += !(c >= 0xDC00 && c <= 0xDFFF);
+    if (readable && rime_chars == syl.size()) {
+      ai_key_ = raw_w;
+      std::wstring done;
+      if (AiResult(ai_key_, &done, 0)) {
+        ai_ = done;
+      } else {
+        AiRequest(AiJob{ai_key_, syl, Utf8Of(rime), notify_});
+      }
+    }
+  }
   std::vector<std::wstring> lines;
   if (!mixed_.empty()) lines.push_back(L"空格  " + mixed_);
+  if (!ai_.empty()) lines.push_back(L"空格  " + ai_);
   const std::wstring line = CandidateLine(st);
   if (!line.empty()) lines.push_back(line);
+  last_lines_ = lines;
+  last_rect_ = rc;
   if (placed && !lines.empty()) {
     popup_.ShowLines(rc, lines);
   } else {
     popup_.Hide();
   }
+}
+
+void TextService::OnAiReady() {
+  // 裏の糸の答えが来た: 今の入力の答えで、AI が Rime と違う文を選んだなら、候補の窓の 1 行目に足して出し直す
+  if (ai_key_.empty() || !ai_.empty() || !composition_ || last_lines_.empty()) return;
+  std::wstring done;
+  if (!AiResult(ai_key_, &done, 0) || done.empty()) return;
+  ai_ = done;
+  last_lines_.insert(last_lines_.begin(), L"空格  " + ai_);
+  popup_.ShowLines(last_rect_, last_lines_);
+}
+
+LRESULT CALLBACK TextService::NotifyProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+  if (msg == kAiReady) {
+    if (auto* self = reinterpret_cast<TextService*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA))) self->OnAiReady();
+    return 0;
+  }
+  return DefWindowProcW(hwnd, msg, wparam, lparam);
 }
 
 void TextService::CommitRaw(ITfContext* ctx, TfEditCookie ec) {
@@ -514,6 +690,18 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* ctx, WPARAM key, LPARAM lparam, 
         return;
       }
       auto* e = Engine();
+      if (k == ' ' && composition_ && mixed_.empty() && !ai_key_.empty() && ai_.empty()) {
+        std::wstring done;
+        if (AiResult(ai_key_, &done, 200)) ai_ = done;
+      }
+      if (k == ' ' && composition_ && mixed_.empty() && !ai_.empty()) {
+        // AI が選んだ文を確定する
+        const std::wstring text = ai_;
+        e->Clear();
+        SetCompositionText(ctx, ec, text);
+        EndComposition(ec);
+        return;
+      }
       if (k == ' ' && composition_ && !mixed_.empty()) {
         // 英単語まじりの文を確定する
         const std::wstring text = mixed_;
