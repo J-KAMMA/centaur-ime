@@ -12,3 +12,15 @@ include_directories(${RIME_INCLUDE})
 
 # Rime を窓なしで試す道具
 add_executable(zh_probe zh_probe.cc rime_engine.cc)
+
+set(EN ${CMAKE_CURRENT_SOURCE_DIR}/../centaur_tip)
+add_library(centaur_tip_zh SHARED dllmain.cc text_service.cc rime_engine.cc ${EN}/popup.cc tip.def)
+target_link_libraries(centaur_tip_zh PRIVATE ole32 oleaut32 uuid user32 gdi32 advapi32 shell32)
+
+# 登録できたかを確かめる小さな道具（GitHub の流れで使う）
+add_executable(tip_check_zh tip_check.cc)
+target_link_libraries(tip_check_zh PRIVATE ole32 oleaut32 uuid advapi32)
+
+# 実際にキーを送って打つ試験（登録した DLL を使う）
+add_executable(zh_e2e zh_e2e.cc)
+target_link_libraries(zh_e2e PRIVATE ole32 oleaut32 uuid user32)

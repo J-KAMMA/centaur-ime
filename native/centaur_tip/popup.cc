@@ -45,6 +45,11 @@ void Popup::Show(const RECT& caret, const std::wstring& completion, const std::v
     for (size_t i = 0; i < corrections.size(); ++i) s += (i ? L", " : L"") + corrections[i];
     lines_.push_back(s);
   }
+  ShowLines(caret, std::vector<std::wstring>(lines_));
+}
+
+void Popup::ShowLines(const RECT& caret, const std::vector<std::wstring>& lines) {
+  lines_ = lines;
   if (lines_.empty() || !Create()) {
     Hide();
     return;

@@ -68,21 +68,68 @@ jobs:
           & $dep.FullName --build user data (Join-Path (Resolve-Path data) 'build')
           Write-Output "deployer exit $LASTEXITCODE"
           Get-ChildItem -Recurse data/build, user -ErrorAction SilentlyContinue | Format-Table FullName, Length
-      - name: 組み立てて、拼音を打ってみる（窓なし）
+      - name: 組み立て（64 ビットと 32 ビット）
         shell: pwsh
         run: |
           $inc = (Get-ChildItem -Recurse rime64 -Filter rime_api.h | Select-Object -First 1).DirectoryName
           cmake -S native/centaur_tip_zh -B build64 -A x64 "-DRIME_INCLUDE=$inc"
           cmake --build build64 --config Release
           if ($LASTEXITCODE -ne 0) { exit 1 }
-          $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
-          ./build64/Release/zh_probe.exe $dll (Resolve-Path data).Path (Join-Path $env:RUNNER_TEMP 'rime-user')
+          cmake -S native/centaur_tip_zh -B build32 -A Win32 "-DRIME_INCLUDE=$inc"
+          cmake --build build32 --config Release
           if ($LASTEXITCODE -ne 0) { exit 1 }
+          # rime.dll が頼るほかの DLL（ウィンドウズに無いものがあれば一式に入れる必要がある）
+          $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
+          & "$(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" /dependents $dll | Select-String '\.dll'
+      - name: 拼音を打ってみる（窓なし）
+        shell: pwsh
+        run: |
+          $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
+          ./build64/Release/zh_probe.exe $dll (Resolve-Path data).Path (Join-Path $env:RUNNER_TEMP 'rime-user-probe')
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: 試用の一式
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg/x64, pkg/x86 | Out-Null
+          Copy-Item build64/Release/centaur_tip_zh.dll pkg/x64/
+          Copy-Item build32/Release/centaur_tip_zh.dll pkg/x86/
+          Copy-Item (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName pkg/x64/
+          Copy-Item (Get-ChildItem -Recurse rime32 -Filter rime.dll | Select-Object -First 1).FullName pkg/x86/
+          Copy-Item data pkg/ -Recurse
+          Remove-Item pkg/data/default.custom.yaml -ErrorAction SilentlyContinue  # 利用者の置き場に作る
+          Copy-Item native/centaur_tip_zh/package/* pkg/
+          Get-ChildItem -Recurse pkg | Measure-Object Length -Sum | Format-Table Count, Sum
+      - name: 登録・取り消しと、実際に打つ試験（自分の窓に本物のキーを送り、出た文字を期待した文字と比べる）
+        # 言語の一覧の命令（Get-WinUserLanguageList）は PowerShell 7 では動かないので、ウィンドウズ付属の PowerShell で
+        shell: powershell
+        run: |
+          # 入れたときと同じ並び（DLL の隣に x64\rime.dll と data）
+          New-Item -ItemType Directory -Force stage\x64 | Out-Null
+          Copy-Item pkg\x64\centaur_tip_zh.dll stage\
+          Copy-Item pkg\x64\rime.dll stage\x64\
+          Copy-Item pkg\data stage\ -Recurse
+          $dll = (Resolve-Path stage\centaur_tip_zh.dll).Path
+          .\build64\Release\tip_check_zh.exe register $dll
+          if ($LASTEXITCODE -ne 0) { throw 'register failed' }
+          .\build64\Release\tip_check_zh.exe present
+          if ($LASTEXITCODE -ne 0) { throw 'not present' }
+          $l = Get-WinUserLanguageList
+          $l.Add('zh-CN')
+          $zh = $l | Where-Object LanguageTag -eq 'zh-Hans-CN'
+          if (-not $zh) { $zh = $l | Where-Object LanguageTag -like 'zh*' | Select-Object -First 1 }
+          $zh.InputMethodTips.Clear()
+          $zh.InputMethodTips.Add('0804:{5412FEA3-DEE9-4701-9963-05908DFACDCE}{0C0FE2DD-9BCE-4D62-B6F8-77EB885D4387}')
+          Set-WinUserLanguageList $l -Force
+          (Get-WinUserLanguageList | Where-Object LanguageTag -like 'zh*').InputMethodTips
+          .\build64\Release\zh_e2e.exe | Tee-Object e2e.txt
+          $code = $LASTEXITCODE
+          .\build64\Release\tip_check_zh.exe unregister $dll
+          .\build64\Release\tip_check_zh.exe absent
+          if ($LASTEXITCODE -ne 0) { throw 'still registered' }
+          if ($code -ne 0) { exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: zh-rime-probe
-          path: |
-            data/build/
-            user/
-          retention-days: 7
+          name: centaur-ime-chinese
+          path: pkg/
+          retention-days: 14
