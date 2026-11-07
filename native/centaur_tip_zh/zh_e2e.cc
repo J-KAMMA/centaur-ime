@@ -63,6 +63,8 @@ void Type(const std::string& s) {
       Tap(VK_TAB);
     } else if (c == '~') {
       Tap(VK_SPACE, true);
+    } else if (c == '>') {
+      Tap(VK_DOWN);
     } else if (c == '^') {
       Tap(VK_SHIFT);  // Shift だけを押して離す
     } else if (c == '\x1b') {
@@ -103,6 +105,7 @@ std::string Shown(const std::string& keys) {
     else if (c == '\t') s += "<Tab>";
     else if (c == '~') s += "<Shift+Space>";
     else if (c == '^') s += "<Shift>";
+    else if (c == '>') s += "<Down>";
     else if (c == '\x1b') s += "<Esc>";
     else if (c == '\n') s += "<Enter>";
     else s += c;
@@ -156,6 +159,7 @@ int main() {
       {"zhongguo ", L"中国", "語"},
       {"jintiantianqihenhao ", L"今天天气很好", "文"},
       {"shi2", L"时", "数字で 2 番目の候補"},
+      {"nihao> ", L"妳好", "下の矢印で次の候補にして空白"},
       {"nihaoo\b ", L"你好", "後退で 1 字戻す"},
       {"nihao\x1b", L"", "Esc で取り消す"},
       {"nihao\n", L"nihao", "Enter で打った英字のまま"},

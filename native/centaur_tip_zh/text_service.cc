@@ -228,7 +228,9 @@ std::wstring CandidateLine(const centaur_zh::State& st) {
   std::wstring line;
   for (size_t i = 0; i < st.candidates.size(); ++i) {
     if (i) line += L"  ";
-    line += std::to_wstring(i + 1) + L"." + st.candidates[i];
+    // 選んでいる候補（空白で確定するもの）は【】で囲む
+    const std::wstring item = std::to_wstring(i + 1) + L"." + st.candidates[i];
+    line += static_cast<int>(i) == st.highlighted ? L"【" + item + L"】" : item;
   }
   if (!st.candidates.empty()) {
     if (st.page > 0) line = L"◀ " + line;
