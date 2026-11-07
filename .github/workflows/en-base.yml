@@ -1,0 +1,49 @@
+name: English base
+
+# 英語の土台（AI なし）を、表づくりの材料を変えて比べる（tools/en_ime/measure.py）。
+#   材料: Tatoeba の英語の文（CC BY 2.0 FR）、CC-100 の英語（先頭から、tools/fetch_source.py）。
+#   足した文にだけ出る語は、決めた回数以上出たものだけ表に入れる（打ち間違いを語にしない）。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/en-measure]
+    paths: ['tools/en_ime/measure.py', 'tools/en_ime/en_model.py', '.github/workflows/en-base.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  en:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 材料
+        run: |
+          set -eo pipefail
+          curl -fsSL -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          sha256sum eng_sentences.tsv.bz2
+          python3 tools/fetch_source.py cc100-en data/en --lines 1000000
+          ls -la data/en
+      - name: 測る
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          for spec in "0:5" "300000:5" "1000000:5" "1000000:20"; do
+            IFS=: read n m <<< "$spec"
+            extra=""
+            [ "$n" != 0 ] && extra="--extra data/en/cc100-en.1000000.txt --extra-limit $n --extra-min $m"
+            echo "=== CC-100 $n 文、新しい語は $m 回以上"
+            /usr/bin/time -f "  時間 %e 秒、記憶 %M KB" python3 tools/en_ime/measure.py --tatoeba eng_sentences.tsv.bz2 \
+              --out "out/en-$n-$m.txt" $extra | grep -E "表づくり|確かめ|補完"
+          done 2>&1 | tee out/summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: en-base
+          path: out/
+          retention-days: 14

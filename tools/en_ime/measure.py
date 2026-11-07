@@ -72,6 +72,9 @@ def main():
     ap.add_argument("--seed", type=int, default=20261105)
     ap.add_argument("--test", type=int, default=3000, help="試験に使う文の数")
     ap.add_argument("--examples", type=int, default=30, help="間違えた例を出す数")
+    ap.add_argument("--extra", help="表づくりに足す文（CC-100 など、1 行 1 文のテキスト）")
+    ap.add_argument("--extra-limit", type=int, default=1000000)
+    ap.add_argument("--extra-min", type=int, default=5, help="足した文にだけ出る語を表に入れる最少の回数")
     args = ap.parse_args()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -84,9 +87,17 @@ def main():
     # 前半で重みを選び、後半（重み選びに使わない文）で確かめる
     test, verify = test[:args.test], test[args.test:2 * args.test]
     t0 = time.time()
-    m = Model(train)
+    extra = []
+    if args.extra:
+        with open(args.extra, encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if line.strip():
+                    extra.append(line.strip())
+                    if len(extra) >= args.extra_limit:
+                        break
+    m = Model(train, extra=extra, extra_min=args.extra_min)
     build = time.time() - t0
-    out = [f"表づくりの文 {len(train)}、語 {m.vocab}、重み選びの文 {len(test)}、確かめの文 {len(verify)}、表づくり {build:.1f} 秒"]
+    out = [f"表づくりの文 {len(train)}（足した文 {len(extra)}）、語 {m.vocab}、重み選びの文 {len(test)}、確かめの文 {len(verify)}、表づくり {build:.1f} 秒"]
 
     # 区切り（重みの組を変えて比べ、一番よい組を確かめの文で測る）
     best = None

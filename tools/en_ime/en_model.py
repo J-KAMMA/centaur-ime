@@ -23,13 +23,28 @@ class Model:
     # 直しで 1 か所違うごとの重み（キーの位置で軽くする。typo_cost を参照）
     typo_weight = 6.0
 
-    def __init__(self, sentences, max_edit=2, prefix_keep=8):
+    def __init__(self, sentences, max_edit=2, prefix_keep=8, extra=(), extra_min=5):
         self.uni = Counter()
         self.bi = Counter()
         for s in sentences:
             ws = ["<s>"] + words_of(s)
             self.uni.update(ws[1:])
             self.bi.update(zip(ws, ws[1:]))
+        # 足した文（CC-100 など）: 並びと数は足すが、新しい語は extra_min 回以上出たものだけ（打ち間違いを語にしない）
+        if extra:
+            known = set(self.uni)
+            eu, eb = Counter(), Counter()
+            for s in extra:
+                ws = ["<s>"] + words_of(s)
+                eu.update(ws[1:])
+                eb.update(zip(ws, ws[1:]))
+            keep = {w for w, c in eu.items() if w in known or c >= extra_min}
+            for w, c in eu.items():
+                if w in keep:
+                    self.uni[w] += c
+            for (a, b), c in eb.items():
+                if b in keep and (a == "<s>" or a in keep):
+                    self.bi[(a, b)] += c
         self.total = sum(self.uni.values())
         self.vocab = len(self.uni)
         # a の後に何回続いたか（前は続いた語の種類の数を数えていて、並びの確率が 1 を超えることがあった）
