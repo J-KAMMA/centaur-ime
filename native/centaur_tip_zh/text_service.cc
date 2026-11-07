@@ -424,7 +424,7 @@ TextService::Action TextService::Decide(WPARAM key, LPARAM lparam, int* rime_key
 STDMETHODIMP TextService::OnSetFocus(BOOL) { return S_OK; }
 
 STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM key, LPARAM lparam, BOOL* eaten) {
-  // Shift はアプリへ渡すので OnKeyDown は呼ばれない。ここで「Shift だけ」かを覚える
+  // 「Shift だけ」かを覚える。アプリによって OnTestKeyDown と OnKeyDown の片方だけ・両方が呼ばれるので、両方で同じにする
   Trace("test-down", key);
   shift_alone_ = key == VK_SHIFT;
   int k = 0;
@@ -434,6 +434,11 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM key, LPARAM lparam, 
 
 STDMETHODIMP TextService::OnKeyDown(ITfContext* ctx, WPARAM key, LPARAM lparam, BOOL* eaten) {
   Trace("down", key);
+  shift_alone_ = key == VK_SHIFT;
+  if (key == VK_SHIFT) {
+    *eaten = FALSE;
+    return S_OK;
+  }
   int k = 0;
   const Action a = Decide(key, lparam, &k);
   *eaten = a != Action::kPass;
@@ -461,8 +466,9 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* ctx, WPARAM key, LPARAM lparam, 
 }
 
 STDMETHODIMP TextService::OnTestKeyUp(ITfContext* ctx, WPARAM key, LPARAM, BOOL* eaten) {
-  *eaten = FALSE;  // 離したキーはアプリへ渡す（OnKeyUp は呼ばれない）
+  *eaten = FALSE;  // 離したキーはアプリへ渡す
   Trace(shift_alone_ ? "test-up alone" : "test-up", key);
+  // RichEdit などは OnTestKeyUp を呼ばずに OnKeyUp だけを呼ぶ。どちらが先でも切り替えは 1 回（shift_alone_ で見る）
   // Shift だけを押して離したら切り替える。組み立て中の英字は、あとの編集セッションで打ったまま確定する
   if (key == VK_SHIFT && shift_alone_ && ctx) {
     shift_alone_ = false;
@@ -479,9 +485,14 @@ STDMETHODIMP TextService::OnTestKeyUp(ITfContext* ctx, WPARAM key, LPARAM, BOOL*
   return S_OK;
 }
 
-STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM key, LPARAM, BOOL* eaten) {
+STDMETHODIMP TextService::OnKeyUp(ITfContext* ctx, WPARAM key, LPARAM, BOOL* eaten) {
   Trace("up", key);
   *eaten = FALSE;
+  if (key == VK_SHIFT && shift_alone_ && ctx) {
+    shift_alone_ = false;
+    chinese_ = !chinese_;
+    Run(ctx, [this, ctx](TfEditCookie ec) { CommitRaw(ctx, ec); });
+  }
   return S_OK;
 }
 
