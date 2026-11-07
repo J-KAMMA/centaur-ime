@@ -66,7 +66,8 @@ def main():
                 readings[r].add(ch)
 
     def f32(t):
-        return t.detach().float().contiguous().numpy().tobytes()
+        v = t.detach().float().flatten().tolist()  # numpy を使わない（無い所でも動くように）
+        return struct.pack(f"<{len(v)}f", *v)
 
     with open(a.out, "wb") as f:
         f.write(b"CTLM1")
