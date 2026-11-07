@@ -172,6 +172,10 @@ int main() {
       {"nihaogithub ", L"你好GitHub", "英単語まじり: 後ろの英単語"},
       {"iphonehenhao ", L"iPhone很好", "英単語まじり: 前の英単語"},
       {"women ", L"我们", "拼音として読める語（women）は英語にしない"},
+      // AI（字の模型）: Rime の一番の候補と違う答えを選ぶ例は、試験の材料（Tatoeba）で模型が直したもの
+      {"daozhelilai ", L"到这里来", "AI: Rime の 到这历来 を直す"},
+      {"tangmuhemalishuo ", L"汤姆和玛丽说", "AI: Rime の 汤姆河马里说 を直す"},
+      {"nidexinglichenbuchen ", L"你的行李沉不沉", "AI: Rime の 你的行李衬布陈 を直す"},
       // Rime は選んだ候補を覚えて次から先に出すので、2 番目を選ぶ例は最後に置く
       {"nihao> ", L"妳好", "下の矢印で次の候補にして空白"},
   };

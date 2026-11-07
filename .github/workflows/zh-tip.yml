@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
   push:
     branches: [work/zh-tip]
-    paths: ['native/centaur_core/**', 'native/centaur_tip/**', 'native/centaur_tip_zh/**', 'tools/zh_ime/**', 'tools/models/**',
+    paths: ['models/zh/**', 'native/centaur_core/**', 'native/centaur_tip/**', 'native/centaur_tip_zh/**', 'tools/zh_ime/**', 'tools/models/**',
             '.github/workflows/zh-tip.yml']
 
 permissions:
@@ -121,6 +121,10 @@ jobs:
           Copy-Item (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName pkg/x64/
           Copy-Item (Get-ChildItem -Recurse rime32 -Filter rime.dll | Select-Object -First 1).FullName pkg/x86/
           Copy-Item data pkg/ -Recurse
+          # AI の模型（models/zh）。読み込めて Python と同じ答えになることは下の段で確かめる
+          if ((Get-FileHash models/zh/zh-lm.bin -Algorithm SHA256).Hash -ne '9B07A33178762A501AF074C56CA2363B100B46014D2EB1419DE7BB66586333FF') { throw 'zh-lm.bin が違う' }
+          Copy-Item models/zh/zh-lm.bin, models/zh/zh-lm-beta.txt, models/zh/README.txt pkg/data/
+          Rename-Item pkg/data/README.txt README-zh-lm.txt
           Remove-Item pkg/data/default.custom.yaml -ErrorAction SilentlyContinue  # 利用者の置き場に作る
           Copy-Item native/centaur_tip_zh/package/* pkg/
           Get-ChildItem -Recurse pkg | Measure-Object Length -Sum | Format-Table Count, Sum
@@ -133,9 +137,6 @@ jobs:
           Copy-Item pkg\x64\centaur_tip_zh.dll stage\
           Copy-Item pkg\x64\rime.dll stage\x64\
           Copy-Item pkg\data stage\ -Recurse
-          # AI の通り道が動くか（でたらめな重みの模型。重みを大きくして答えは Rime のまま）
-          Copy-Item lm-random.bin stage\data\zh-lm.bin
-          Set-Content stage\data\zh-lm-beta.txt '1e9'
           $dll = (Resolve-Path stage\centaur_tip_zh.dll).Path
           .\build64\Release\tip_check_zh.exe register $dll
           if ($LASTEXITCODE -ne 0) { throw 'register failed' }
