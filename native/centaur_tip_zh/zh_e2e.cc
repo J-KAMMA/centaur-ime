@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "guids.h"
@@ -146,7 +147,7 @@ int main() {
   }
   std::printf("ActivateProfile: 0x%08lx\n", static_cast<unsigned long>(hr));
   if (FAILED(hr)) return 2;
-  Pump(8000);  // Rime は別の糸で始める（初めては利用者の置き場の設定を組み立てる）
+  Pump(30000);  // Rime は別の糸で始める（初めては利用者の置き場の設定を組み立てる。万象拼音では 13 秒ほど）
 
   struct Case {
     const char* keys;
@@ -177,7 +178,7 @@ int main() {
       {"tangmuhemalishuo ", L"汤姆和玛丽说", "AI: Rime の 汤姆河马里说 を直す"},
       {"nidexinglichenbuchen ", L"你的行李沉不沉", "AI: Rime の 你的行李衬布陈 を直す"},
       // Rime は選んだ候補を覚えて次から先に出すので、2 番目を選ぶ例は最後に置く
-      {"nihao> ", L"妳好", "下の矢印で次の候補にして空白"},
+      {"nihao> ", L"妳好|拟好", "下の矢印で次の候補にして空白（2 番目の候補は辞書で違う）"},
   };
   int bad = 0;
   for (const Case& c : cases) {
@@ -188,7 +189,14 @@ int main() {
     std::wstring got = Text();
     // RichEdit は改行を \r\n で返すことがある（期待は \r だけで書く）
     got.erase(std::remove(got.begin(), got.end(), L'\n'), got.end());
-    const bool ok = got == c.want;
+    // 期待は「|」で区切って、どれかに合えばよい
+    bool ok = false;
+    for (std::wstring_view rest = c.want;;) {
+      const size_t bar = rest.find(L'|');
+      ok = ok || got == rest.substr(0, bar);
+      if (bar == std::wstring_view::npos) break;
+      rest.remove_prefix(bar + 1);
+    }
     if (!ok) ++bad;
     std::printf("%s %s: %s → 「%s」（期待「%s」）\n", ok ? "合" : "違", c.what, Shown(c.keys).c_str(),
                 Utf8(got).c_str(), Utf8(c.want).c_str());
