@@ -78,6 +78,14 @@ jobs:
           Copy-Item ko-detect.tsv, casing.tsv $data
           $dll = (Resolve-Path build64/Release/centaur_tip_ko.dll).Path
           ./build64/Release/tip_check_ko.exe register $dll
+          # この機械の利用者の言語に韓国語を足し、キーボードを Centaur IME Korean にする（足さないと有効にできない）
+          $l = Get-WinUserLanguageList
+          $l.Add('ko-KR')
+          $ko = $l | Where-Object LanguageTag -eq 'ko-KR'
+          $ko.InputMethodTips.Clear()
+          $ko.InputMethodTips.Add('0412:{A4F2E606-C933-43B3-850D-A3DF3ECF6FAD}{D5CECB97-1B85-4965-A7E9-2F050FF1C1AC}')
+          Set-WinUserLanguageList $l -Force
+          (Get-WinUserLanguageList | Where-Object LanguageTag -eq 'ko-KR').InputMethodTips
           ./build64/Release/ko_e2e.exe | Tee-Object e2e.txt
           $code = $LASTEXITCODE
           ./build64/Release/tip_check_ko.exe unregister $dll
