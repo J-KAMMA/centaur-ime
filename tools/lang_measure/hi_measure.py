@@ -47,6 +47,8 @@ def main():
     ap.add_argument("--nbest", type=int, default=8)
     ap.add_argument("--aksharantar", help="AI4Bharat Aksharantar の hin.zip")
     ap.add_argument("--aks-weight", type=float, default=1.0, help="Aksharantar の組 1 つの重み")
+    ap.add_argument("--fuzzy", type=float, default=0.0,
+                    help="表に無いローマ字を、1 字違い（消す・足す・替える）の表のローマ字の候補で補う。値はその減点（0 で使わない）")
     args = ap.parse_args()
     d = Path(args.dakshina)
 
@@ -96,10 +98,44 @@ def main():
     out = [f"組の表のローマ字 {len(table)}（Aksharantar の組 {n_aks}）、並びの表の語 {len(lm.uni)}、"
            f"試験の文 {len(pairs)}（語の数が合う文だけ）"]
 
+    # 1 字違いを探す索引: ローマ字から 1 字消した形 → 元のローマ字（SymSpell と同じ考え）
+    deletes = collections.defaultdict(list)
+    if args.fuzzy:
+        for key in table:
+            if len(key) >= 3:
+                for i in range(len(key)):
+                    deletes[key[:i] + key[i + 1:]].append(key)
+
+    def near_keys(w):
+        found = set()
+        if w in deletes:
+            found.update(deletes[w])  # 1 字足りない
+        for i in range(len(w)):
+            d = w[:i] + w[i + 1:]
+            if d in table:
+                found.add(d)  # 1 字多い
+            found.update(deletes.get(d, ()))  # 1 字替わった（同じ所を消すと同じ形）
+        found.discard(w)
+        return found
+
     def lattice_of(rs):
         cands, emits, n_oov = [], [], 0
         for w in rs:
             c = table.get(w)
+            if not c and args.fuzzy and len(w) >= 3:
+                merged = collections.Counter()
+                for k in near_keys(w):
+                    merged.update(table[k])
+                if merged:
+                    tot = sum(merged.values())
+                    cs = sorted(merged, key=lambda x: (-merged[x], x))[:8]
+                    x = rule(w)
+                    cands.append(cs + ([x] if x not in cs else []))
+                    e = {y: math.log(merged[y] / tot) - args.fuzzy for y in cs}
+                    e.setdefault(x, -args.fuzzy - 6.0)
+                    emits.append(e)
+                    n_oov += 1
+                    continue
             if c:
                 tot = sum(c.values())
                 cs = sorted(c, key=lambda x: (-c[x], x))[:8]

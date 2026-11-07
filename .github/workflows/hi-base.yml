@@ -36,12 +36,12 @@ jobs:
         run: |
           set -eo pipefail
           D=dakshina_dataset_v1.0/hi
-          for spec in "0:300000:1" "1:300000:1" "1:3000000:1" "1:3000000:0.3"; do
-            IFS=: read aks lm w <<< "$spec"
-            a=""
-            [ "$aks" = 1 ] && a="--aksharantar hin.zip --aks-weight $w"
-            echo "=== Aksharantar $aks（重み $w）、並びの表の行 $lm"
-            python3 tools/lang_measure/hi_measure.py --dakshina $D --out "out/$aks-$lm-$w" --lm-limit $lm $a
+          for spec in "1:3000000:0.3:0" "1:3000000:0.3:1" "1:3000000:0.3:3"; do
+            IFS=: read aks lm w fz <<< "$spec"
+            a="--fuzzy $fz"
+            [ "$aks" = 1 ] && a="$a --aksharantar hin.zip --aks-weight $w"
+            echo "=== Aksharantar $aks（重み $w）、並びの表の行 $lm、1 字違いの減点 $fz"
+            python3 tools/lang_measure/hi_measure.py --dakshina $D --out "out/$aks-$lm-$w-$fz" --lm-limit $lm $a
           done 2>&1 | tee out-summary.txt
           mkdir -p out && mv out-summary.txt out/summary.txt
       - uses: actions/upload-artifact@v4
