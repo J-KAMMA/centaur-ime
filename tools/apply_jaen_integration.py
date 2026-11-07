@@ -5847,4 +5847,8 @@ edit("converter/converter.cc", _anchor, _anchor + """  if (const std::vector<std
   }
 """)
 
+# 英字 1 字＋語（C言語、Tシャツ、X線）を英字の名前の読みに読み替える（部分ごとの直しの前に）。
+import subprocess  # noqa: E402
+subprocess.run([sys.executable, str(Path(__file__).with_name("apply_letter_words.py")), str(src)], check=True)
+
 print("applied")
