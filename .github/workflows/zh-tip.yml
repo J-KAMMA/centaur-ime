@@ -153,8 +153,9 @@ jobs:
           Copy-Item data pkg/ -Recurse
           # AI の模型（models/zh）。読み込めて Python と同じ答えになることは下の段で確かめる
           if ((Get-FileHash models/zh/zh-lm.bin -Algorithm SHA256).Hash -ne '9B07A33178762A501AF074C56CA2363B100B46014D2EB1419DE7BB66586333FF') { throw 'zh-lm.bin が違う' }
-          Copy-Item models/zh/zh-lm.bin, models/zh/zh-lm-beta.txt, models/zh/README.txt pkg/data/
-          Rename-Item pkg/data/README.txt README-zh-lm.txt
+          # 万象拼音＋語法の模型の上では、この模型は答えを良くしない（dev で重み 1e9 = Rime だけが一番）ので入れない
+          if ($env:DICT -ne 'wanxiang') { Copy-Item models/zh/zh-lm.bin, models/zh/zh-lm-beta.txt, models/zh/README.txt pkg/data/ }
+          if ($env:DICT -ne 'wanxiang') { Rename-Item pkg/data/README.txt README-zh-lm.txt }
           Remove-Item pkg/data/default.custom.yaml -ErrorAction SilentlyContinue  # 利用者の置き場に作る
           Copy-Item native/centaur_tip_zh/package/* pkg/
           Get-ChildItem -Recurse pkg | Measure-Object Length -Sum | Format-Table Count, Sum
