@@ -12,5 +12,6 @@ Centaur IME Chinese（試用版）
 使い方:   設定 → 時刻と言語 → 言語と地域 → 中国語（簡体字、中国）→ キーボードの追加 → Centaur IME Chinese
 
 変換は Rime（librime 1.17.0、https://github.com/rime/librime、BSD-3-Clause）を使っています。
-辞書は rime-luna-pinyin・rime-essay・rime-prelude（LGPL-3.0、data の LICENSE-*.txt）と、
+辞書は万象拼音（rime_wanxiang、CC BY 4.0、https://github.com/amzxyz/rime_wanxiang）と語法の模型
+（RIME-LMDG の wanxiang-lts-zh-hans.gram、CC BY 4.0）、共通の設定は rime-prelude（LGPL-3.0）と、
 簡体字に直す OpenCC の表（Apache-2.0）です。

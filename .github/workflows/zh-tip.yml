@@ -9,7 +9,7 @@ on:
     inputs:
       dict:
         description: 土台の辞書（luna = rime-luna-pinyin、wanxiang = 万象拼音＋語法の模型）
-        default: luna
+        default: wanxiang
   push:
     branches: [work/zh-tip]
     paths: ['models/zh/**', 'native/centaur_core/**', 'native/centaur_tip/**', 'native/centaur_tip_zh/**', 'tools/zh_ime/**', 'tools/models/**',
@@ -20,7 +20,7 @@ permissions:
 
 env:
   PYTHONIOENCODING: utf-8
-  DICT: ${{ inputs.dict || 'luna' }}
+  DICT: ${{ inputs.dict || 'wanxiang' }}
 
 jobs:
   build:
