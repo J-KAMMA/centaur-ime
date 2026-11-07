@@ -159,7 +159,6 @@ int main() {
       {"zhongguo ", L"中国", "語"},
       {"jintiantianqihenhao ", L"今天天气很好", "文"},
       {"shi2", L"时", "数字で 2 番目の候補"},
-      {"nihao> ", L"妳好", "下の矢印で次の候補にして空白"},
       {"nihaoo\b ", L"你好", "後退で 1 字戻す"},
       {"nihao\x1b", L"", "Esc で取り消す"},
       {"nihao\n", L"nihao", "Enter で打った英字のまま"},
@@ -173,6 +172,8 @@ int main() {
       {"nihaogithub ", L"你好GitHub", "英単語まじり: 後ろの英単語"},
       {"iphonehenhao ", L"iPhone很好", "英単語まじり: 前の英単語"},
       {"women ", L"我们", "拼音として読める語（women）は英語にしない"},
+      // Rime は選んだ候補を覚えて次から先に出すので、2 番目を選ぶ例は最後に置く
+      {"nihao> ", L"妳好", "下の矢印で次の候補にして空白"},
   };
   int bad = 0;
   for (const Case& c : cases) {
