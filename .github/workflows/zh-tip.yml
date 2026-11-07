@@ -80,7 +80,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           # rime.dll が頼るほかの DLL（ウィンドウズに無いものがあれば一式に入れる必要がある）
           $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
-          & "$(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" /dependents $dll | Select-String '\.dll'
+          try {
+            $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+            $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe | Where-Object FullName -like '*Hostx64\x64*' | Select-Object -First 1
+            & $dumpbin.FullName /dependents $dll | Select-String '\.dll'
+          } catch { Write-Output "dumpbin: $_" }
       - name: 拼音を打ってみる（窓なし）
         shell: pwsh
         run: |

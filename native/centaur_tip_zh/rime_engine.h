@@ -6,6 +6,7 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -58,7 +59,7 @@ class RimeEngine {
  private:
   HMODULE dll_ = nullptr;
   const void* api_ = nullptr;  // RimeApi*
-  unsigned long long session_ = 0;  // RimeSessionId
+  uintptr_t session_ = 0;  // RimeSessionId
 };
 
 }  // namespace centaur_zh
