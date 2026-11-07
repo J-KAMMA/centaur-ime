@@ -68,6 +68,16 @@ jobs:
           & $dep.FullName --build user data (Join-Path (Resolve-Path data) 'build')
           Write-Output "deployer exit $LASTEXITCODE"
           Get-ChildItem -Recurse data/build, user -ErrorAction SilentlyContinue | Format-Table FullName, Length
+      - name: 組み立てて、拼音を打ってみる（窓なし）
+        shell: pwsh
+        run: |
+          $inc = (Get-ChildItem -Recurse rime64 -Filter rime_api.h | Select-Object -First 1).DirectoryName
+          cmake -S native/centaur_tip_zh -B build64 -A x64 "-DRIME_INCLUDE=$inc"
+          cmake --build build64 --config Release
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
+          ./build64/Release/zh_probe.exe $dll (Resolve-Path data).Path (Join-Path $env:RUNNER_TEMP 'rime-user')
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
