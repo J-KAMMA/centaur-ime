@@ -33,7 +33,8 @@ jobs:
         run: |
           set -eo pipefail
           W=$(ls data/ko/*.parquet | head -1)
-          python3 tools/ko_ime/measure.py --tatoeba data/ko/kor_sentences.tsv.bz2 --wiki "$W" --out out/best \n            --extra data/ko/cc100-ko.1500000.txt --extra-limit 1000000 --nbest-out out/nbest-ko-cc.jsonl | grep -E "分かち書き（Centaur|並べ替え"
+          python3 tools/ko_ime/measure.py --tatoeba data/ko/kor_sentences.tsv.bz2 --wiki "$W" --out out/best \
+            --extra data/ko/cc100-ko.1500000.txt --extra-limit 1000000 --nbest-out out/nbest-ko-cc.jsonl | grep -E "分かち書き（Centaur|並べ替え"
           for n in ; do
             extra=""
             [ "$n" != 0 ] && extra="--extra data/ko/cc100-ko.1500000.txt --extra-limit $n"
