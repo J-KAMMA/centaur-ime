@@ -34,7 +34,9 @@ jobs:
         run: |
           set -eo pipefail
           W=$(ls data/vi/*.parquet | head -1)
-          for spec in "2:0" "2:3000000" "3:1000000" "3:3000000"; do
+          # 一番よかった形（3 語の並び、CC-100 300 万文）で、AI の並べ替えに渡す候補も書く
+          python3 tools/lang_measure/vi_measure.py --tatoeba data/vi/vie_sentences.tsv.bz2 --wiki "$W" --out out/best --order 3 \n            --extra data/vi/cc100-vi.3000000.txt --extra-limit 3000000 --nbest-out out/nbest-vi-tri.jsonl | grep -v "^  "
+          for spec in ; do
             IFS=: read order lines <<< "$spec"
             extra=""
             [ "$lines" != 0 ] && extra="--extra data/vi/cc100-vi.3000000.txt --extra-limit $lines"
