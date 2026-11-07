@@ -14,12 +14,16 @@ include_directories(${RIME_INCLUDE})
 add_executable(zh_probe zh_probe.cc rime_engine.cc)
 
 set(EN ${CMAKE_CURRENT_SOURCE_DIR}/../centaur_tip)
-add_library(centaur_tip_zh SHARED dllmain.cc text_service.cc rime_engine.cc ${EN}/popup.cc tip.def)
+set(CORE ${CMAKE_CURRENT_SOURCE_DIR}/../centaur_core)
+add_library(centaur_tip_zh SHARED dllmain.cc text_service.cc rime_engine.cc ${EN}/popup.cc ${CORE}/zh_mixed.cc tip.def)
 target_link_libraries(centaur_tip_zh PRIVATE ole32 oleaut32 uuid user32 gdi32 advapi32 shell32)
 
 # 登録できたかを確かめる小さな道具（GitHub の流れで使う）
 add_executable(tip_check_zh tip_check.cc)
 target_link_libraries(tip_check_zh PRIVATE ole32 oleaut32 uuid advapi32)
+
+# 英単語まじりの分け方が Python の決まりと同じ答えになるか（tools/zh_ime/export_mixed.py --check）
+add_executable(zh_mixed_cli ${CORE}/zh_mixed_cli.cc ${CORE}/zh_mixed.cc)
 
 # 実際にキーを送って打つ試験（登録した DLL を使う）
 add_executable(zh_e2e zh_e2e.cc)

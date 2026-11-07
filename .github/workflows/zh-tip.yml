@@ -91,6 +91,19 @@ jobs:
           $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
           ./build64/Release/zh_probe.exe $dll (Resolve-Path data).Path (Join-Path $env:RUNNER_TEMP 'rime-user-probe')
           if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: 英単語まじりの表と、Python の決まりと同じ答えか
+        shell: pwsh
+        run: |
+          python -m pip install -q pypinyin==0.53.0 'opencc>=1.1,<2'
+          curl.exe -fsSL --retry 3 -o cmn_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/cmn/cmn_sentences.tsv.bz2
+          curl.exe -fsSL --retry 3 -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          Get-FileHash cmn_sentences.tsv.bz2, eng_sentences.tsv.bz2 -Algorithm SHA256 | Format-Table Hash, Path
+          python tools/zh_ime/export_mixed.py --tatoeba cmn_sentences.tsv.bz2 --eng eng_sentences.tsv.bz2 --out data/zh-mixed.tsv --check zh-mixed-check.tsv
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # ブランド名の書き方: Wikidata の表のあとに手で作った表を足す（後の行が勝つので、手の表が優先）
+          Get-Content tools/data/brand-casing-wikidata.tsv, tools/data/brand-casing.tsv -Encoding utf8 | Set-Content data/casing.tsv -Encoding utf8NoBOM
+          ./build64/Release/zh_mixed_cli.exe data/zh-mixed.tsv zh-mixed-check.tsv
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: 試用の一式
         shell: pwsh
         run: |

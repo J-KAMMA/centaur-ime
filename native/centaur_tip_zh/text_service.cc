@@ -8,6 +8,8 @@
 #include <mutex>
 #include <thread>
 
+#include "../centaur_core/zh_mixed.h"
+
 extern HINSTANCE g_instance;
 extern std::atomic<long> g_dll_ref;
 
@@ -20,6 +22,8 @@ const GUID kGuidPropInputScope = {0x1713dd5a, 0x68e7, 0x4a5b, {0x9a, 0xf6, 0x59,
 // ---- Rime（1 つの処理の中で 1 つ。別の糸で始め、始まるまではキーをそのまま渡す） ----
 std::mutex g_engine_mutex;
 std::unique_ptr<centaur_zh::RimeEngine> g_engine;  // 始まったら入る（以後は差し替えない）
+std::unique_ptr<centaur_zh::RimeEngine> g_helper;  // 英単語まじりの文の拼音の部分を変換する別のセッション
+std::unique_ptr<centaur::ZhMixed> g_mixed;          // 英単語まじりの決まり（表が無ければ入らない）
 std::once_flag g_load_once;
 
 std::filesystem::path ModuleDir() {
@@ -48,8 +52,17 @@ void StartLoad() {
       auto e = std::make_unique<centaur_zh::RimeEngine>();
       const auto user = UserDir();
       if (!user.empty() && e->Start(dll, dir / L"data", user)) {
+        auto helper = std::make_unique<centaur_zh::RimeEngine>();
+        auto mixed = std::make_unique<centaur::ZhMixed>();
+        const bool mixed_ok = mixed->Load(dir / L"data" / L"zh-mixed.tsv");
+        if (mixed_ok) mixed->LoadCasing(dir / L"data" / L"casing.tsv");
+        const bool helper_ok = mixed_ok && helper->Start(dll, dir / L"data", user);
         std::lock_guard<std::mutex> lock(g_engine_mutex);
         g_engine = std::move(e);
+        if (helper_ok) {
+          g_helper = std::move(helper);
+          g_mixed = std::move(mixed);
+        }
       }
       --g_dll_ref;
     }).detach();
@@ -59,6 +72,45 @@ void StartLoad() {
 centaur_zh::RimeEngine* Engine() {
   std::lock_guard<std::mutex> lock(g_engine_mutex);
   return g_engine.get();
+}
+
+// 英単語まじりの文: 拼音の部分を別のセッションで一番の候補に変換し（長い所は空白を繰り返して全部）、英単語は
+// 正式な書き方で残す。英単語が無ければ空。
+std::wstring MixedText(const std::string& raw) {
+  centaur_zh::RimeEngine* h = nullptr;
+  const centaur::ZhMixed* m = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(g_engine_mutex);
+    h = g_helper.get();
+    m = g_mixed.get();
+  }
+  if (!h || !m) return {};
+  const auto parts = m->Split(raw);
+  bool english = false;
+  for (const auto& p : parts) english = english || p.second;
+  if (!english) return {};
+  std::wstring out;
+  for (const auto& [w, eng] : parts) {
+    if (eng) {
+      const std::string shown = m->Shown(w);  // UTF-8（Pokémon のように英字でない字もある）
+      const int len = MultiByteToWideChar(CP_UTF8, 0, shown.data(), static_cast<int>(shown.size()), nullptr, 0);
+      std::wstring ws(len, L'\0');
+      MultiByteToWideChar(CP_UTF8, 0, shown.data(), static_cast<int>(shown.size()), ws.data(), len);
+      out += ws;
+      continue;
+    }
+    h->Clear();
+    h->Read();
+    for (char c : w) h->Key(static_cast<unsigned char>(c));
+    for (int i = 0; i < 32; ++i) {
+      const centaur_zh::State st = h->Read();
+      out += st.commit;
+      if (st.preedit.empty()) break;
+      h->Key(' ');
+    }
+    h->Clear();
+  }
+  return out;
 }
 
 bool AppExcluded() {
@@ -339,6 +391,7 @@ void TextService::SetCompositionText(ITfContext* ctx, TfEditCookie ec, const std
 }
 
 void TextService::EndComposition(TfEditCookie ec) {
+  mixed_.clear();
   if (composition_) {
     composition_->EndComposition(ec);
     composition_->Release();
@@ -375,9 +428,15 @@ void TextService::Sync(ITfContext* ctx, TfEditCookie ec) {
     placed = RangeRect(ctx, ec, range, &rc);
     range->Release();
   }
+  // 英単語まじり（打った英字は ASCII だけ）
+  const std::wstring raw_w = e->Input();
+  mixed_ = MixedText(std::string(raw_w.begin(), raw_w.end()));
+  std::vector<std::wstring> lines;
+  if (!mixed_.empty()) lines.push_back(L"空格  " + mixed_);
   const std::wstring line = CandidateLine(st);
-  if (placed && !line.empty()) {
-    popup_.ShowLines(rc, {line});
+  if (!line.empty()) lines.push_back(line);
+  if (placed && !lines.empty()) {
+    popup_.ShowLines(rc, lines);
   } else {
     popup_.Hide();
   }
@@ -453,6 +512,14 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* ctx, WPARAM key, LPARAM lparam, 
         return;
       }
       auto* e = Engine();
+      if (k == ' ' && composition_ && !mixed_.empty()) {
+        // 英単語まじりの文を確定する
+        const std::wstring text = mixed_;
+        e->Clear();
+        SetCompositionText(ctx, ec, text);
+        EndComposition(ec);
+        return;
+      }
       if (!e->Key(k)) {
         // Rime が使わなかった字（組み立て中でない数字など）はそのまま入れる
         Sync(ctx, ec);

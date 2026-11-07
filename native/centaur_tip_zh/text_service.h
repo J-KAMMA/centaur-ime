@@ -5,6 +5,9 @@
 //   - と = でページ送り。記号は全角（，。）になる。
 // 英語モード: キーはそのままアプリに渡す。
 // 切り替え: Shift だけを押して離す、か Shift+Space。組み立て中なら打った英字のまま確定する。
+// 英単語まじり（日本語版の「英単語を切り替えずに残す」）: 打った英字が全部は拼音として読めず、英単語（iphone、github）を
+//   含むなら（native/centaur_core/zh_mixed、tools/zh_ime/mixed.py と同じ決まり）、拼音の部分だけを変換し英単語を正式な
+//   書き方で残した文（我用iPhone）を候補の窓の 1 行目に出し、空白でそれを確定する。数字はこれまでどおり Rime の候補。
 // パスワード欄、読み取り専用の欄、メールアドレス・URL の欄、素通しにするアプリ（ターミナルなど）では英字のまま。
 #ifndef CENTAUR_TIP_ZH_TEXT_SERVICE_H_
 #define CENTAUR_TIP_ZH_TEXT_SERVICE_H_
@@ -82,6 +85,7 @@ class TextService : public ITfTextInputProcessorEx,
   bool app_allowed_ = true;
 
   bool chinese_ = true;
+  std::wstring mixed_;  // 英単語まじりの文（空白で確定する。無ければ空）
   bool shift_alone_ = false;  // Shift を押してからほかのキーを押していない
   ITfComposition* composition_ = nullptr;
   Popup popup_;

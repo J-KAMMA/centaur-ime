@@ -165,6 +165,10 @@ int main() {
       {"~hello world~", L"hello world", "Shift+Space で英語にして戻す"},
       {"^hello^", L"hello", "Shift だけで英語にして戻す"},
       {"nihao~~", L"nihao", "組み立て中に切り替えると打った英字のまま"},
+      {"woyongiphone ", L"我用iPhone", "英単語まじり: 英単語を正式な書き方で残す"},
+      {"nihaogithub ", L"你好GitHub", "英単語まじり: 後ろの英単語"},
+      {"iphonehenhao ", L"iPhone很好", "英単語まじり: 前の英単語"},
+      {"women ", L"我们", "拼音として読める語（women）は英語にしない"},
   };
   int bad = 0;
   for (const Case& c : cases) {
