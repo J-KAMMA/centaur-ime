@@ -26,3 +26,7 @@ add_executable(ko_detect_cli ${CORE}/ko_detect_cli.cc ${CORE}/core.cc ${CORE}/ha
 # キーの字・カーソルの前の語・見分けの決まりの試験
 add_executable(ko_test ko_test.cc text_service.cc ${EN}/popup.cc ${CORE}/core.cc ${CORE}/hangul.cc ${CORE}/ko_detect.cc)
 target_link_libraries(ko_test PRIVATE ole32 oleaut32 uuid user32 gdi32 advapi32 shell32)
+
+# 実際にキーを送って打つ試験（登録した DLL を使う）
+add_executable(ko_e2e ko_e2e.cc)
+target_link_libraries(ko_e2e PRIVATE ole32 oleaut32 uuid user32)

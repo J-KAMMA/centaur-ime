@@ -70,6 +70,18 @@ jobs:
           ./build64/Release/tip_check_ko.exe unregister $dll
           ./build64/Release/tip_check_ko.exe absent
           if ($LASTEXITCODE -ne 0) { throw '取り消したのに残っている' }
+      - name: 実際に打つ試験（自分の窓に本物のキーを送り、出た文字を期待した文字と比べる）
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:LOCALAPPDATA 'CentaurIME\korean'
+          New-Item -ItemType Directory -Force $data | Out-Null
+          Copy-Item ko-detect.tsv, casing.tsv $data
+          $dll = (Resolve-Path build64/Release/centaur_tip_ko.dll).Path
+          ./build64/Release/tip_check_ko.exe register $dll
+          ./build64/Release/ko_e2e.exe | Tee-Object e2e.txt
+          $code = $LASTEXITCODE
+          ./build64/Release/tip_check_ko.exe unregister $dll
+          if ($code -ne 0) { exit 1 }
       - name: 試用の一式
         shell: pwsh
         run: |
