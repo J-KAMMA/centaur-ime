@@ -2,6 +2,8 @@
 //   zh_probe <rime.dll> <配る辞書> <利用者の置き場>
 #include <windows.h>
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -43,12 +45,19 @@ int wmain(int argc, wchar_t** argv) {
       {"wohenxihuanni ", L"我很喜欢你"},
   };
   int bad = 0;
+  double key_ms = 0, key_max = 0;
+  int keys = 0;
   for (const Case& c : cases) {
     std::wstring got;
     std::vector<std::wstring> first;
     for (const char* k = c.keys; *k; ++k) {
+      const auto t0 = std::chrono::steady_clock::now();
       e.Key(static_cast<unsigned char>(*k));
       const centaur_zh::State st = e.Read();
+      const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+      key_ms += ms;
+      key_max = std::max(key_max, ms);
+      ++keys;
       got += st.commit;
       if (*k != ' ') first = st.candidates;
     }
@@ -69,6 +78,7 @@ int wmain(int argc, wchar_t** argv) {
   bad += !second;
   std::printf("%s shi 2 → 「%s」（2 番目の候補「%s」）\n", second ? "合" : "違", Utf8(after.commit).c_str(),
               before.candidates.size() >= 2 ? Utf8(before.candidates[1]).c_str() : "");
+  std::printf("1 キーの時間: 平均 %.2f ミリ秒、一番長い %.2f ミリ秒（%d キー）\n", key_ms / std::max(keys, 1), key_max, keys);
   std::printf("%zu 例のうち合った %zu\n", cases.size() + 1, cases.size() + 1 - bad);
   return bad ? 1 : 0;
 }

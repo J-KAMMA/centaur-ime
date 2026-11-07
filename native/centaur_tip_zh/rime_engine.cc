@@ -57,6 +57,15 @@ bool RimeEngine::Start(const std::filesystem::path& dll, const std::filesystem::
       "  key_binder/bindings:\n"
       "    - { when: has_menu, accept: minus, send: Page_Up }\n"
       "    - { when: has_menu, accept: equal, send: Page_Down }\n";
+  // 配る辞書の置き場に centaur-default.custom.yaml があれば、その中身を使う（万象拼音など、方式ごとの設定）
+  std::string patch(kPatch, sizeof(kPatch) - 1);
+  if (FILE* f = _wfopen((shared / L"centaur-default.custom.yaml").c_str(), L"rb")) {
+    std::string body;
+    char buf[4096];
+    for (size_t n; (n = fread(buf, 1, sizeof(buf), f)) > 0;) body.append(buf, n);
+    fclose(f);
+    patch = "# Centaur IME（この印がある間は入れ直しのたびに書き直す。自分で直すときは、この行を消す）\n" + body;
+  }
   const auto custom = user / L"default.custom.yaml";
   bool ours = !std::filesystem::exists(custom, ec);
   if (!ours) {
@@ -68,7 +77,7 @@ bool RimeEngine::Start(const std::filesystem::path& dll, const std::filesystem::
   }
   if (ours) {
     if (FILE* f = _wfopen(custom.c_str(), L"wb")) {
-      fwrite(kPatch, 1, sizeof(kPatch) - 1, f);
+      fwrite(patch.data(), 1, patch.size(), f);
       fclose(f);
     }
   }

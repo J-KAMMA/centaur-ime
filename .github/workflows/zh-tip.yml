@@ -6,6 +6,10 @@ name: Chinese TIP
 
 on:
   workflow_dispatch:
+    inputs:
+      dict:
+        description: 土台の辞書（luna = rime-luna-pinyin、wanxiang = 万象拼音＋語法の模型）
+        default: luna
   push:
     branches: [work/zh-tip]
     paths: ['models/zh/**', 'native/centaur_core/**', 'native/centaur_tip/**', 'native/centaur_tip_zh/**', 'tools/zh_ime/**', 'tools/models/**',
@@ -16,6 +20,7 @@ permissions:
 
 env:
   PYTHONIOENCODING: utf-8
+  DICT: ${{ inputs.dict || 'luna' }}
 
 jobs:
   build:
@@ -48,6 +53,18 @@ jobs:
             Copy-Item "src-$($r[0])/*.yaml", "src-$($r[0])/*.txt" data/ -ErrorAction SilentlyContinue
             Copy-Item "src-$($r[0])/LICENSE*" "data/LICENSE-$($r[0]).txt" -ErrorAction SilentlyContinue
           }
+          if ($env:DICT -eq 'wanxiang') {
+            # 万象拼音（CC BY 4.0）と語法の模型（RIME-LMDG、CC BY 4.0）。luna の辞書は使わない
+            Remove-Item data -Recurse -Force
+            git clone -q https://github.com/amzxyz/rime_wanxiang data
+            git -C data checkout -q 880ac18dd08ecc1c64f59c35aa5b8920593c7496
+            Remove-Item data/.git -Recurse -Force
+            # 足りない共通の設定だけ足す（万象のものは上書きしない）
+            Get-ChildItem src-rime-prelude/*.yaml | Where-Object { -not (Test-Path (Join-Path data $_.Name)) } | Copy-Item -Destination data/
+            curl.exe -fsSL --retry 3 -o data/wanxiang-lts-zh-hans.gram https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
+            if ((Get-FileHash data/wanxiang-lts-zh-hans.gram -Algorithm SHA256).Hash -ne '769854C83F6C914A05A1E1ABB67C31C00F1AE622A41878E05957BCDEE3DBDA9A') { throw 'gram が違う' }
+            "patch:`n  schema_list:`n    - schema: wanxiang`n  menu/page_size: 9`n" | Set-Content data/centaur-default.custom.yaml -Encoding utf8NoBOM
+          }
           Get-ChildItem data | Format-Table Name, Length
       - name: ウィンドウズ版の Rime に入っている部品（万象の語法の模型は octagram、追加機能は lua が要る）
         shell: pwsh
@@ -71,7 +88,11 @@ jobs:
           $console = Get-ChildItem -Recurse rime64 -Filter rime_api_console.exe | Select-Object -First 1
           Write-Output "deployer: $($dep.FullName) console: $($console.FullName)"
           # 使う方式を簡体字の全拼だけにする
-          "patch:`n  schema_list:`n    - schema: luna_pinyin_simp`n  menu/page_size: 9`n" | Set-Content data/default.custom.yaml -Encoding utf8NoBOM
+          if ($env:DICT -eq 'wanxiang') {
+            Copy-Item data/centaur-default.custom.yaml data/default.custom.yaml
+          } else {
+            "patch:`n  schema_list:`n    - schema: luna_pinyin_simp`n  menu/page_size: 9`n" | Set-Content data/default.custom.yaml -Encoding utf8NoBOM
+          }
           New-Item -ItemType Directory -Force user | Out-Null
           Copy-Item data/default.custom.yaml user/
           & $dep.FullName --build user data (Join-Path (Resolve-Path data) 'build')
