@@ -30,7 +30,7 @@ jobs:
             | tar -x --wildcards 'dakshina_dataset_v1.0/hi/*'
           curl -fsSL --retry 3 -o hin.zip \
             https://huggingface.co/datasets/ai4bharat/Aksharantar/resolve/e418c1fc928d9f5393af33268472cf20c1891be8/hin.zip
-          echo "a24570eb563cc33a2ab47914e3b7874428538d5047f70bfec7852865697651fb  hin.zip" | sha256sum -c
+          sha256sum hin.zip  # 版はコミットで固定（記録のために SHA-256 を出す）
           unzip -l hin.zip
       - name: 測る
         run: |
