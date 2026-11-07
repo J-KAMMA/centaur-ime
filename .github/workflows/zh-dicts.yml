@@ -28,7 +28,7 @@ jobs:
         run: |
           set -eo pipefail
           sudo apt-get update -q
-          sudo apt-get install -y -q librime-dev librime-data rime-data-luna-pinyin rime-data-essay
+          sudo apt-get install -y -q librime-dev librime-data rime-data-luna-pinyin || sudo apt-get install -y -q librime-dev rime-data-luna-pinyin
           # 万象・雾凇は Lua の部品を使い、万象の語法の模型は octagram の部品で読む（無ければ無しで測る）
           sudo apt-get install -y -q librime-plugin-lua || echo "Lua の部品なし"
           sudo apt-get install -y -q librime-plugin-octagram || echo "octagram の部品なし"
