@@ -32,7 +32,35 @@ class Bigram:
         return math.log(self.lam * pb + (1 - self.lam) * pu)
 
 
+class Trigram(Bigram):
+    """3 つの並びまで見る表。確からしさは 3 つ・2 つ・1 つの並びの割合を重みで混ぜる（足りない並びは 0 として扱う）。"""
+
+    def __init__(self, l3=0.5, l2=0.35):
+        super().__init__(lam=1.0)
+        self.tri = Counter()
+        self.left2 = Counter()
+        self.l3, self.l2 = l3, l2
+
+    def add(self, words):
+        super().add(words)
+        ws = ["<s>", "<s>"] + list(words)
+        for a, b, c in zip(ws, ws[1:], ws[2:]):
+            self.tri[(a, b, c)] += 1
+            self.left2[(a, b)] += 1
+
+    def logp3(self, prev2, prev, w):
+        pu = (self.uni.get(w, 0) + 0.1) / (self.total + 0.1 * (len(self.uni) + 1))
+        n = self.left.get(prev, 0)
+        pb = self.bi.get((prev, w), 0) / n if n else 0.0
+        n2 = self.left2.get((prev2, prev), 0)
+        pt = self.tri.get((prev2, prev, w), 0) / n2 if n2 else 0.0
+        return math.log(self.l3 * pt + self.l2 * pb + (1 - self.l3 - self.l2) * pu)
+
+
 def viterbi(cands, lm, emit, beam=16):
+    if hasattr(lm, "logp3"):
+        nb = nbest(cands, lm, emit, n=1, beam=beam * 4)
+        return nb[0][1] if nb else []
     """cands[i] は i 番目の語の候補の並び。一番よい候補の並びを返す。"""
     states = {"<s>": (0.0, None)}
     back = []
@@ -69,7 +97,9 @@ def nbest(cands, lm, emit, n=8, beam=64):
         nxt = []
         for score, path in paths:
             for c in cs:
-                nxt.append((score + lm.logp(path[-1], c) + emit(i, c), path + (c,)))
+                lp = lm.logp3(path[-2] if len(path) > 1 else "<s>", path[-1], c) if hasattr(lm, "logp3") \
+                    else lm.logp(path[-1], c)
+                nxt.append((score + lp + emit(i, c), path + (c,)))
         nxt.sort(key=lambda sp: (-sp[0], sp[1]))
         paths = nxt[:beam]
     return [(s, list(p[1:])) for s, p in paths[:n]]

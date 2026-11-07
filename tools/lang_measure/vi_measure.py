@@ -21,7 +21,7 @@ import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lattice import Bigram, nbest, viterbi  # noqa: E402
+from lattice import Bigram, Trigram, nbest, viterbi  # noqa: E402
 
 SYL = re.compile(r"[a-zàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+")
 
@@ -70,6 +70,9 @@ def main():
     ap.add_argument("--wiki-limit", type=int, default=300000)
     ap.add_argument("--nbest-out", help="上位の候補を書く JSON lines のファイル")
     ap.add_argument("--nbest", type=int, default=8)
+    ap.add_argument("--extra", help="表づくりに足す文（CC-100 など、1 行 1 文のテキスト）")
+    ap.add_argument("--extra-limit", type=int, default=1000000)
+    ap.add_argument("--order", type=int, default=2, choices=(2, 3), help="並びの表を何語まで見るか")
     args = ap.parse_args()
 
     train, tests, dev = [], {"Tatoeba": [], "ウィキ": []}, []
@@ -87,13 +90,26 @@ def main():
                     dev.append(syl)
             else:
                 train.append(syl)
-    lm = Bigram()
+    lm = Trigram() if args.order == 3 else Bigram()
     forms = collections.defaultdict(collections.Counter)
     for syl in train:
         lm.add(syl)
         for x in syl:
             forms[strip(x)][x] += 1
-    out = [f"表づくりの文 {len(train)}、音節の種類 {len(lm.uni)}、記号を外した形 {len(forms)}"]
+    n_extra = 0
+    if args.extra:
+        with open(args.extra, encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                syl = syllables(line)
+                if len(syl) < 2:
+                    continue
+                lm.add(syl)
+                for x in syl:
+                    forms[strip(x)][x] += 1
+                n_extra += 1
+                if n_extra >= args.extra_limit:
+                    break
+    out = [f"表づくりの文 {len(train)}（足した文 {n_extra}、並び {args.order} 語）、音節の種類 {len(lm.uni)}、記号を外した形 {len(forms)}"]
     for name, test in tests.items():
         test = test[: args.test]
         if not test:

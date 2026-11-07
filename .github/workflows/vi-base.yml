@@ -1,0 +1,51 @@
+name: Vietnamese base
+
+# ベトナム語の土台（AI なし）を、並びの表の材料と長さを変えて比べる（tools/lang_measure/vi_measure.py）。
+#   材料: Tatoeba（CC BY 2.0 FR）、ウィキペディア（CC BY-SA 4.0）、CC-100 のベトナム語（先頭から、tools/fetch_source.py）。
+#   比べる: 2 語の並び（今）、CC-100 を足した 2 語・3 語の並び。試験は今と同じ Tatoeba の 1 割。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/lang-measure]
+    paths: ['tools/lang_measure/lattice.py', 'tools/lang_measure/vi_measure.py', '.github/workflows/vi-base.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  vi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 材料
+        run: |
+          set -eo pipefail
+          python3 -m pip install -q pyarrow==21.0.0
+          python3 tools/fetch_source.py tatoeba-vie data/vi
+          python3 tools/fetch_source.py wiki-vi data/vi
+          python3 tools/fetch_source.py cc100-vi data/vi --lines 3000000
+          ls -la data/vi
+      - name: 測る
+        run: |
+          set -eo pipefail
+          W=$(ls data/vi/*.parquet | head -1)
+          for spec in "2:0" "2:3000000" "3:1000000" "3:3000000"; do
+            IFS=: read order lines <<< "$spec"
+            extra=""
+            [ "$lines" != 0 ] && extra="--extra data/vi/cc100-vi.3000000.txt --extra-limit $lines"
+            echo "=== 並び $order 語、CC-100 $lines 文"
+            /usr/bin/time -f "  時間 %e 秒、記憶 %M KB" python3 tools/lang_measure/vi_measure.py --tatoeba data/vi/vie_sentences.tsv.bz2 \
+              --wiki "$W" --out "out/$order-$lines" --order "$order" $extra | grep -v "^  "
+          done 2>&1 | tee out-summary.txt
+          mkdir -p out && mv out-summary.txt out/summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vi-base
+          path: out/
+          retention-days: 14
