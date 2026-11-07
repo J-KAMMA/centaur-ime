@@ -49,6 +49,15 @@ jobs:
             Copy-Item "src-$($r[0])/LICENSE*" "data/LICENSE-$($r[0]).txt" -ErrorAction SilentlyContinue
           }
           Get-ChildItem data | Format-Table Name, Length
+      - name: ウィンドウズ版の Rime に入っている部品（万象の語法の模型は octagram、追加機能は lua が要る）
+        shell: pwsh
+        run: |
+          $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
+          $text = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($dll))
+          foreach ($w in 'octagram', 'grammar', 'lua_translator', 'lua_processor', 'lua_filter', 'predictor', 'charcode') {
+            Write-Output ("{0}: {1}" -f $w, $text.Contains($w))
+          }
+          Get-ChildItem -Recurse rime64, deps64 -Include *.dll | Format-Table FullName, Length
       - name: 辞書を組み立て済みにして、拼音を変換してみる
         shell: pwsh
         run: |
