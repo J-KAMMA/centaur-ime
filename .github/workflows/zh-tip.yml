@@ -1,0 +1,70 @@
+name: Chinese TIP
+
+# Centaur IME Chinese（ウィンドウズの TSF の部品）の土台: Rime（librime 1.17.0、BSD-3-Clause）のウィンドウズ版と、
+# 拼音の辞書（rime-luna-pinyin・rime-essay・rime-prelude、LGPL-3.0）を、版と SHA-256 を固定して取り、
+# 辞書を組み立て済み（build）にして、ウィンドウズの上で拼音を変換できるかを確かめる。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/zh-tip]
+    paths: ['native/centaur_core/**', 'native/centaur_tip/**', 'native/centaur_tip_zh/**', 'tools/zh_ime/**',
+            '.github/workflows/zh-tip.yml']
+
+permissions:
+  contents: read
+
+env:
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rime と辞書を取る
+        shell: pwsh
+        run: |
+          $base = 'https://github.com/rime/librime/releases/download/1.17.0'
+          curl.exe -fsSL --retry 3 -o rime64.7z "$base/rime-33e7814-Windows-msvc-x64.7z"
+          curl.exe -fsSL --retry 3 -o rime32.7z "$base/rime-33e7814-Windows-msvc-x86.7z"
+          if ((Get-FileHash rime64.7z -Algorithm SHA256).Hash -ne '7478C7CAA4FF6B37DE86DABA1F7CE4A994A4F5BA24872A820FB2B3A9B01FED15') { throw 'rime64 が違う' }
+          if ((Get-FileHash rime32.7z -Algorithm SHA256).Hash -ne 'AF235C26C06152CE09CEB8FE9D9AB9FBA7AB43CE30AA952B40174D806F5CC3D9') { throw 'rime32 が違う' }
+          7z x -y -orime64 rime64.7z | Out-Null
+          7z x -y -orime32 rime32.7z | Out-Null
+          Get-ChildItem -Recurse rime64 | Select-Object -First 80 | Format-Table FullName, Length
+          New-Item -ItemType Directory -Force data | Out-Null
+          foreach ($r in @(@('rime-prelude', '082425ea0684bca36474415d4a0e8db9b016487e'),
+                           @('rime-essay', '054920de4f54c9e5994276a96a4fc2a35cb51aa3'),
+                           @('rime-luna-pinyin', '56b934b099dfbeab842320f13aa8b461a6ab3e42'))) {
+            git clone -q "https://github.com/rime/$($r[0])" "src-$($r[0])"
+            git -C "src-$($r[0])" checkout -q $r[1]
+            Copy-Item "src-$($r[0])/*.yaml", "src-$($r[0])/*.txt" data/ -ErrorAction SilentlyContinue
+            Copy-Item "src-$($r[0])/LICENSE*" "data/LICENSE-$($r[0]).txt" -ErrorAction SilentlyContinue
+          }
+          Get-ChildItem data | Format-Table Name, Length
+      - name: 辞書を組み立て済みにして、拼音を変換してみる
+        shell: pwsh
+        run: |
+          $bin = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).DirectoryName
+          Write-Output "rime.dll: $bin"
+          Get-ChildItem $bin | Format-Table Name, Length
+          $dep = Get-ChildItem -Recurse rime64 -Filter rime_deployer.exe | Select-Object -First 1
+          $console = Get-ChildItem -Recurse rime64 -Filter rime_api_console.exe | Select-Object -First 1
+          Write-Output "deployer: $($dep.FullName) console: $($console.FullName)"
+          # 使う方式を簡体字の全拼だけにする
+          "patch:`n  schema_list:`n    - schema: luna_pinyin_simp`n  menu/page_size: 9`n" | Set-Content data/default.custom.yaml -Encoding utf8NoBOM
+          New-Item -ItemType Directory -Force user | Out-Null
+          Copy-Item data/default.custom.yaml user/
+          & $dep.FullName --build user data (Join-Path (Resolve-Path data) 'build')
+          Write-Output "deployer exit $LASTEXITCODE"
+          Get-ChildItem -Recurse data/build, user -ErrorAction SilentlyContinue | Format-Table FullName, Length
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zh-rime-probe
+          path: |
+            data/build/
+            user/
+          retention-days: 7
