@@ -6,6 +6,7 @@
 #include <richedit.h>
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -155,6 +156,8 @@ int main() {
     Type(c.keys);
     Type("~~");  // 英語・韓国語のどちらで終わっても、2 回切り替えて組み立てを確定し、元のモードに戻す
     std::wstring got = Text();
+    // RichEdit は改行を \r\n で返すことがある（期待は \r だけで書く）
+    got.erase(std::remove(got.begin(), got.end(), L'\n'), got.end());
     const bool ok = got == c.want;
     if (!ok) ++bad;
     std::printf("%s %s: %s → 「%s」（期待「%s」）\n", ok ? "合" : "違", c.what, Shown(c.keys).c_str(),
