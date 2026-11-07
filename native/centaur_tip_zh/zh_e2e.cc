@@ -181,7 +181,16 @@ int main() {
       {"nihao> ", L"妳好|拟好", "下の矢印で次の候補にして空白（2 番目の候補は辞書で違う）"},
   };
   int bad = 0;
+  // 万象拼音（DICT=wanxiang）では字の模型を入れないので、「AI:」の例は飛ばす
+  wchar_t dict[32] = {};
+  GetEnvironmentVariableW(L"DICT", dict, 32);
+  const bool no_ai = std::wstring_view(dict) == L"wanxiang";
+  size_t skipped = 0;
   for (const Case& c : cases) {
+    if (no_ai && std::string_view(c.what).rfind("AI:", 0) == 0) {
+      ++skipped;
+      continue;
+    }
     SetWindowTextW(g_edit, L"");
     SetFocus(g_edit);
     Pump(100);
@@ -201,7 +210,7 @@ int main() {
     std::printf("%s %s: %s → 「%s」（期待「%s」）\n", ok ? "合" : "違", c.what, Shown(c.keys).c_str(),
                 Utf8(got).c_str(), Utf8(c.want).c_str());
   }
-  std::printf("%zu 例のうち合った %zu\n", cases.size(), cases.size() - bad);
+  std::printf("%zu 例のうち合った %zu（飛ばした %zu）\n", cases.size() - skipped, cases.size() - skipped - bad, skipped);
   // IME が受け取ったキーの記録（Shift の例の原因を見る）
   if (FILE* f = _wfopen(trace, L"rb")) {
     char line[128];
