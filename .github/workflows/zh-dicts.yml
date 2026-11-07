@@ -1,0 +1,84 @@
+name: Chinese dicts
+
+# 中国語の Rime の辞書を、同じ試験の文（tools/zh_ime/measure.py、Tatoeba の確かめの枠）で比べる。
+#   luna_pinyin_simp（今の土台、LGPL-3.0）、雾凇拼音 rime-ice（GPL-3.0）、万象拼音 rime_wanxiang（CC BY 4.0）と、
+#   万象の語法の模型（RIME-LMDG の wanxiang-lts-zh-hans.gram、CC BY 4.0、librime-octagram で使う）あり・なし。
+# 版はコミットと SHA-256 で固定する。手で動かす（枝 work/zh-measure への push でも動く）。
+
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 試験の文の数
+        default: '5000'
+  push:
+    branches: [work/zh-measure]
+    paths: ['.github/workflows/zh-dicts.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rime と道具
+        run: |
+          set -eo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q librime-dev librime-data rime-data-luna-pinyin rime-data-essay
+          # 万象・雾凇は Lua の部品を使い、万象の語法の模型は octagram の部品で読む（無ければ無しで測る）
+          sudo apt-get install -y -q librime-plugin-lua || echo "Lua の部品なし"
+          sudo apt-get install -y -q librime-plugin-octagram || echo "octagram の部品なし"
+          apt-cache policy librime-dev | head -3
+          ls /usr/lib/x86_64-linux-gnu/rime-plugins 2>/dev/null || true
+          python3 -m pip install -q pypinyin==0.53.0 'opencc>=1.1,<2'
+          g++ -std=c++17 -O2 tools/zh_ime/rime_convert.cc -o rime_convert $(pkg-config --cflags --libs rime)
+      - name: 材料と辞書
+        run: |
+          set -eo pipefail
+          curl -fsSL -o cmn_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/cmn/cmn_sentences.tsv.bz2
+          sha256sum cmn_sentences.tsv.bz2
+          git clone -q https://github.com/iDvel/rime-ice ice && git -C ice checkout -q 99662ba01e3affa6a0f009174ca530b887bac3b6
+          git clone -q https://github.com/amzxyz/rime_wanxiang wx && git -C wx checkout -q 880ac18dd08ecc1c64f59c35aa5b8920593c7496
+          curl -fsSL -o wanxiang-lts-zh-hans.gram https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
+          echo "769854c83f6c914a05a1e1abb67c31c00f1ae622a41878e05957bcdee3dbda9a  wanxiang-lts-zh-hans.gram" | sha256sum -c
+          # 辞書ごとの置き場（Rime の共通の部品＋その辞書）
+          for d in ice wx; do
+            mkdir -p "shared-$d"
+            cp -r /usr/share/rime-data/. "shared-$d/"
+            cp -r "$d"/. "shared-$d/"
+            rm -rf "shared-$d/.git"
+          done
+          cp -r shared-wx shared-wxg
+          cp wanxiang-lts-zh-hans.gram shared-wxg/
+          du -sh shared-*
+      - name: 測る
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          # 名前:置き場:方式:足す設定（語法の模型なしは grammar を消す）
+          for spec in "luna:/usr/share/rime-data:luna_pinyin_simp:" \
+                      "ice:shared-ice:rime_ice:" \
+                      "wanxiang:shared-wx:wanxiang:  grammar: {__delete__: true}\n" \
+                      "wanxiang+gram:shared-wxg:wanxiang:"; do
+            IFS=: read name shared schema extra <<< "$spec"
+            rm -rf rime-user && mkdir rime-user
+            printf 'patch:\n  schema_list:\n    - schema: %s\n' "$schema" > rime-user/default.custom.yaml
+            # 測る文で学習しないように、利用者の辞書を切る
+            printf "patch:\n  translator/enable_user_dict: false\n$extra" > "rime-user/$schema.custom.yaml"
+            echo "=== $name"
+            python3 tools/zh_ime/measure.py --tatoeba cmn_sentences.tsv.bz2 --rime ./rime_convert \
+              --shared "$shared" --schema "$schema" --user-dir rime-user --out "out/$name" \
+              --script simp --keys pinyin --test ${{ inputs.test || '5000' }} 2>&1 | tee -a out/summary.txt | tail -5 \
+              || echo "$name は失敗"
+          done
+          grep -E "^===|まとまり|字の誤り" out/summary.txt | head -40 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zh-dicts
+          path: out/
+          retention-days: 14
