@@ -25,6 +25,9 @@ target_link_libraries(tip_check_zh PRIVATE ole32 oleaut32 uuid advapi32)
 # 英単語まじりの分け方が Python の決まりと同じ答えになるか（tools/zh_ime/export_mixed.py --check）
 add_executable(zh_mixed_cli ${CORE}/zh_mixed_cli.cc ${CORE}/zh_mixed.cc)
 
+# 字の模型の計算が Python と同じ答えになるか（tools/models/export_tiny.py --check）
+add_executable(tiny_lm_cli ${CORE}/tiny_lm_cli.cc ${CORE}/tiny_lm.cc)
+
 # 実際にキーを送って打つ試験（登録した DLL を使う）
 add_executable(zh_e2e zh_e2e.cc)
 target_link_libraries(zh_e2e PRIVATE ole32 oleaut32 uuid user32)
