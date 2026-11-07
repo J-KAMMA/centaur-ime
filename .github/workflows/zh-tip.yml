@@ -33,6 +33,11 @@ jobs:
           if ((Get-FileHash rime32.7z -Algorithm SHA256).Hash -ne 'AF235C26C06152CE09CEB8FE9D9AB9FBA7AB43CE30AA952B40174D806F5CC3D9') { throw 'rime32 が違う' }
           7z x -y -orime64 rime64.7z | Out-Null
           7z x -y -orime32 rime32.7z | Out-Null
+          # 簡体字に直す OpenCC の辞書は依存物の側にあるかを見る
+          curl.exe -fsSL --retry 3 -o deps64.7z "$base/rime-deps-33e7814-Windows-msvc-x64.7z"
+          if ((Get-FileHash deps64.7z -Algorithm SHA256).Hash -ne '9EF5608D8A54FF52BBAD7A9B4128DE42B232F8E3DD1F5FD3BFF42A0B1BACD7E8') { throw 'deps64 が違う' }
+          7z x -y -odeps64 deps64.7z | Out-Null
+          Get-ChildItem -Recurse deps64 -Include *.json, *.ocd2, *.txt | Select-Object -First 60 | Format-Table FullName, Length
           Get-ChildItem -Recurse rime64 | Select-Object -First 80 | Format-Table FullName, Length
           New-Item -ItemType Directory -Force data | Out-Null
           foreach ($r in @(@('rime-prelude', '082425ea0684bca36474415d4a0e8db9b016487e'),
@@ -48,6 +53,9 @@ jobs:
         shell: pwsh
         run: |
           $bin = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).DirectoryName
+          $env:PATH = "$bin;$env:PATH"  # rime_deployer.exe（bin）が rime.dll（lib）を見つけられるように
+          $oc = Get-ChildItem -Recurse deps64 -Filter t2s.json | Select-Object -First 1
+          if ($oc) { New-Item -ItemType Directory -Force data/opencc | Out-Null; Copy-Item "$($oc.DirectoryName)/*" data/opencc/ }
           Write-Output "rime.dll: $bin"
           Get-ChildItem $bin | Format-Table Name, Length
           $dep = Get-ChildItem -Recurse rime64 -Filter rime_deployer.exe | Select-Object -First 1
