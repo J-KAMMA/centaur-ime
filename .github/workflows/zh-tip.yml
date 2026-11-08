@@ -183,6 +183,7 @@ jobs:
           (Get-WinUserLanguageList | Where-Object LanguageTag -like 'zh*').InputMethodTips
           .\build64\Release\zh_e2e.exe | Tee-Object e2e.txt
           $code = $LASTEXITCODE
+          Write-Output "zh_e2e exit $code"
           .\build64\Release\tip_check_zh.exe unregister $dll
           .\build64\Release\tip_check_zh.exe absent
           if ($LASTEXITCODE -ne 0) { throw 'still registered' }
