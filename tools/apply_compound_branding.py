@@ -65,6 +65,14 @@ GUIDS = [
 for path, old, new in GUIDS:
     replace_guid(path, old, new)
 edit("base/system_util.cc", 'L"{10A67BC8-22FA-4A59-90DC-2546652C56BF}"', 'L"{9D4DB88F-641D-4DEE-9F14-FA3185A93477}"')
+# 入れる場所は、登録済みの TIP の場所から読む。旧名（CompoundIME）から上書きすると古いフォルダが返り、
+# 新しい TIP をそこに登録してしまう（1.167〜1.169、IME が動かない）。フォルダ名が今の名前のときだけ使う。
+edit("base/system_util.cc", "  return FileUtil::Dirname(win32::WideToUtf8(buffer));\n}",
+     "  const std::string dir = FileUtil::Dirname(win32::WideToUtf8(buffer));\n"
+     f"  if (FileUtil::Basename(dir) != \"{ASCII}\") {{\n"
+     "    return \"\";\n"
+     "  }\n"
+     "  return dir;\n}")
 edit("win32/tip/tip_lang_bar_menu.h", '#define IIDSTR_IMozcLangBarItem "75B2153A-504B-48C9-9257-BA8D60E523E6"',
      '#define IIDSTR_IMozcLangBarItem "E80E30F8-BCDA-4606-BBA5-28CAD1656504"')
 edit("win32/tip/tip_lang_bar_menu.h", '#define IIDSTR_IMozcLangBarToggleItem "9ABF0C3B-4AC6-4DED-9EF6-97E728852CF3"',
