@@ -14,6 +14,8 @@ class Popup {
   ~Popup();
   // 補完（無ければ空）と直しの候補を、文字の位置 caret（画面の座標）の下に出す。
   void Show(const RECT& caret, const std::wstring& completion, const std::vector<std::wstring>& corrections);
+  // 行をそのまま出す（中国語版の候補の一覧など）
+  void ShowLines(const RECT& caret, const std::vector<std::wstring>& lines);
   void Hide();
   bool visible() const { return visible_; }
 
