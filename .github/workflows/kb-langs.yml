@@ -1,0 +1,44 @@
+name: Keyboard languages measure
+
+# キーボードで直接打てる言語（表とキーボードの並びを替えるだけの言語）を、英語版と同じ試作で測る（AI なし）。
+# 直し・記号なしから戻す・補完・大文字。比べる相手は Hunspell（Ubuntu の辞書。計測にだけ使う）。
+# 文は Tatoeba（CC BY 2.0 FR、一部は CC0。表示: Tatoeba の投稿者）。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/en-measure]
+    paths: ['tools/lang_measure/keyboard_langs.py', 'tools/en_ime/en_model.py', '.github/workflows/kb-langs.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        lang: [eng, spa, por, deu, fra, rus, ara, ind, tur, ita]
+    steps:
+      - uses: actions/checkout@v4
+      - name: 材料と Hunspell の辞書
+        run: |
+          set -eo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq hunspell hunspell-en-us hunspell-es hunspell-pt-br hunspell-de-de hunspell-fr \
+            hunspell-ru hunspell-ar hunspell-it hunspell-tr hunspell-id > /dev/null 2>&1 \
+            || sudo apt-get install -y -qq hunspell hunspell-en-us hunspell-es hunspell-pt-br hunspell-de-de hunspell-fr \
+               hunspell-ru hunspell-ar hunspell-it > /dev/null
+          ls /usr/share/hunspell | head -40
+          curl -fsSL --retry 3 -o s.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/${{ matrix.lang }}/${{ matrix.lang }}_sentences.tsv.bz2
+          sha256sum s.tsv.bz2
+      - name: 測る
+        run: python3 tools/lang_measure/keyboard_langs.py --lang ${{ matrix.lang }} --tatoeba s.tsv.bz2 --out out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kb-${{ matrix.lang }}
+          path: out/
+          retention-days: 14

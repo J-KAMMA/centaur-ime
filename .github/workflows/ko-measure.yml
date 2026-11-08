@@ -1,0 +1,49 @@
+name: Korean measure
+
+# Centaur IME 韓国語（AI なし）の計測: 分かち書き（띄어쓰기）の直しと、英語モードのまま打った語の見分け。
+# 材料は Tatoeba の韓国語と英語の文（CC BY 2.0 FR）と、韓国語ウィキペディア（CC BY-SA 4.0）の 1 区切り。
+# 比べる相手の kiwipiepy（LGPL-3.0）は計測にだけ使い、配布物には入れない。
+
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 試験に使う文の数（Tatoeba とウィキそれぞれ）
+        default: "2000"
+  push:
+    branches: [work/ko-measure]
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 材料（Tatoeba は毎日書き出し直されるので SHA-256 を記録に残す。ウィキは版と SHA-256 を固定）
+        run: |
+          set -eo pipefail
+          python3 -m pip install -q pyarrow==21.0.0 kiwipiepy==0.21.0 || python3 -m pip install -q pyarrow==21.0.0
+          curl -fsSL --retry 3 -o kor_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/kor/kor_sentences.tsv.bz2
+          curl -fsSL --retry 3 -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          sha256sum kor_sentences.tsv.bz2 eng_sentences.tsv.bz2
+          curl -fsSL --retry 3 -o ko.parquet \
+            https://huggingface.co/datasets/wikimedia/wikipedia/resolve/b04c8d1ceb2f5cd4588862100d08de323dccfbaa/20231101.ko/train-00002-of-00003.parquet
+          echo "5e16f59e25871042fcd2bb1ca8540085e02a4a88177df95447aefe9420e2be64  ko.parquet" | sha256sum -c
+      - name: 測る
+        run: |
+          set -eo pipefail
+          python3 tools/ko_ime/measure.py --tatoeba kor_sentences.tsv.bz2 --wiki ko.parquet --eng eng_sentences.tsv.bz2 \
+            --out out --test ${{ inputs.test || '2000' }} | tee out-summary.txt
+          mv out-summary.txt out/summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ko-measure
+          path: out/
+          retention-days: 14

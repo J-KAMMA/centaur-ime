@@ -1,0 +1,75 @@
+name: English measure
+
+# CentaurIME English（AI なし）の計測: スペースなしの区切り、打ち間違いの直し、単語の補完。
+# 材料は Tatoeba の英語の文（CC BY 2.0 FR、一部は CC0。表示: Tatoeba の投稿者）。
+
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 試験に使う文の数
+        default: "3000"
+  push:
+    branches: [work/en-measure]
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: 材料（Tatoeba は毎日書き出し直されるので SHA-256 を記録に残す）
+        run: |
+          set -eo pipefail
+          curl -fsSL -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          sha256sum eng_sentences.tsv.bz2
+      - name: 測る
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          python3 tools/en_ime/measure.py --tatoeba eng_sentences.tsv.bz2 --out out/en-measure.txt \
+            --test ${{ inputs.test || '3000' }} | tee out/summary.txt
+      - name: C++ の芯が試作と同じ結果を出すか確かめる（違えば止める）
+        run: |
+          set -eo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror native/centaur_core/core.cc native/centaur_core/cli.cc -o centaur_core_cli
+          python3 tools/en_ime/parity.py --tatoeba eng_sentences.tsv.bz2 --cli ./centaur_core_cli --out out/parity.txt
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror native/centaur_core/core.cc native/centaur_core/hangul.cc native/centaur_core/hangul_cli.cc -o hangul_cli
+          python3 tools/ko_ime/hangul_parity.py ./hangul_cli | tee out/hangul-parity.txt
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror native/centaur_core/core.cc native/centaur_core/telex.cc native/centaur_core/telex_cli.cc -o telex_cli
+          curl -fsSL --retry 3 -o vie_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/vie/vie_sentences.tsv.bz2
+          python3 tools/vi_ime/telex_parity.py ./telex_cli vie_sentences.tsv.bz2 | tee out/telex-parity.txt
+          (cd native/centaur_core && g++ -std=c++17 -O2 -Wall -Wextra -Werror core.cc word_tracker.cc word_tracker_test.cc -o /tmp/word_tracker_test && /tmp/word_tracker_test) | tee out/word-tracker-test.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: AOSP LatinIME の本体を PC 向けに組み立てる（Apache-2.0。計測にだけ使う）
+        id: latin
+        continue-on-error: true
+        run: |
+          set -eo pipefail
+          git clone -q --depth 1 https://android.googlesource.com/platform/packages/inputmethods/LatinIME latin
+          git -C latin log -1 --format='LatinIME %H %cs'
+          J=latin/native/jni
+          g++ -std=c++17 -O2 -fPIC -shared -w -DHOST_TOOL -I$J/src -I$JAVA_HOME/include -I$JAVA_HOME/include/linux $J/*.cpp $(find $J/src -name '*.cpp') -o libjni_latinime.so
+          mkdir -p stubs classes
+          python3 tools/en_ime/latinime/gen_stubs.py $J stubs
+          javac -d classes $(find stubs -name '*.java') tools/en_ime/latinime/Harness.java
+          ls -la libjni_latinime.so latin/dictionaries/en_US_wordlist.combined.gz
+      - name: よく使われる仕組みと比べる
+        run: |
+          set -eo pipefail
+          sudo apt-get install -y -q hunspell hunspell-en-us
+          python3 -m pip install -q --break-system-packages wordsegment==1.3.1 symspellpy==6.7.7 pyspellchecker==0.8.1
+          L=""
+          if [ "${{ steps.latin.outcome }}" = success ]; then L="--latinime $PWD/libjni_latinime.so $PWD/classes $PWD/latin/dictionaries/en_US_wordlist.combined.gz"; fi
+          python3 tools/en_ime/compare.py --tatoeba eng_sentences.tsv.bz2 --out out/compare.txt $L             --test ${{ inputs.test || '3000' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: en-measure
+          path: out/
+          retention-days: 14

@@ -1,0 +1,106 @@
+name: Korean TIP
+
+# Centaur IME Korean（ウィンドウズの TSF の部品）を組み立て、試験し、見分けが Python の決まり（measure.py と同じ）と
+# 同じ答えになるかを確かめ、入力方式として登録・取り消しできるかを見て、試用の一式を成果物に残す。
+# 語の表は Tatoeba の韓国語と英語の文（CC BY 2.0 FR）と韓国語ウィキペディア（CC BY-SA 4.0）。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/ko-tip]
+    paths: ['native/centaur_core/**', 'native/centaur_tip/**', 'native/centaur_tip_ko/**', 'tools/ko_ime/**',
+            'tools/data/brand-casing*.tsv', '.github/workflows/ko-tip.yml']
+
+permissions:
+  contents: read
+
+env:
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 組み立て（64 ビットと 32 ビット）
+        shell: pwsh
+        run: |
+          cmake -S native/centaur_tip_ko -B build64 -A x64
+          cmake --build build64 --config Release
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cmake -S native/centaur_tip_ko -B build32 -A Win32
+          cmake --build build32 --config Release
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: 試験
+        shell: pwsh
+        run: |
+          ./build64/Release/ko_test.exe
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: 語の表（Tatoeba は毎日書き出し直されるので SHA-256 を記録に残す。ウィキは版と SHA-256 を固定）
+        shell: pwsh
+        run: |
+          python -m pip install -q pyarrow==21.0.0
+          curl.exe -fsSL --retry 3 -o kor_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/kor/kor_sentences.tsv.bz2
+          curl.exe -fsSL --retry 3 -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          curl.exe -fsSL --retry 3 -o ko.parquet https://huggingface.co/datasets/wikimedia/wikipedia/resolve/b04c8d1ceb2f5cd4588862100d08de323dccfbaa/20231101.ko/train-00002-of-00003.parquet
+          Get-FileHash kor_sentences.tsv.bz2, eng_sentences.tsv.bz2 -Algorithm SHA256 | Format-Table Hash, Path
+          if ((Get-FileHash ko.parquet -Algorithm SHA256).Hash -ne '5E16F59E25871042FCD2BB1CA8540085E02A4A88177DF95447AEFE9420E2BE64') { throw 'ko.parquet が違う' }
+          python tools/ko_ime/export_detect.py --tatoeba kor_sentences.tsv.bz2 --wiki ko.parquet --eng eng_sentences.tsv.bz2 --out ko-detect.tsv --check check.tsv
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # ブランド名の書き方: Wikidata の表のあとに手で作った表を足す（後の行が勝つので、手の表が優先）
+          Get-Content tools/data/brand-casing-wikidata.tsv, tools/data/brand-casing.tsv -Encoding utf8 | Set-Content casing.tsv -Encoding utf8NoBOM
+          Get-Item ko-detect.tsv, casing.tsv, check.tsv | Format-Table Name, Length
+      - name: 見分けが Python と同じ答えか
+        shell: pwsh
+        run: |
+          ./build64/Release/ko_detect_cli.exe ko-detect.tsv casing.tsv check.tsv
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: 入力方式として登録・取り消しできるか（この機械の中だけ）
+        shell: pwsh
+        run: |
+          $dll = (Resolve-Path build64/Release/centaur_tip_ko.dll).Path
+          ./build64/Release/tip_check_ko.exe register $dll
+          if ($LASTEXITCODE -ne 0) { throw '登録に失敗' }
+          ./build64/Release/tip_check_ko.exe present
+          if ($LASTEXITCODE -ne 0) { throw '登録したのに見つからない' }
+          ./build64/Release/tip_check_ko.exe unregister $dll
+          ./build64/Release/tip_check_ko.exe absent
+          if ($LASTEXITCODE -ne 0) { throw '取り消したのに残っている' }
+      - name: 実際に打つ試験（自分の窓に本物のキーを送り、出た文字を期待した文字と比べる）
+        # 言語の一覧の命令（Get-WinUserLanguageList）は PowerShell 7 では動かないので、ウィンドウズ付属の PowerShell で
+        shell: powershell
+        run: |
+          $data = Join-Path $env:LOCALAPPDATA 'CentaurIME\korean'
+          New-Item -ItemType Directory -Force $data | Out-Null
+          Copy-Item ko-detect.tsv, casing.tsv $data
+          $dll = (Resolve-Path build64/Release/centaur_tip_ko.dll).Path
+          ./build64/Release/tip_check_ko.exe register $dll
+          # この機械の利用者の言語に韓国語を足し、キーボードを Centaur IME Korean にする（足さないと有効にできない）
+          $l = Get-WinUserLanguageList
+          $l.Add('ko-KR')
+          $ko = $l | Where-Object LanguageTag -eq 'ko-KR'
+          $ko.InputMethodTips.Clear()
+          $ko.InputMethodTips.Add('0412:{A4F2E606-C933-43B3-850D-A3DF3ECF6FAD}{D5CECB97-1B85-4965-A7E9-2F050FF1C1AC}')
+          Set-WinUserLanguageList $l -Force
+          (Get-WinUserLanguageList | Where-Object LanguageTag -eq 'ko-KR').InputMethodTips
+          ./build64/Release/ko_e2e.exe | Tee-Object e2e.txt
+          $code = $LASTEXITCODE
+          ./build64/Release/tip_check_ko.exe unregister $dll
+          if ($code -ne 0) { exit 1 }
+      - name: 試用の一式
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg/x64, pkg/x86 | Out-Null
+          Copy-Item build64/Release/centaur_tip_ko.dll pkg/x64/
+          Copy-Item build32/Release/centaur_tip_ko.dll pkg/x86/
+          Copy-Item ko-detect.tsv, casing.tsv, native/centaur_tip_ko/package/* pkg/
+          Get-ChildItem -Recurse pkg | Format-Table FullName, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: centaur-ime-korean
+          path: pkg/
+          retention-days: 14
