@@ -13,7 +13,7 @@
 
 namespace dict_update {
 
-constexpr char kUserAgent[] = "CompoundIME-dict-update/1";
+constexpr char kUserAgent[] = "CentaurIME-dict-update/1";
 
 std::unique_ptr<Fetcher> MakeDefaultFetcher(bool allow_test_transport);
 

@@ -61,7 +61,7 @@ class WinInetFetcher : public Fetcher {
   explicit WinInetFetcher(bool test) : test_(test) {}
   FetchResult Get(const std::string& url, size_t max_bytes) override {
     if (url.rfind("file://", 0) == 0) return test_ ? GetFile(url, max_bytes) : Fail("file:// not allowed");
-    HINTERNET internet = InternetOpenW(L"CompoundIME-dict-update/1", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    HINTERNET internet = InternetOpenW(L"CentaurIME-dict-update/1", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
     if (!internet) return Fail("InternetOpen failed");
     DWORD timeout = 30000;
     InternetSetOptionW(internet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof(timeout));

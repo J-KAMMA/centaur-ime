@@ -15,7 +15,7 @@ namespace dict_update {
 
 // 本体に焼き込む値（apply_dict_update.py が書く）。
 struct BakedValues {
-  std::string manifest_url;       // 例 https://github.com/J-KAMMA/compound-ime/releases/download/dict-latest/manifest.txt
+  std::string manifest_url;       // 例 https://github.com/J-KAMMA/centaur-ime/releases/download/dict-latest/manifest.txt
   std::string url_prefix;         // 目録の中のファイルの URL が始まるべき所
   std::string public_key_hex;     // 署名の公開鍵（16進の64文字）。"UNSET" のときは更新しない
   std::string pos_table_sha256;   // id.def の SHA-256（16進）
@@ -26,8 +26,8 @@ struct BakedValues {
 bool IsHermeticTest();
 
 // 設定を読む。試験のときは環境変数 MYIME_DICT_UPDATE（0 で止める）と MYIME_DICT_UPDATE_INTERVAL_HOURS、
-// そうでなければ、ウィンドウズはレジストリ HKCU\Software\CompoundIME の DictUpdate・DictUpdateIntervalHours（DWORD）、
-// 他は ~/.config/compound-ime/settings の「DictUpdate=0」の行。
+// そうでなければ、ウィンドウズはレジストリ HKCU\Software\CentaurIME の DictUpdate・DictUpdateIntervalHours（DWORD）、
+// 他は ~/.config/centaur-ime/settings の「DictUpdate=0」の行。
 Settings ReadSettings();
 
 // 置き場所と取る先を決める。試験のときは環境変数 MYIME_DICT_UPDATE_DIR、MYIME_DICT_UPDATE_BASE（目録のある所）、
@@ -40,7 +40,7 @@ bool MakeConfig(const BakedValues& baked, Config* out);
 // 替えて取る（署名つきの目録の URL は変えずに、手元のファイルから取るため。確かめは元の URL でする）。
 std::unique_ptr<Fetcher> MakeFetcher(const Config& config);
 
-// 標準の置き場所（ウィンドウズ %LOCALAPPDATA%\CompoundIME\dict、他は ~/.local/share/compound-ime/dict）。
+// 標準の置き場所（ウィンドウズ %LOCALAPPDATA%\CentaurIME\dict、他は ~/.local/share/centaur-ime/dict）。
 std::string DefaultRoot();
 
 class Service {
