@@ -1,6 +1,6 @@
 # ビルド手順
 
-複合IME（旧名 コンパウンドIME）は、上流の MyIME のソースツリーに、このリポジトリのスクリプトとソースを重ねて作ります。ここには改造部分とその生成器だけがあり、上流のソースは含みません。`<...>` は各自の環境に合わせて置き換えてください。Windows 10/11 x64、Visual Studio（MSVC、C++ と Windows SDK）、Git for Windows、Python 3.13、LLVM（clang-cl）、.NET SDK（WiX 用）が必要です。
+Centaur IME（旧名 Centaur IME）は、上流の MyIME のソースツリーに、このリポジトリのスクリプトとソースを重ねて作ります。ここには改造部分とその生成器だけがあり、上流のソースは含みません。`<...>` は各自の環境に合わせて置き換えてください。Windows 10/11 x64、Visual Studio（MSVC、C++ と Windows SDK）、Git for Windows、Python 3.13、LLVM（clang-cl）、.NET SDK（WiX 用）が必要です。
 
 ## 1. 上流の入力（固定版）
 
@@ -9,7 +9,7 @@
 | MyIME | コミット `a8486eca5312556ff88fed7f1850a28843b67977` | https://github.com/unok/myime |
 | Mozc（MyIME の submodule `mozc/`） | コミット `2d993fd532c0df849ff3a5f6c7851b3757471ed6` | https://github.com/unok/mozc |
 | llama.cpp（fork） | コミット `10131b23ee0dbd9d03dfc618cec9fe3402919277`（タグ b4846） | https://github.com/fkunn1326/llama.cpp |
-| Zenzai モデル | `zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf`、SHA-256 `2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff`（zenz-v3.2-small を追加学習、CC BY-SA 4.0） | https://github.com/J-KAMMA/compound-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf |
+| Zenzai モデル | `zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf`、SHA-256 `2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff`（zenz-v3.2-small を追加学習、CC BY-SA 4.0） | https://github.com/J-KAMMA/centaur-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf |
 | Swift | 6.3.3 | https://download.swift.org/swift-6.3.3-release/windows10/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE-windows10.exe |
 | Bazel | 9.0.2（Bazelisk 経由、`USE_BAZEL_VERSION`） | |
 | Qt | 6.9.1 | 下の 4 |
@@ -165,7 +165,7 @@ Ubuntu 24.04（x64）で確かめています。ウィンドウズ版と同じ�
      --action_env=PATH=<tools>:/usr/bin:/bin --host_action_env=PATH=<tools>:/usr/bin:/bin \
      --linkopt=-B<tools> --host_linkopt=-B<tools> //unix:package
    ```
-5. 配布物を作る: `bash tools/make_linux_bundle.sh <版> <work> <このリポジトリ>`。`<work>/dist/compound-ime-<版>-linux-x64.tar.gz` ができます。中の `install.sh` を sudo で実行すると `/usr/lib/compound-ime` などに入り、変換モデルを公式から取得します。公式の Mozc（`/usr/lib/mozc`、ibus の `mozc-jp`）とは名前も置き場所も別です。
+5. 配布物を作る: `bash tools/make_linux_bundle.sh <版> <work> <このリポジトリ>`。`<work>/dist/centaur-ime-<版>-linux-x64.tar.gz` ができます。中の `install.sh` を sudo で実行すると `/usr/lib/centaur-ime` などに入り、変換モデルを公式から取得します。公式の Mozc（`/usr/lib/mozc`、ibus の `mozc-jp`）とは名前も置き場所も別です。
 
 試験: `session_handler_main`（`//session:session_handler_main`）で手順 9 と同じ一括試験ができます。開発者の環境では 1,298 入力のうち 1,279 がウィンドウズ版と同じ結果で、残りは人工知能の計算のわずかな差による同点付近の入れ替わりでした。
 
@@ -176,7 +176,7 @@ Ubuntu 24.04（x64）で確かめています。ウィンドウズ版と同じ�
 1. Qt 6.9.1 を `build_tools/build_qt.py --release --confirm_license --macos_cpus=arm64` で組み立てる（ソースは手順 1 と同じ tarball）。
 2. 変換エンジン: `python3 tools/apply_linux_engine_port.py <work>/myime/src` のあと `swift build -c release`。llama.cpp は上流の azooKey が配る署名済みの xcframework（b4846）を Swift が自動で取得します。
 3. `tools/make_compound_icon.py` の絵から `data/images/mac/product_icon.icns` を作る（`sips` と `iconutil`）。
-4. `bazelisk build --config oss_macos -c opt --nocheck_visibility //mac:package_files` で作った zip を展開し、`CompoundIMEConverter.app` に `libazookey-engine.dylib`（`Contents/MacOS`）、`llama.framework`（`Contents/Frameworks`）、`*.bundle`（アプリの直下と `Contents/Resources`、絵文字辞書は除く）を入れ、`codesign --force --deep -s -` で簡易署名し直してから、`mac/build_package.py --oss` で `.pkg` にします。
-5. 導入時の処理（postflight）が、変換モデルを公式の配布元から `/Library/Application Support/CompoundIME/models` に取得し、SHA-256 を照合します。
+4. `bazelisk build --config oss_macos -c opt --nocheck_visibility //mac:package_files` で作った zip を展開し、`CentaurIMEConverter.app` に `libazookey-engine.dylib`（`Contents/MacOS`）、`llama.framework`（`Contents/Frameworks`）、`*.bundle`（アプリの直下と `Contents/Resources`、絵文字辞書は除く）を入れ、`codesign --force --deep -s -` で簡易署名し直してから、`mac/build_package.py --oss` で `.pkg` にします。
+5. 導入時の処理（postflight）が、変換モデルを公式の配布元から `/Library/Application Support/CentaurIME/models` に取得し、SHA-256 を照合します。
 
-名前と置き場所は公式の Mozc と分けてあります（`/Library/Input Methods/CompoundIME.app`、識別子 `org.compoundime.inputmethod.Japanese`、学習データ `~/Library/Application Support/CompoundIME`）。試験の手順（`tools/batch_convert.sh`）では、1,298 文のうち 1,278 がウィンドウズ版と同じ結果でした。
+名前と置き場所は公式の Mozc と分けてあります（`/Library/Input Methods/CentaurIME.app`、識別子 `org.centaurime.inputmethod.Japanese`、学習データ `~/Library/Application Support/CentaurIME`）。試験の手順（`tools/batch_convert.sh`）では、1,298 文のうち 1,278 がウィンドウズ版と同じ結果でした。

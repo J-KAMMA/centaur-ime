@@ -100,7 +100,7 @@ jobs:
           echo "$V" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
           mkdir -p $W/work && ln -s $W/myime $W/work/myime && ln -s $W/llama.cpp $W/work/llama.cpp && ln -s $HOME/swift $W/work/swift
           PATH=$W/venv/bin:$PATH bash $W/repo/tools/make_linux_bundle.sh "$V" $W/work $W/repo
-          mkdir -p $W/out && cp $W/work/dist/compound-ime-$V-linux-x64.tar.gz $W/out/
+          mkdir -p $W/out && cp $W/work/dist/centaur-ime-$V-linux-x64.tar.gz $W/out/
           ls -la $W/out; sha256sum $W/out/*.tar.gz
           tar -tzf $W/out/*.tar.gz | grep -cE "install.sh|libazookey|ibus_mozc|mozc_server"
 
