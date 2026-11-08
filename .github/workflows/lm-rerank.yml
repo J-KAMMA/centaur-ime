@@ -1,0 +1,70 @@
+# 区切りごとの候補を、文字の n-gram 言語模型（KenLM、ウィキペディア train-00004 から作る）で選び直すと、
+# どれだけ直せて、どれだけ壊すかを測る（比べ用の枝だけ）。
+# 候補は segment-candidates.yml の成果物（間違えた文 / 正しかった文）、正解は .github/segcand/gold-*.tsv。
+# 試験の文は train-00011 から作ったもので、言語模型の材料（train-00004）とは重ならない。
+name: LM rerank
+
+on:
+  push:
+    branches: [work/zenzai-ablation]
+    paths: [.github/workflows/lm-rerank.yml, tools/segcand_rerank.py, .github/segcand/rerank.env]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  rerank:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: KenLM を組み立てる
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q build-essential cmake libboost-program-options-dev \
+            libboost-system-dev libboost-thread-dev libboost-test-dev zlib1g-dev libbz2-dev liblzma-dev
+          git clone -q https://github.com/kpu/kenlm kenlm && git -C kenlm rev-parse HEAD
+          cmake -S kenlm -B kenlm/build -DCMAKE_BUILD_TYPE=Release > /dev/null && cmake --build kenlm/build -j4 > /dev/null
+          python3 -m venv venv && venv/bin/pip -q install pyarrow ./kenlm
+      - name: 言語模型を作る
+        run: |
+          source .github/segcand/rerank.env
+          curl -fsSL -o wiki.parquet \
+            https://huggingface.co/datasets/wikimedia/wikipedia/resolve/b04c8d1ceb2f5cd4588862100d08de323dccfbaa/20231101.ja/train-00004-of-00015.parquet
+          echo "16bfb8cfc7b53084fb0e76ebaf9e3ab8e82d775a045e7781f96494a2277e2dae  wiki.parquet" | sha256sum -c
+          venv/bin/python - <<'EOF'
+          import re, pyarrow.parquet as pq
+          t = pq.read_table("wiki.parquet", columns=["text"]).column("text").to_pylist()
+          jp = re.compile(r"[぀-ヿ一-鿿]")
+          n = 0
+          with open("corpus.txt", "w", encoding="utf-8") as f:
+              for doc in t:
+                  for line in doc.split("\n"):
+                      for s in re.split(r"(?<=[。！？])", line):
+                          s = s.strip()
+                          if 8 <= len(s) <= 200 and jp.search(s):
+                              f.write(" ".join(ch for ch in s if not ch.isspace()) + "\n")
+                              n += 1
+          print("文", n)
+          EOF
+          du -h corpus.txt
+          kenlm/build/bin/lmplz -o $ORDER -S 60% -T /tmp --prune $PRUNE < corpus.txt > lm.arpa 2> lmplz.log || { tail -20 lmplz.log; exit 1; }
+          tail -5 lmplz.log
+          kenlm/build/bin/build_binary -q 8 -b 8 trie lm.arpa lm.binary
+          rm lm.arpa corpus.txt
+          ls -la lm.binary
+      - name: 候補を取ってきて測る
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          source .github/segcand/rerank.env
+          gh run download $WRONG_RUN -R ${{ github.repository }} -n segcand -D wrong
+          gh run download $OK_RUN -R ${{ github.repository }} -n segcand -D ok
+          venv/bin/python tools/segcand_rerank.py --lm lm.binary --k $K \
+            --seg wrong/segcand.tsv --gold .github/segcand/gold-wrong.tsv \
+            --seg ok/segcand.tsv --gold .github/segcand/gold-ok.tsv | tee result.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lm-rerank
+          path: result.txt
