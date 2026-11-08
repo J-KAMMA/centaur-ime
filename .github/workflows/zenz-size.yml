@@ -1,0 +1,61 @@
+# 模型の大きさで精度が上がるかを見るための試し（比べ用の枝だけ）。
+# 同じ世代の zenz-v2.5-small と zenz-v2.5-medium（Miwa-Keita、CC BY-SA 4.0）を、IME と同じ llama.cpp で
+# GGUF（Q5_K_M）にして、下書きの配布ページ model-zenz-v2.5-size-test に置く。全体試験は linux-test.yml を
+# model_release / model_file で動かす。
+name: zenz size test
+
+on:
+  push:
+    branches: [exp/zenz-medium]
+    paths: [.github/workflows/zenz-size.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      LLAMA_COMMIT: 10131b23ee0dbd9d03dfc618cec9fe3402919277
+      TAG: model-zenz-v2.5-size-test
+    steps:
+      - name: llama.cpp（IME と同じ版）
+        run: |
+          git init -q llama.cpp && cd llama.cpp && git remote add origin https://github.com/fkunn1326/llama.cpp.git
+          git fetch -q --depth 1 origin $LLAMA_COMMIT && git checkout -q FETCH_HEAD
+          cmake -S . -B build -DGGML_CUDA=OFF -DLLAMA_CURL=OFF -DCMAKE_BUILD_TYPE=Release > /dev/null
+          cmake --build build -j4 --target llama-quantize > /dev/null
+          python3 -m venv ../venv
+          ../venv/bin/pip -q install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements/requirements-convert_hf_to_gguf.txt
+      - name: 変換
+        run: |
+          for spec in "zenz-v2.5-small 1e408d69a7e284efa4e4d63e456f50e363a82953" "zenz-v2.5-medium 623bc8edf5417129b8269b628223d08245e9c68e"; do
+            set -- $spec; name=$1; rev=$2
+            mkdir -p hf/$name
+            for f in config.json generation_config.json merges.txt model.safetensors special_tokens_map.json tokenizer_config.json vocab.json; do
+              curl -fsSL --retry 3 -o hf/$name/$f https://huggingface.co/Miwa-Keita/$name/resolve/$rev/$f
+            done
+            sha256sum hf/$name/model.safetensors
+            venv/bin/python - hf/$name/config.json <<'EOF'
+          import json, sys
+          p = sys.argv[1]
+          c = json.load(open(p, encoding="utf-8"))
+          c.setdefault("n_ctx", c.get("n_positions", 1024))
+          json.dump(c, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+          EOF
+            venv/bin/python llama.cpp/convert_hf_to_gguf.py hf/$name --outtype f32 --outfile $name-f32.gguf --model-name $name
+            llama.cpp/build/bin/llama-quantize $name-f32.gguf $name-Q5_K_M.gguf Q5_K_M > /dev/null
+            rm $name-f32.gguf
+          done
+          sha256sum *-Q5_K_M.gguf | tee SHA256SUMS.txt
+          ls -la *.gguf
+      - name: 下書きの配布ページに置く
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $TAG -R ${{ github.repository }} > /dev/null 2>&1 || \
+            gh release create $TAG -R ${{ github.repository }} --draft --target ${{ github.sha }} \
+              --title "zenz v2.5 small / medium（大きさの試し、下書き）" \
+              --notes "試験用。zenz-v2.5-small と zenz-v2.5-medium（Miwa-Keita、CC BY-SA 4.0）を GGUF Q5_K_M にしたもの。公開しない。"
+          gh release upload $TAG -R ${{ github.repository }} --clobber zenz-v2.5-small-Q5_K_M.gguf zenz-v2.5-medium-Q5_K_M.gguf SHA256SUMS.txt
