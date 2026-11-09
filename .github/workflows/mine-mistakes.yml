@@ -8,7 +8,7 @@ name: Mine mistakes
 on:
   # main に入れる前は、この枝に push したときに既定の値で動く
   push:
-    branches: [work/mine-homophones, work/mine-tatoeba, work/compare-general, work/zenzai-ablation]
+    branches: [work/mine-homophones, work/mine-tatoeba, work/compare-general, work/zenzai-ablation, work/mine-rare]
   workflow_dispatch:
     inputs:
       bin_run:
@@ -88,7 +88,7 @@ jobs:
       matrix:
         shard: ["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15"]
         # 変換の一式を借りる run（push のとき。1つ目が比べる元、2つ目が試す枝。workflow_dispatch では bin_run だけ使う）
-        bin: ["42375698994", "42379186668"]
+        bin: ["42584808054", "42593432624"]
         zen: ["on"]
     steps:
       - uses: actions/checkout@v4
@@ -109,8 +109,7 @@ jobs:
           set -eo pipefail
           W=$GITHUB_WORKSPACE; E=$W/bin/engine
           chmod +x $E/session_handler_main
-          curl -fsSL -o $W/model.gguf \
-            https://github.com/J-KAMMA/compound-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
+          GH_TOKEN=${{ github.token }} gh release download model-zenz-ft-v5 -R "$GITHUB_REPOSITORY" -p zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf -O $W/model.gguf
           echo "2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff  $W/model.gguf" | sha256sum -c
           export LD_LIBRARY_PATH="$E${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           mkdir -p out
