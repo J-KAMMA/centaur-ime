@@ -1,0 +1,33 @@
+# 辞書の中の普段使わない読みの語（はした → 端 など）を洗い出す。結果は成果物 rare-readings。
+name: Rare readings
+on:
+  workflow_dispatch:
+  push:
+    branches: [exp/rare-readings]
+    paths: [.github/workflows/rare-readings.yml, tools/find_rare_readings.py]
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: 辞書と漢字の読み
+        run: |
+          set -eo pipefail
+          git init -q mozc && cd mozc && git remote add origin https://github.com/unok/mozc.git
+          git sparse-checkout set src/data/dictionary_oss
+          git fetch -q --depth 1 origin 2d993fd532c0df849ff3a5f6c7851b3757471ed6 && git checkout -q FETCH_HEAD
+          cd ..
+          curl -fsSL --retry 5 --retry-all-errors -o Unihan.zip https://www.unicode.org/Public/16.0.0/ucd/Unihan.zip
+          sha256sum Unihan.zip
+          unzip -q Unihan.zip Unihan_Readings.txt
+          mkdir -p out
+          python3 tools/find_rare_readings.py mozc/src/data/dictionary_oss Unihan_Readings.txt out/rare-readings.tsv
+          head -80 out/rare-readings.tsv
+          grep -P '^はした\t' out/rare-readings.tsv || echo "はした は出なかった"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rare-readings
+          path: out/
