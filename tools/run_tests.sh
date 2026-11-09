@@ -101,6 +101,18 @@ b)
     if printf '%s\n' "$top" | grep -qxF -f <(printf '%s\n' $answers); then hit=$((hit+1)); fi
   done < $W/pred-items.tsv
   echo "予測変換: 上位3つに正解 $hit/$total" | tee $OUT/prediction.txt
+  # 打つのが止まったときの候補の先頭が、空白を押した結果と同じか（tools/apply_space_preview.py）。最初の40文。
+  # 打ち終えて「止まったら出し直す」命令を送り、候補の先頭を見てから空白を押す。AI は待ち切る（試験だけ）。
+  same=0; total=0; : > $OUT/space-preview.tsv
+  head -40 $W/pred-items.tsv | while IFS=$'\t' read -r r answers; do
+    printf 'SEND_KEY\tON\nSEND_KEYS\t%s\nREQUEST_TYPO_SUGGESTION\nSHOW_OUTPUT\nSEND_KEY\tSpace\nSHOW_OUTPUT\n' "$r" > $W/sp.tsv
+    MYIME_SPACE_PREVIEW_WAIT=1 MYIME_AI_BUDGET_MS=0 MYIME_ZENZAI_TIME_LIMIT_MS=0 run_one $W/sp.tsv | awk -v r="$r" '
+      /^ *candidates \{/ && first == "" {c=1}
+      c && /^ *value:/ {v=$0; sub(/.*value: "/,"",v); sub(/"$/,"",v); first=v; c=0}
+      /^preedit \{/ {p=1; s=""} p && /^    value:/ {v=$0; sub(/.*value: "/,"",v); sub(/"$/,"",v); s=s v} p && /^}/ {p=0; last=s}
+      END {printf "%s\t%s\t%s\t%s\n", (first == last ? "同じ" : "違う"), r, first, last}' >> $OUT/space-preview.tsv || true
+  done
+  awk -F'\t' '{n++; if ($1=="同じ") s++} END {printf "空白の結果の先出し: 先頭が空白の結果と同じ %d/%d\n", s, n}' $OUT/space-preview.tsv | tee $OUT/space-preview.txt
   # 速さの目安: 最初の100文を1つの処理で変換した時間（GitHub の計算機、画像処理用の計算機なし）
   head -100 $W/ja400.txt > $W/speed.txt
   t0=$(date +%s.%N)
