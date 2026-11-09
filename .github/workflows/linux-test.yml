@@ -54,9 +54,9 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq clang cmake ninja-build lld libcurl4-openssl-dev libncurses-dev libxml2-dev libz3-dev python3-venv > /dev/null
           mkdir -p $HOME/tools && ln -sf $(command -v ld.lld) $HOME/tools/ld.lld
-          curl -fsSL -o $HOME/tools/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o $HOME/tools/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
           chmod +x $HOME/tools/bazelisk
-          curl -fsSL -o /tmp/swift.tar.gz https://download.swift.org/swift-6.3.3-release/ubuntu2404/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o /tmp/swift.tar.gz https://download.swift.org/swift-6.3.3-release/ubuntu2404/swift-6.3.3-RELEASE/swift-6.3.3-RELEASE-ubuntu24.04.tar.gz
           mkdir -p $HOME/swift && tar -xzf /tmp/swift.tar.gz -C $HOME/swift --strip-components=1 && rm /tmp/swift.tar.gz
           $HOME/swift/usr/bin/swift --version
 
@@ -110,7 +110,7 @@ jobs:
           PY=$W/venv/bin/python
           $PY $W/repo/tools/build_english_lexicon.py --out $W/lex
           mkdir -p $W/ut
-          curl -fsSL -o $W/ut/mozcdic-ut-sudachidict.txt.bz2 \
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o $W/ut/mozcdic-ut-sudachidict.txt.bz2 \
             https://raw.githubusercontent.com/utuhiro78/mozcdic-ut-sudachidict/c686771bada1d59e9b105c81b29e6ac1a239cb54/mozcdic-ut-sudachidict.txt.bz2
           echo "d2cb4b2b16d513e257d26d1c33673ebda254a1d5aa0c3c0c9bc94f932619fbdc  $W/ut/mozcdic-ut-sudachidict.txt.bz2" | sha256sum -c
           bunzip2 -k $W/ut/mozcdic-ut-sudachidict.txt.bz2
@@ -237,7 +237,7 @@ jobs:
             echo "差し替えた人工知能: ${{ inputs.model_file }}"
             sha256sum $W/model.gguf
           else
-            curl -fsSL -o $W/model.gguf \
+            curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o $W/model.gguf \
               https://github.com/J-KAMMA/centaur-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
             echo "2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff  $W/model.gguf" | sha256sum -c
           fi
@@ -278,7 +278,7 @@ jobs:
           fi
           # 選び手の段階0: 候補の上位8つから正解を組める間違いの数（tools/selector_ceiling.py）
           if ls results/dump-*.txt > /dev/null 2>&1; then
-            curl -fsSL -o romanji-hiragana.tsv \
+            curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o romanji-hiragana.tsv \
               https://raw.githubusercontent.com/unok/mozc/2d993fd532c0df849ff3a5f6c7851b3757471ed6/src/data/preedit/romanji-hiragana.tsv
             echo "fcb900e311d32ced05499c86e236d1084fb0c0937398deb6311fc6c7287a7821  romanji-hiragana.tsv" | sha256sum -c
             for n in ja400 jaen270 jaen200b; do
