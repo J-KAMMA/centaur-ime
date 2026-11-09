@@ -106,7 +106,7 @@ jobs:
             sha256sum $W/model.gguf
           else
             # 本線と同じ人工知能 v5（zenz-v3.2-small-ft-v5-mix、linux-test.yml の既定と同じ）
-            curl -fsSL -o $W/model.gguf \
+            curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o $W/model.gguf \
               https://github.com/J-KAMMA/centaur-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
             echo "2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff  $W/model.gguf" | sha256sum -c
           fi

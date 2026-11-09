@@ -4174,6 +4174,16 @@ for path, size in (("win32/custom_action/custom_action.cc", "kZenzaiModelSize = 
     edit(path, OLD_URL, FT_URL)
     edit(path, OLD_SUM, FT_SUM)
     edit(path, size, size.replace("73871936", "73871776"))
+# 導入時の人工知能の取得: GitHub の配布ページが 504 を返すことがあるので、間を置いて 4 回まで試す
+# （失敗したときは途中のファイルを消している）。
+edit("win32/custom_action/custom_action.cc",
+     "  if (!DownloadModelFile(msi_handle, kZenzaiModelUrl, modelPath.c_str())) {",
+     "  bool downloaded = false;\n"
+     "  for (int attempt = 0; attempt < 4 && !downloaded; ++attempt) {\n"
+     "    if (attempt > 0) ::Sleep(5000 * attempt);\n"
+     "    downloaded = DownloadModelFile(msi_handle, kZenzaiModelUrl, modelPath.c_str());\n"
+     "  }\n"
+     "  if (!downloaded) {")
 edit("win32/custom_action/custom_action.cc", 'kZenzaiModelFileName = L"ggml-model-Q5_K_M.gguf";',
      'kZenzaiModelFileName = L"zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf";')
 edit("converter/engine_config.h", 'kZenzaiModelName = "ggml-model-Q5_K_M.gguf";',
