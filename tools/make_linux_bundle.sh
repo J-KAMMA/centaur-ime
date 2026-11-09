@@ -70,7 +70,7 @@ URL=https://github.com/J-KAMMA/centaur-ime/releases/download/model-zenz-ft-v5/$F
 SUM=2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff
 if ! echo "$SUM  $M/$F" | sha256sum -c --status 2>/dev/null; then
   echo "変換モデル（約74MB）を取得しています..."
-  curl -fL -o $M/$F.part "$URL"
+  curl -fL --retry 5 --retry-all-errors --retry-delay 10 -o $M/$F.part "$URL"
   echo "$SUM  $M/$F.part" | sha256sum -c --status || { echo "モデルの照合に失敗しました"; rm -f $M/*.part; exit 1; }
   mv $M/$F.part $M/$F
 fi

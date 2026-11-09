@@ -1821,6 +1821,21 @@ subprocess.run([sys.executable, str(REPO / "tools/build_proper_noun_dictionary.p
                 "--out", str(src / "data/dictionary_oss/dictionary14.txt.tmp"), "--install"], check=True)
 (src / "data/dictionary_oss/dictionary14.txt.tmp").unlink()
 
+# 辞書から外す語（tools/data/drop-words.tsv、読み<TAB>表記）。ほとんど使わない読みが、よく使う
+# 区切りを邪魔するもの（はした → 端 で「は下の方がいい」が「端のほうがいい」になる）。
+drops = {tuple(line.split("\t")[:2]) for line in
+         (REPO / "tools/data/drop-words.tsv").read_text(encoding="utf-8").splitlines()
+         if line and not line.startswith("#")}
+dropped = 0
+for path in sorted((src / "data/dictionary_oss").glob("dictionary*.txt")):
+    lines = open(path, encoding="utf-8", newline="").read().splitlines(keepends=True)
+    kept = [l for l in lines if (l.split("\t")[0], l.rstrip("\r\n").split("\t")[-1]) not in drops]
+    if len(kept) != len(lines):
+        dropped += len(lines) - len(kept)
+        open(path, "w", encoding="utf-8", newline="").write("".join(kept))
+assert dropped > 0, "drop-words.tsv の語が辞書に見つからない"
+print(f"drop-words: {dropped} 行を外した")
+
 # 日本語の名前（tools/data/japanese-titles.tsv）は、辞書で英字より前にしても、人工知能の採点で
 # 英字（GeGeGe no Kitaro）が先頭に戻る。変換の最後（PreferTypedDigits の頭）で、表の読みの文節の
 # 先頭が英字なら、日本語の名前を先頭に戻す。
@@ -4159,6 +4174,16 @@ for path, size in (("win32/custom_action/custom_action.cc", "kZenzaiModelSize = 
     edit(path, OLD_URL, FT_URL)
     edit(path, OLD_SUM, FT_SUM)
     edit(path, size, size.replace("73871936", "73871776"))
+# 導入時の人工知能の取得: GitHub の配布ページが 504 を返すことがあるので、間を置いて 4 回まで試す
+# （失敗したときは途中のファイルを消している）。
+edit("win32/custom_action/custom_action.cc",
+     "  if (!DownloadModelFile(msi_handle, kZenzaiModelUrl, modelPath.c_str())) {",
+     "  bool downloaded = false;\n"
+     "  for (int attempt = 0; attempt < 4 && !downloaded; ++attempt) {\n"
+     "    if (attempt > 0) ::Sleep(5000 * attempt);\n"
+     "    downloaded = DownloadModelFile(msi_handle, kZenzaiModelUrl, modelPath.c_str());\n"
+     "  }\n"
+     "  if (!downloaded) {")
 edit("win32/custom_action/custom_action.cc", 'kZenzaiModelFileName = L"ggml-model-Q5_K_M.gguf";',
      'kZenzaiModelFileName = L"zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf";')
 edit("converter/engine_config.h", 'kZenzaiModelName = "ggml-model-Q5_K_M.gguf";',
