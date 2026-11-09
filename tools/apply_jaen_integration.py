@@ -5875,5 +5875,7 @@ edit("converter/converter.cc", _anchor, _anchor + """  if (const std::vector<std
 # 英字 1 字＋語（C言語、Tシャツ、X線）を英字の名前の読みに読み替える（部分ごとの直しの前に）。
 import subprocess  # noqa: E402
 subprocess.run([sys.executable, str(Path(__file__).with_name("apply_letter_words.py")), str(src)], check=True)
+# 打っている途中の候補の先頭に、空白を押したときと同じ結果を出す（tools/apply_space_preview.py）。
+subprocess.run([sys.executable, str(Path(__file__).with_name("apply_space_preview.py")), str(src)], check=True)
 
 print("applied")
