@@ -45,11 +45,11 @@ END = 45.0
 # (始まり, 終わり, 見出し, 説明, [(名前, 値, 自分か)], 棒の最大値)
 STATS = [
     (STATS_AT, 35.75, "まるごと正しく変換できた文が、いちばん多い", "例文を打って、元の文と同じになった割合（多いほど良い）",
-     [("Mozc", 61.2, False), ("MS-IME", 61.4, False), ("Centaur IME", 73.9, True)], 80.0),
-    (35.75, END_AT, "漢字の取り違えが、およそ半分", "例文を打って、漢字を取り違えた文の割合（少ないほど良い）",
-     [("Mozc", 13.6, False), ("MS-IME", 10.8, False), ("Centaur IME", 5.6, True)], 15.0),
+     [("Mozc", 64.1, False), ("MS-IME", 65.6, False), ("Centaur IME", 77.0, True)], 80.0),
+    (35.75, END_AT, "漢字の取り違えが、半分以下", "例文を打って、漢字を取り違えた文の割合（少ないほど良い）",
+     [("Mozc", 12.6, False), ("MS-IME", 8.7, False), ("Centaur IME", 3.5, True)], 15.0),
 ]
-STATS_NOTE = ["Tatoeba の日本語の例文 2,979 文で計測（2026年11月）。表記の揺れ（分かる/わかる）は同じとみなす。",
+STATS_NOTE = ["Tatoeba の日本語の例文 2,988 文で計測（2026年11月、1.172）。表記の揺れ（分かる/わかる）は同じとみなす。",
               "MS-IME は Windows 11 の Microsoft IME"]
 LOGO_SRC = Path(__file__).resolve().parents[1] / "data" / "compound-icon.png"  # 製品の印（半人半馬の射手）
 _logo_cache = {}
