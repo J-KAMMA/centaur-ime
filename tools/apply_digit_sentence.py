@@ -10,6 +10,7 @@
    下位の答えは今までどおり（十次 を書き戻すと 10次 として通ってしまう。holdout の 10時から → 10次から）。
    算用数字を漢数字にしない決まり（10/22）と同じ考え。
 2. 「かなだけの文」の見張りで、数字は記号と同じに扱う（1モジハイルト はカタカナのままの文）。
+   さらに、読みのままの文を打った読みと比べて見分ける（数字・英字が混じる 1もじはいると も除く）。
 3. 組み直しで、数字だけの一字の区切り（1|文字|入ると の 1）を「一字の記号の区切り」として断らない。
 
     python apply_digit_sentence.py <mozc/src>
@@ -193,6 +194,34 @@ edit("  static bool ResegmentToWholePhrase(",
     return true;
   }
   static bool ResegmentToWholePhrase(""")
+# 読みのままの文（読みをカタカナやひらがなで書いただけ）は、字の種類ではなく打った読みと比べて見分ける。
+# 数字や英字が混じると字の種類の見張り（カタカナだけ、ひらがな 20 字以上）をすり抜けるので、
+# カタカナをひらがなに、全角の数字・英字を半角の小文字にそろえて読みと同じなら、変換の答えにしない。
+# 数字も英字も無い短いひらがなの答え（かわいそうに！）は今までどおり選べる。
+edit("""          script == Util::KATAKANA || script == Util::HIRAGANA || katakana_with_symbols(candidate->value)) {""",
+     """          script == Util::KATAKANA || script == Util::HIRAGANA || katakana_with_symbols(candidate->value) ||
+          ReadingAsTyped(candidate->value, key)) {""")
+edit("  // The runs of digits in `text`", """  // `text` with katakana as hiragana and full-width digits and letters as
+  // ASCII lower case; `has_literal` is set when it has a digit or a letter.
+  static std::u32string FoldReading(std::string_view text, bool* has_literal) {
+    std::u32string out;
+    for (char32_t c : Utf8AsChars32(text)) {
+      if (c >= 0x30A1 && c <= 0x30F6) c -= 0x60;
+      else if (c >= 0xFF10 && c <= 0xFF19) c = c - 0xFF10 + '0';
+      else if (c >= 0xFF21 && c <= 0xFF3A) c = c - 0xFF21 + 'a';
+      else if (c >= 0xFF41 && c <= 0xFF5A) c = c - 0xFF41 + 'a';
+      else if (c >= 'A' && c <= 'Z') c = c - 'A' + 'a';
+      if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z')) *has_literal = true;
+      out += c;
+    }
+    return out;
+  }
+  // The AI wrote the typed reading as it is, with digits or letters in it (1モジハイルト, 1もじはいると).
+  static bool ReadingAsTyped(std::string_view value, std::string_view key) {
+    bool literal = false, unused = false;
+    return FoldReading(value, &literal) == FoldReading(key, &unused) && literal;
+  }
+  // The runs of digits in `text`""")
 # 組み直しで、数字だけの一字の区切り（1|文字|入ると の 1）は「一字の記号」ではない。
 edit("""      if (Util::CharsLen(piece_key) == 1 &&
           std::find(std::begin(kParticles)""", """      if (Util::CharsLen(piece_key) == 1 && Util::GetScriptType(piece_key) != Util::NUMBER &&
