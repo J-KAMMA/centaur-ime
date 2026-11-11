@@ -1,0 +1,84 @@
+# 一般的な IME との比べ: Meltype（公式の Linux 配布物）で同じ文を変換する。測るだけで配らない。
+# 文は mine-mistakes.yml の成果物 mine-sentences（sent_run の番号）を借りる。
+name: Meltype measure
+
+on:
+  push:
+    branches: [work/compare-general]
+    paths: [.github/workflows/meltype-measure.yml, tools/meltype_convert.py]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MELTYPE_VERSION: "1.5.0"
+  SENT_RUN: "42984284534"
+
+jobs:
+  convert:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["00","01","02","03","04","05","06","07"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mine-sentences
+          path: sent
+          run-id: ${{ env.SENT_RUN }}
+          github-token: ${{ github.token }}
+      - name: 道具と Meltype
+        run: |
+          set -eo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q ibus python3-gi gir1.2-ibus-1.0 xvfb dbus-x11
+          curl -fsSL --retry 3 -o meltype.zip \
+            https://github.com/yksr-melt/Meltype/releases/download/v$MELTYPE_VERSION/Meltype-$MELTYPE_VERSION-linux.zip
+          sha256sum meltype.zip
+          mkdir mt && cd mt && unzip -q ../meltype.zip && cd ..
+          P=$(dirname $(find mt -name ibus-engine-meltype -type f | head -1))
+          echo "PKG=$P" >> $GITHUB_ENV
+          ls -la $P | head -30
+      - name: 変換（組 ${{ matrix.shard }}）
+        run: |
+          set -eo pipefail
+          split -n l/8 -d -a 2 sent/body.tsv part-
+          mkdir -p out
+          xvfb-run -a dbus-run-session -- /usr/bin/python3 tools/meltype_convert.py $PKG part-${{ matrix.shard }} out/conv-${{ matrix.shard }}.tsv
+          wc -l out/conv-${{ matrix.shard }}.tsv
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: meltype-conv-${{ matrix.shard }}
+          path: out/
+
+  summarize:
+    needs: convert
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mine-sentences
+          path: sent
+          run-id: ${{ env.SENT_RUN }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: meltype-conv-*
+          path: conv
+      - name: まとめる
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          cat conv/*/conv-*.tsv > out/converted-meltype.tsv
+          python3 tools/mine_mistakes.py sent/body.tsv out/converted-meltype.tsv out/mistakes-meltype.tsv | tee out/summary.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meltype-mistakes
+          path: out/
