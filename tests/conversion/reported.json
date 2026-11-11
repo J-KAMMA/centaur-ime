@@ -423,6 +423,30 @@
     "は下のほうがいい"
    ],
    "note": "2026-11-09 報告: 端他のほうがいい になった"
+  },
+  {
+   "id": "r049",
+   "category": "reported",
+   "romaji": "1mojihairuto",
+   "intended": "1文字入ると",
+   "alternatives": [],
+   "note": "2026-11-11 報告: 数字の後が人工知能の読みのままのカタカナ（1文字はイルト）になった"
+  },
+  {
+   "id": "r050",
+   "category": "reported",
+   "romaji": "10jinikaeru",
+   "intended": "10時に帰る",
+   "alternatives": [],
+   "note": "2026-11-11 報告: 数字の後が 10次に帰る になった"
+  },
+  {
+   "id": "r051",
+   "category": "reported",
+   "romaji": "arufabetto1mojihairutoikkinimechakuchaninattarisuru",
+   "intended": "アルファベット1文字入ると一気にめちゃくちゃになったりする",
+   "alternatives": [],
+   "note": "2026-11-11 報告: 数字の後が はイルト・ナッタリ になった"
   }
  ]
 }

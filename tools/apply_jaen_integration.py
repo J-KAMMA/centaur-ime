@@ -5879,3 +5879,6 @@ subprocess.run([sys.executable, str(Path(__file__).with_name("apply_letter_words
 subprocess.run([sys.executable, str(Path(__file__).with_name("apply_space_preview.py")), str(src)], check=True)
 
 print("applied")
+
+# 数字を打った文で人工知能の文が崩れる（1文字はイルト）のを直す（tools/apply_digit_sentence.py）。
+subprocess.run([sys.executable, str(Path(__file__).with_name("apply_digit_sentence.py")), str(src)], check=True)
