@@ -33,6 +33,7 @@ def main():
                     help="check は 0.8 以上（tools/mine_homophone_cues.py が数えない、確かめ用の文）")
     ap.add_argument("--contains", default="", help="1行1語。どれかを含む文だけ使う")
     ap.add_argument("--count", type=int, default=0, help="0 なら全部")
+    ap.add_argument("--skip", type=int, default=0, help="使える文のうち先頭のこの数を飛ばす（前の比べで見た文を避ける）")
     args = ap.parse_args()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -63,6 +64,9 @@ def main():
             continue
         if exclusion.blocked(text, [made[1]]):
             stats["blocked"] += 1
+            continue
+        if stats.setdefault("skipped", 0) < args.skip:
+            stats["skipped"] += 1
             continue
         lines.append(f"{made[0]}\t{text}")
         if args.count and len(lines) >= args.count:
