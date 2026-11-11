@@ -1,4 +1,4 @@
-"""配布ページ用の紹介動画（39 秒）を作る。
+"""配布ページ用の紹介動画（45 秒）を作る。
 
 変換の例は全体試験（基準の結果）で実際に出た出力だけを使う。例を替えるときも試験の出力から選ぶ。
 
@@ -33,15 +33,20 @@ SCENES = [
     (19.0, 25.0, "打ち間違いも、文から直す", "余計なキーが混じっても、意味の通る文に",
      [("hashidegohaxnwotaberu", [("箸でご飯を食べる", False)], 11)]),
 ]
-STATS_AT = 25.0  # 性能の場面の始まり
-END_AT = 34.5    # 終わりの画面の始まり
-END = 39.0
+# 先出しの場面（1.172）: 打つのを止めると、候補の1番目にスペースの結果が出る。
+# 例は全体試験 space-preview（42629255733）で、先頭の候補とスペースの結果が同じだった文
+PREVIEW = (25.0, 31.0, "手を止めると、変換の結果が先に出る", "スペースを押す前に、候補の1番目にスペースと同じ結果",
+           [("atsuiochawonomu", "あついおちゃをのむ", "熱いお茶を飲む"),
+            ("atsuihonwoyonda", "あついほんをよんだ", "厚い本を読んだ")])
+STATS_AT = 31.0  # 性能の場面の始まり
+END_AT = 40.5    # 終わりの画面の始まり
+END = 45.0
 # 性能: 例文を打って漢字を取り違えた文の割合（2026-11 の計測。tools の比べの結果。少ないほど良い）
 # (始まり, 終わり, 見出し, 説明, [(名前, 値, 自分か)], 棒の最大値)
 STATS = [
-    (STATS_AT, 29.75, "まるごと正しく変換できた文が、いちばん多い", "例文を打って、元の文と同じになった割合（多いほど良い）",
+    (STATS_AT, 35.75, "まるごと正しく変換できた文が、いちばん多い", "例文を打って、元の文と同じになった割合（多いほど良い）",
      [("Mozc", 61.2, False), ("MS-IME", 61.4, False), ("Centaur IME", 73.9, True)], 80.0),
-    (29.75, END_AT, "漢字の取り違えが、およそ半分", "例文を打って、漢字を取り違えた文の割合（少ないほど良い）",
+    (35.75, END_AT, "漢字の取り違えが、およそ半分", "例文を打って、漢字を取り違えた文の割合（少ないほど良い）",
      [("Mozc", 13.6, False), ("MS-IME", 10.8, False), ("Centaur IME", 5.6, True)], 15.0),
 ]
 STATS_NOTE = ["Tatoeba の日本語の例文 2,979 文で計測（2026年11月）。表記の揺れ（分かる/わかる）は同じとみなす。",
@@ -191,6 +196,69 @@ def draw_scene(d, F, t, scene):
             d.text((typo_x - text_w(d, "↑", f) / 2, by + 48), s, font=f, fill=mix(BG, WARN, fade))
 
 
+def preview_times(ex_start, keys):
+    """1つの例の時刻: (打ち終わり, 候補が出る)。"""
+    type_end = ex_start + len(keys) / 17.0
+    return type_end, type_end + 0.55
+
+
+def draw_preview(d, F, t):
+    start, end, title, desc, examples = PREVIEW
+    lt = t - start
+    fade = ease(lt / 0.4) * (1 - ease((t - (end - 0.35)) / 0.35))
+    d.text((96, 70 - 10 * (1 - ease(lt / 0.5))), title, font=F.get(46, True), fill=mix(BG, INK, fade))
+    d.text((98, 136), desc, font=F.get(26), fill=mix(BG, SUB, fade))
+    x0, y0, x1, y1 = 96, 200, W - 96, 520
+    draw_window(d, F, x0, y0, x1, y1)
+    starts, span = example_times(start, end, len(examples))
+    i = max(k for k in range(len(examples)) if k == 0 or t >= starts[k])
+    keys, kana, result = examples[i]
+    es = starts[i]
+    if t < es:
+        return
+    et = t - es
+    type_end, pop_at = preview_times(es, keys)
+    out = ease((t - (es + span - 0.3)) / 0.3) if i < len(examples) - 1 else 0.0
+    vis = fade * (1 - out)
+    fpre = F.get(44)
+    lx, ly = x0 + 48, y0 + 92
+    # 打っている途中の読み（下線つき）。ローマ字の進みに合わせて伸ばす
+    n = int(len(kana) * min(1.0, et * 17.0 / len(keys)))
+    s = kana[:n]
+    w = text_w(d, s, fpre)
+    d.text((lx, ly), s, font=fpre, fill=mix(CARD, INK, vis))
+    d.line((lx, ly + 60, lx + w, ly + 60), fill=mix(CARD, INK, vis), width=2)
+    if t < pop_at and int(et * 2.5) % 2 == 0:
+        d.rectangle((lx + w + 2, ly + 4, lx + w + 5, ly + 52), fill=mix(CARD, ACCENT, vis))
+    # 手を止めた印
+    if t >= type_end:
+        p = ease((t - type_end) / 0.3)
+        f = F.get(22)
+        lab = "手を止める"
+        d.text((lx + w + 24, ly + 16), lab, font=f, fill=mix(CARD, SUB, vis * p))
+    # 候補の窓
+    if t >= pop_at:
+        a = ease((t - pop_at) / 0.3) * vis
+        fc = F.get(36)
+        px, py = lx, ly + 84
+        cw = text_w(d, "1  " + result, fc) + 48
+        d.rounded_rectangle((px + 3, py + 5, px + cw + 3, py + 75), 10, fill=mix(CARD, (226, 226, 230), a))
+        d.rounded_rectangle((px, py, px + cw, py + 70), 10, fill=mix(CARD, (255, 255, 255), a), outline=mix(CARD, LINE, a))
+        d.rounded_rectangle((px + 6, py + 6, px + cw - 6, py + 64), 8, fill=mix(CARD, MARK, a))
+        d.text((px + 20, py + 12), "1", font=fc, fill=mix(CARD, SUB, a))
+        d.text((px + 20 + text_w(d, "1  ", fc), py + 12), result, font=fc, fill=mix(CARD, INK, a))
+        f = F.get(26, True)
+        tag = "＝ スペースを押したときと同じ"
+        d.text((px + cw + 28, py + 20), tag, font=f, fill=mix(CARD, ACCENT, a))
+    # 打ったキーの帯
+    by = 560
+    label = "打ったローマ字"
+    fk = F.get(30)
+    d.text((96, by + 8), label, font=F.get(22), fill=mix(BG, SUB, fade))
+    typed = keys[: int(min(len(keys), et * 17.0))]
+    d.text((96 + text_w(d, label, F.get(22)) + 24, by), typed, font=fk, fill=mix(BG, INK, vis))
+
+
 def draw_stats(d, F, t, stat):
     start, end, title, desc, rows, vmax = stat
     lt = t - start
@@ -241,6 +309,8 @@ def frame(F, t):
     d = ImageDraw.Draw(im)
     if t < 3.0:
         draw_title(im, d, F, t)
+    elif PREVIEW[0] <= t < PREVIEW[1]:
+        draw_preview(d, F, t)
     elif t < STATS_AT:
         for sc in SCENES:
             if sc[0] <= t < sc[1]:
@@ -267,6 +337,11 @@ def sound_events():
             type_dur = len(keys) / 17.0
             ev.append(("space", es + type_dur + 0.02))
             ev.append(("convert", es + type_dur + 0.45))
+    starts, _ = example_times(PREVIEW[0], PREVIEW[1], len(PREVIEW[4]))
+    for es, (keys, _, _) in zip(starts, PREVIEW[4]):
+        for k in range(len(keys)):
+            ev.append(("key", es + (k + 1) / 17.0))
+        ev.append(("convert", preview_times(es, keys)[1]))
     return ev
 
 
