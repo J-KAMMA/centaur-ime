@@ -35,7 +35,7 @@ SCENES = [
 ]
 # 先出しの場面（1.172）: 打つのを止めると、候補の1番目にスペースの結果が出る。
 # 例は全体試験 space-preview（42629255733）で、先頭の候補とスペースの結果が同じだった文
-PREVIEW = (25.0, 31.0, "手を止めると、変換の結果が先に出る", "スペースを押す前に、候補の1番目にスペースと同じ結果",
+PREVIEW = (25.0, 31.0, "手を止めると、変換の結果が先に出る", "",
            [("atsuiochawonomu", "あついおちゃをのむ", "熱いお茶を飲む"),
             ("atsuihonwoyonda", "あついほんをよんだ", "厚い本を読んだ")])
 STATS_AT = 31.0  # 性能の場面の始まり
@@ -230,12 +230,6 @@ def draw_preview(d, F, t):
     d.line((lx, ly + 60, lx + w, ly + 60), fill=mix(CARD, INK, vis), width=2)
     if t < pop_at and int(et * 2.5) % 2 == 0:
         d.rectangle((lx + w + 2, ly + 4, lx + w + 5, ly + 52), fill=mix(CARD, ACCENT, vis))
-    # 手を止めた印
-    if t >= type_end:
-        p = ease((t - type_end) / 0.3)
-        f = F.get(22)
-        lab = "手を止める"
-        d.text((lx + w + 24, ly + 16), lab, font=f, fill=mix(CARD, SUB, vis * p))
     # 候補の窓
     if t >= pop_at:
         a = ease((t - pop_at) / 0.3) * vis
@@ -248,7 +242,7 @@ def draw_preview(d, F, t):
         d.text((px + 20, py + 12), "1", font=fc, fill=mix(CARD, SUB, a))
         d.text((px + 20 + text_w(d, "1  ", fc), py + 12), result, font=fc, fill=mix(CARD, INK, a))
         f = F.get(26, True)
-        tag = "＝ スペースを押したときと同じ"
+        tag = "＝ スペースと同じ"
         d.text((px + cw + 28, py + 20), tag, font=f, fill=mix(CARD, ACCENT, a))
     # 打ったキーの帯
     by = 560
