@@ -6,9 +6,9 @@
 使われず、3つ目の読みそのままのカタカナ（数字が混じるので「かなだけの文」の見張りをすり抜ける）が選ばれていた。
 
 1. 打った数字（半角・全角の並び）を漢数字にした人工知能の文は、その漢数字を打った数字に書き戻す
-   （十時に帰る → 10時に帰る。文節の長さも直す）。書き戻せない文は無いものとして飛ばす（順位も数えない）。
-   算用数字を漢数字にしない決まり（10/22）と同じ考え。飛ばすだけだと、人工知能の一番の答え（十時）を捨てて
-   下位の 10次 を使ってしまった（全体試験の holdout で 10時から → 10次から）。
+   （十時に帰る → 10時に帰る。文節と語の部分の長さも直す）。書き戻すのは人工知能の一番の答えだけで、
+   下位の答えは今までどおり（十次 を書き戻すと 10次 として通ってしまう。holdout の 10時から → 10次から）。
+   算用数字を漢数字にしない決まり（10/22）と同じ考え。
 2. 「かなだけの文」の見張りで、数字は記号と同じに扱う（1モジハイルト はカタカナのままの文）。
 3. 組み直しで、数字だけの一字の区切り（1|文字|入ると の 1）を「一字の記号の区切り」として断らない。
 
@@ -33,12 +33,12 @@ edit("""      std::vector<int> indices; const char* rejection = "Compatible";
      """      std::vector<int> indices; const char* rejection = "Compatible";
       // The digits the user typed must stay as typed (1 -> 一 never fits
       // Mozc's segments): the AI's kanji numerals are written back as the
-      // typed digits (十時 -> 10時); a sentence that cannot be does not count.
+      // typed digits (十時 -> 10時), only for its best sentence: the lower ones
+      // stay as they were (十次 written back would pass as 10次).
       converter::Candidate digit_fixed;
-      if (DigitRuns(candidate->value) != DigitRuns(key)) {
-        if (!TypedDigits(*candidate, key, &digit_fixed)) continue;
+      if (candidate_index == 0 && DigitRuns(candidate->value) != DigitRuns(key) &&
+          TypedDigits(*candidate, key, &digit_fixed))
         candidate = &digit_fixed;
-      }
       // The AI's best whole sentence in kana only is a transliteration, not a""")
 edit("""          const bool letter_or_digit = (c >= '0' && c <= '9') || ((c | 0x20) >= 'a' && (c | 0x20) <= 'z') ||
                                        (c >= 0xFF10 && c <= 0xFF19) || (c >= 0xFF21 && c <= 0xFF3A) ||
@@ -167,9 +167,14 @@ edit("  static bool ResegmentToWholePhrase(",
       }
       return d;
     };
+    // The content value is a prefix of the value (Compatible): it is written back the same way.
+    if (candidate.value.compare(0, candidate.content_value.size(), candidate.content_value) != 0) return false;
+    bool content_ok = true;
+    const int64_t content_delta = delta(0, candidate.content_value.size(), &content_ok);
+    if (!content_ok) return false;
     *fixed = candidate;
     fixed->value = value;
-    if (candidate.content_value == candidate.value) fixed->content_value = value;
+    fixed->content_value = value.substr(0, candidate.content_value.size() + content_delta);
     fixed->inner_segment_boundary.clear();
     size_t at = 0;
     for (const uint32_t encoded : candidate.inner_segment_boundary) {
