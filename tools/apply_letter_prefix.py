@@ -5,9 +5,8 @@ xwo（x を）が「ｘｗお」になり、変換で x が消えて「を」に
 Mozc は待っていた xw を2文字とも英字のまま出す。w は「を」の打ち始めなのに使われない。
 
 直し方: 表の x・l で始まる打ちかけ（xw、xk、xy、xt、xts、lw …）の後に、表の続きにならない
-英小文字が来る組を、表に足す。出すのは先頭の英字（全角）と、残りを表で読んだもの
-（xwo → ｘを、xko → ｘこ）。残りがまだ打ちかけなら、そこは待ちに戻す（xtn → ｘｔ と n）。
-xy + i は表にある（ぃ）ので触らない。
+英小文字が来る組を、表に足す。出すのは先頭の英字（全角）と、残りを表で読んだもの（xwo → ｘを）。
+足すのは残りが「を」になる組だけ。lte → ｌて のように広げると LTE・QOL などの略語が壊れる。
 x・l の1文字だけ（xb など）は Mozc がもともと ｘ と b に分けるので要らない。
 
     python apply_letter_prefix.py <mozc/src>
@@ -63,8 +62,12 @@ for prefix in prefixes:
         if key in keys or waits(key):
             continue
         output, pending = read(key[1:])
+        # 足すのは残りが「を」になる組だけ。ほかの読み（lte → ｌて）は LTE・QOL などの略語を壊す
+        # （11/14 の全体試験で略語の4つが下がった）。「を」は w から始まる打ちかけでしか打てない。
+        if output != "を" or pending:
+            continue
         added.append(f"{key}\t{wide(key[0])}{output}" + (f"\t{pending}" if pending else ""))
-assert "xwo\tｘを" in added and "lwo\tｌを" in added and "xko\tｘこ" in added, "xwo が足されない"
+assert "xwo\tｘを" in added and "lwo\tｌを" in added,"xwo が足されない"
 
 body = lines
 while body and body[-1] == "":
