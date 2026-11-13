@@ -118,7 +118,9 @@ std::vector<UnreadTypoEdit> UnreadTypoEdits(std::string_view raw, const RomajiPa
         static const std::array<std::string_view, 8> kAfter = {"は", "の", "を", "に", "で", "と", "も", "が"};
         const bool after_particle =
             i == 0 || std::ranges::find(kAfter, typed[i - 1].conversion) != kAfter.end();
-        letters_only = after_particle && c.raw.size() == 1 &&
+        // The letter may share a chunk with the particle's first key: "xwo" (xを) waits as "xw" (ゎ).
+        const bool lone = c.raw.size() == 1 || (c.conversion.empty() && (c.raw[0] == 'x' || c.raw[0] == 'l'));
+        letters_only = after_particle && lone &&
                        std::string_view("aiueon").find(c.raw[0]) == std::string_view::npos &&
                        (StartsWithParticleSpelling(raw.substr(at + 1)) || raw.substr(at + 1).starts_with("kara") ||
                         raw.substr(at + 1).starts_with("made") || raw.substr(at + 1).starts_with("yori"));
