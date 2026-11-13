@@ -5882,3 +5882,5 @@ print("applied")
 
 # 数字を打った文で人工知能の文が崩れる（1文字はイルト）のを直す（tools/apply_digit_sentence.py）。
 subprocess.run([sys.executable, str(Path(__file__).with_name("apply_digit_sentence.py")), str(src)], check=True)
+# xwo（x を）で x が消えるのを直す。x・l の打ちかけに続きが無いとき、x・l だけ英字にする（tools/apply_letter_prefix.py）。
+subprocess.run([sys.executable, str(Path(__file__).with_name("apply_letter_prefix.py")), str(src)], check=True)

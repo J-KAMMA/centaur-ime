@@ -492,6 +492,36 @@
     "って事ですか"
    ],
    "note": "2026-11-13 報告: tte から始まると全部ローマ字になる（っ で始まる語を名前・ID として打ったとおりに残す決まりが、文の頭の って・ったら にも働いた）"
+  },
+  {
+   "id": "r057",
+   "category": "reported",
+   "romaji": "xwomotomeru",
+   "intended": "xを求める",
+   "alternatives": [
+    "ｘを求める"
+   ],
+   "note": "2026-11-14 報告: xwo が「を」になり x が消える（ゎ の打ちかけ xw に o が来ると、Mozc は xw を英字のまま残し、変換で消えていた）"
+  },
+  {
+   "id": "r058",
+   "category": "reported",
+   "romaji": "xwokeisansuru",
+   "intended": "xを計算する",
+   "alternatives": [
+    "ｘを計算する"
+   ],
+   "note": "2026-11-14 報告: xwo が「を」になり x が消える（ゎ の打ちかけ xw に o が来ると、Mozc は xw を英字のまま残し、変換で消えていた）"
+  },
+  {
+   "id": "r059",
+   "category": "reported",
+   "romaji": "lwotukau",
+   "intended": "lを使う",
+   "alternatives": [
+    "ｌを使う"
+   ],
+   "note": "2026-11-14 報告: xwo が「を」になり x が消える（ゎ の打ちかけ xw に o が来ると、Mozc は xw を英字のまま残し、変換で消えていた）"
   }
  ]
 }
