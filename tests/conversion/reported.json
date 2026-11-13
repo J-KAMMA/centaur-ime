@@ -447,6 +447,51 @@
    "intended": "アルファベット1文字入ると一気にめちゃくちゃになったりする",
    "alternatives": [],
    "note": "2026-11-11 報告: 数字の後が はイルト・ナッタリ になった"
+  },
+  {
+   "id": "r052",
+   "category": "reported",
+   "romaji": "tteiukotoha",
+   "intended": "っていうことは",
+   "alternatives": [
+    "って言うことは",
+    "っていう事は"
+   ],
+   "note": "2026-11-13 報告: tte から始まると全部ローマ字になる（っ で始まる語を名前・ID として打ったとおりに残す決まりが、文の頭の って・ったら にも働いた）"
+  },
+  {
+   "id": "r053",
+   "category": "reported",
+   "romaji": "ttesa",
+   "intended": "ってさ",
+   "alternatives": [],
+   "note": "2026-11-13 報告: tte から始まると全部ローマ字になる（っ で始まる語を名前・ID として打ったとおりに残す決まりが、文の頭の って・ったら にも働いた）"
+  },
+  {
+   "id": "r054",
+   "category": "reported",
+   "romaji": "ttara",
+   "intended": "ったら",
+   "alternatives": [],
+   "note": "2026-11-13 報告: tte から始まると全部ローマ字になる（っ で始まる語を名前・ID として打ったとおりに残す決まりが、文の頭の って・ったら にも働いた）"
+  },
+  {
+   "id": "r055",
+   "category": "reported",
+   "romaji": "ttendayo",
+   "intended": "ってんだよ",
+   "alternatives": [],
+   "note": "2026-11-13 報告: tte から始まると全部ローマ字になる（っ で始まる語を名前・ID として打ったとおりに残す決まりが、文の頭の って・ったら にも働いた）"
+  },
+  {
+   "id": "r056",
+   "category": "reported",
+   "romaji": "ttekotodesuka",
+   "intended": "ってことですか",
+   "alternatives": [
+    "って事ですか"
+   ],
+   "note": "2026-11-13 報告: tte から始まると全部ローマ字になる（っ で始まる語を名前・ID として打ったとおりに残す決まりが、文の頭の って・ったら にも働いた）"
   }
  ]
 }
