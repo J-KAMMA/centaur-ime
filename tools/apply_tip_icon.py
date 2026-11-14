@@ -32,22 +32,9 @@ def edit(path, old, new, count=1):
     raise SystemExit(f"{path}: expected {count} match(es) for {old[:70]!r}, found {text.count(old)}")
 
 
-# ロゴのファイルをインストーラーの組み立てに渡す
-edit("data/images/win/BUILD.bazel", '''    srcs = ["product_icon.ico"],''',
-     '''    srcs = [
-        "product_icon.ico",
-        "product_icon_langbar.ico",
-    ],''')
-B = "win32/installer/BUILD.bazel"
-edit(B, '''        "//data/images/win:product_icon.ico",
-''', '''        "//data/images/win:product_icon.ico",
-        "//data/images/win:product_icon_langbar.ico",
-''')
-edit(B, '''        "--icon_path=$(location //data/images/win:product_icon.ico)",
-''', '''        "--icon_path=$(location //data/images/win:product_icon.ico)",
-        "--tip_icon_path=$(location //data/images/win:product_icon_langbar.ico)",
-''')
-P = "win32/installer/build_installer.py"
+# ロゴのファイルをインストーラーの組み立てに渡す（.github/workflows/windows.yml が
+# build_installer.py に --tip_icon_path を渡す）
+P ="win32/installer/build_installer.py"
 edit(P, "  parser.add_argument('--icon_path', type=str)\n",
      "  parser.add_argument('--icon_path', type=str)\n  parser.add_argument('--tip_icon_path', type=str)\n")
 edit(P, "      '-define', f'AddRemoveProgramIconPath={icon_path}',\n",

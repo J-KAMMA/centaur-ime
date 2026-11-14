@@ -308,6 +308,7 @@ jobs:
             --mozc_cache_service $C/mozc_cache_service.exe \
             --custom_action $C/mozc_installer_helper.dll \
             --icon_path $S/data/images/win/product_icon.ico \
+            --tip_icon_path $S/data/images/win/product_icon_langbar.ico \
             --credit_file $W/docs/credits_en.html \
             --qt_core_dll $S/third_party/qt/bin/Qt6Core.dll \
             --wxs_path $S/win32/installer/installer_oss_64bit.wxs \
