@@ -1,0 +1,149 @@
+# 一般的な IME との比べ: Mozkey を Zenz（AI）込みで測る。測るだけで配らない。
+# Mozkey の配布物（Windows・macOS）では、変換の本体が Zenz に問い合わせ、llama-server が答える。
+# Linux ではその問い合わせの道が無いので、ここで足す:
+#   - 変換の本体: macOS と同じ UNIX ソケットの道（zenz_unix_socket_client）を Linux でも使う（1 行の差し替え）
+#   - 答える側: tools/mozkey_zenz_bridge.py（macOS の mozc_zenz_scorer と同じ問い合わせ）＋ llama-server
+#     （Mozkey と同じ llama.cpp の版と字単位の切り分けの直し、同じ模型 zenz-v3.2-small Q5_K_M、-c 256 -t 4）
+#   - 打ち込み: tools/mozkey_zenz_measure_main.cc（1 文字ずつ打ち、callback を待って返し、Enter で確定）
+# 辞書は配布物と同じ daily の組。文は mine-mistakes.yml の成果物 mine-sentences（SENT_RUN）。
+name: Mozkey Zenz measure
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "測る文の数（0 は全部）"
+        default: "0"
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MOZKEY_COMMIT: ceddae07e6e2220ba0776227dd75c6c2f83bebb9
+  LLAMA_COMMIT: 620d2225cc436ab0b001e3200e590e3b286ef9ab
+  MODEL_URL: https://huggingface.co/Miwa-Keita/zenz-v3.2-small-gguf/resolve/c67e03e07d215c869f591b274c1631170d3e11fe/ggml-model-Q5_K_M.gguf
+  MODEL_SHA256: 29c223d4c23327b80fd13ebb5ab2555057a46317997d5da391584ffbef0db673
+  SENT_RUN: "42984284534"
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - uses: actions/download-artifact@v4
+        with:
+          name: mine-sentences
+          path: sentences
+          run-id: ${{ env.SENT_RUN }}
+          github-token: ${{ github.token }}
+      - name: Mozkey を取ってきて、辞書（daily の組）を作る
+        run: |
+          set -eo pipefail
+          git clone -q https://github.com/koyasi777/mozkey.git mozkey
+          git -C mozkey checkout -q $MOZKEY_COMMIT
+          git -C mozkey submodule update -q --init --recursive
+          cd mozkey
+          pwsh -NoProfile -File tools/dictionary/prepare_daily_dictionary.ps1 -BashPath /bin/bash 2>&1 | tail -5
+      - name: Linux でも Zenz の問い合わせを UNIX ソケットで送る（macOS と同じ道）と、打ち込みの道具を足す
+        run: |
+          set -eo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("mozkey/src/session/zenz_client_factory.cc")
+          t = p.read_text(encoding="utf-8")
+          old = "#else\n  return std::make_unique<ZenzNamedPipeClient>();"
+          assert t.count(old) == 1, "factory"
+          t = t.replace(old, "#elif defined(__linux__)\n  return std::make_unique<ZenzUnixSocketClient>(\n      ::mozc::zenz::GetZenzUnixSocketPath());\n" + old)
+          p.write_text(t, encoding="utf-8")
+          b = Path("mozkey/src/session/BUILD.bazel")
+          b.write_text(b.read_text(encoding="utf-8") + '''
+          mozc_cc_binary(
+              name = "mozkey_zenz_measure_main",
+              testonly = 1,
+              srcs = ["mozkey_zenz_measure_main.cc"],
+              deps = [
+                  ":session_handler",
+                  "//base:init_mozc",
+                  "//base:system_util",
+                  "//config:config_handler",
+                  "//data_manager/oss:oss_data_manager",
+                  "//engine",
+                  "//protocol:commands_cc_proto",
+                  "//protocol:config_cc_proto",
+                  "@com_google_absl//absl/flags:flag",
+              ],
+          )
+          '''.replace("\n          ", "\n"), encoding="utf-8")
+          PY
+          cp repo/tools/mozkey_zenz_measure_main.cc mozkey/src/session/
+          grep -n -A3 "__linux__" mozkey/src/session/zenz_client_factory.cc
+      - name: 組み立てる
+        run: |
+          set -eo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq clang lld cmake > /dev/null
+          T=$HOME/tools; mkdir -p $T && ln -sf $(command -v ld.lld) $T/ld.lld
+          curl -fsSL -o $T/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x $T/bazelisk
+          cd mozkey/src
+          $T/bazelisk build --config oss_linux -c opt \
+            --action_env=PATH=$T:/usr/bin:/bin --host_action_env=PATH=$T:/usr/bin:/bin \
+            --linkopt=-B$T --host_linkopt=-B$T //session:mozkey_zenz_measure_main > $GITHUB_WORKSPACE/bazel.log 2>&1 \
+            || { grep -B3 -A20 "ERROR\|error:" $GITHUB_WORKSPACE/bazel.log | head -150; exit 1; }
+      - name: llama-server（Mozkey と同じ版と直し）と模型
+        run: |
+          set -eo pipefail
+          git clone -q https://github.com/ggml-org/llama.cpp.git llama
+          git -C llama checkout -q $LLAMA_COMMIT
+          git -C llama apply ../mozkey/src/mac/installer/zenz_runtime/patches/llama-vocab-gpt2-small-japanese-char.patch
+          cmake -S llama -B llama/build -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF > /dev/null
+          cmake --build llama/build --target llama-server -j 4 > llama-build.log 2>&1 || { tail -60 llama-build.log; exit 1; }
+          curl -fsSL --retry 3 -o model.gguf "$MODEL_URL"
+          echo "$MODEL_SHA256  model.gguf" | sha256sum -c
+      - name: 変換（Zenz 込み）
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          ./llama/build/bin/llama-server -m model.gguf -c 256 -t 4 --cache-ram 0 --host 127.0.0.1 --port 18080 > out/llama-server.log 2>&1 &
+          for i in $(seq 1 120); do curl -sf http://127.0.0.1:18080/health > /dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:18080/health
+          python3 repo/tools/mozkey_zenz_bridge.py --log out/bridge.log > out/bridge.out 2>&1 &
+          sleep 2
+          LIMIT=${{ inputs.limit || '0' }}
+          if [ "$LIMIT" = "0" ]; then cut -f1 sentences/body.tsv > in.txt; else cut -f1 sentences/body.tsv | head -n $LIMIT > in.txt; fi
+          wc -l in.txt
+          E=$GITHUB_WORKSPACE/mozkey/src/bazel-bin/session/mozkey_zenz_measure_main
+          M=$(find -L $E.runfiles -path '*data_manager/oss/mozc.data' | head -1)
+          D=$(dirname $(dirname $(dirname $M)))
+          (cd $D && $E --input $GITHUB_WORKSPACE/in.txt --output $GITHUB_WORKSPACE/out/raw.tsv --timeout_msec 1000) 2> out/measure.err
+          tail -5 out/measure.err
+          wc -l out/raw.tsv
+      - name: まとめる
+        run: |
+          set -eo pipefail
+          # mine_mistakes.py の形（ローマ字<TAB>文節<TAB>確定した文）にする
+          awk -F'\t' '{print $1 "\t" $2 "\t" $2}' out/raw.tsv > out/conv-mozkey-zenz.tsv
+          python3 repo/tools/mine_mistakes.py sentences/body.tsv out/conv-mozkey-zenz.tsv out/mistakes-mozkey-zenz.tsv | tee out/summary.txt
+          python3 - <<'PY' | tee -a out/summary.txt
+          import json, collections
+          c = collections.Counter(); ms = []
+          for l in open("out/bridge.log", encoding="utf-8"):
+              d = json.loads(l)
+              c[d.get("debug", d.get("error"))] += 1
+              if "ms" in d: ms.append(d["ms"])
+          ms.sort()
+          print("Zenz の問い合わせ:", dict(c))
+          if ms: print("かかった時間（ミリ秒）: 中央", ms[len(ms)//2], "9割", ms[int(len(ms)*.9)], "最大", ms[-1])
+          rows = [l.rstrip("\n").split("\t") for l in open("out/raw.tsv", encoding="utf-8")]
+          print("Zenz を取り込みに行った文:", sum(1 for r in rows if int(r[2]) > 0), "/", len(rows))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mozkey-zenz-measure
+          path: |
+            out/
+            bazel.log
