@@ -12,9 +12,9 @@ kyohaatsui（打ち間違い）           →  今日は暑い
 denwabangouhazerokyuuzero        →  電話番号は090
 ```
 
-https://github.com/user-attachments/assets/8e3b09fc-acb9-4ac9-a258-4b4b5ad7388e
+https://github.com/user-attachments/assets/bafb62a8-8035-4117-8f43-28fafa2a3885
 
-紹介動画（45 秒）。数字は、Tatoeba の日本語の例文 2,988 文を打って、元の文と同じになった文と、漢字を取り違えた文の割合を数えたものです（2026年11月、1.172。MS-IME は Windows 11 の Microsoft IME）。音声: VOICEVOX:四国めたん
+紹介動画（45 秒）。数字は、Tatoeba の日本語の例文 2,988 文を打って、元の文と同じになった文と、漢字を取り違えた文の割合を数えたものです（2026年11月、1.172。MS-IME は Windows 11 の Microsoft IME）。音声: Kokoro（Kokoro-82M、Apache-2.0）
 
 [![最新の版](https://img.shields.io/github/v/release/J-KAMMA/centaur-ime?include_prereleases&label=%E6%9C%80%E6%96%B0%E3%81%AE%E7%89%88)](https://github.com/J-KAMMA/centaur-ime/releases)
 [![ライセンス](https://img.shields.io/badge/%E3%83%A9%E3%82%A4%E3%82%BB%E3%83%B3%E3%82%B9-MIT-blue)](LICENSE)
