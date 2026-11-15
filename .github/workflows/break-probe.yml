@@ -1,0 +1,122 @@
+# 崩れの調べ: Mozc は正しく出したのに Centaur が間違えた文（.github/break-probe.tsv の broke）を、
+# Centaur の仕組みを 1 つずつ止めて変換し、どの仕組みが崩しているかを見る。止めたときに正しかった文（ok）が
+# どれだけ崩れるかも同時に数える（止めると失うもの）。測るだけで配らない。
+name: Break probe
+
+on:
+  push:
+    branches: [work/compare-general]
+    paths: [.github/workflows/break-probe.yml, .github/break-probe.tsv]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  # linux-bin を借りる main の試験（exp/probe-breaks、linux-bin は 1 日で消える）
+  BIN_RUN: "43764215480"
+
+jobs:
+  convert:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - "base"
+          - "MYIME_SELECTOR=0"
+          - "MYIME_HOMOPHONE_CUES=0"
+          - "MYIME_AI_RESEGMENT=0"
+          - "MYIME_CONTEXT_WORDS=off"
+          - "MYIME_JOINT_SCORE=off"
+          - "MYIME_TYPO=off"
+          - "MYIME_LOANWORD_KATAKANA=0"
+          - "MYIME_ENGLISH_CONTEXT=0"
+          - "MYIME_INTRA_CONTEXT=0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-bin
+          path: bin
+          run-id: ${{ env.BIN_RUN }}
+          github-token: ${{ github.token }}
+      - name: 変換（${{ matrix.variant }}）
+        run: |
+          set -eo pipefail
+          W=$GITHUB_WORKSPACE; E=$W/bin/engine
+          chmod +x $E/session_handler_main
+          curl -fsSL -o $W/model.gguf \
+            https://github.com/J-KAMMA/compound-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
+          echo "2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff  $W/model.gguf" | sha256sum -c
+          export LD_LIBRARY_PATH="$E${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          V="${{ matrix.variant }}"
+          if [ "$V" != base ]; then export "$V"; fi
+          mkdir -p out
+          grep -v '^#' repo/.github/break-probe.tsv | cut -f2 > in.txt
+          N=$(echo "$V" | tr '=' '-')
+          bash repo/tools/batch_convert.sh $E/session_handler_main $E $W/model.gguf in.txt out/conv-$N.tsv 4
+          wc -l out/conv-$N.tsv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: probe-${{ strategy.job-index }}
+          path: out/
+          retention-days: 7
+
+  collect:
+    needs: convert
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: probe-*
+          path: conv
+          merge-multiple: true
+      - name: まとめる
+        run: |
+          set -eo pipefail
+          grep -v '^#' .github/break-probe.tsv | cut -f2,3 > sentences.tsv
+          mkdir -p out
+          for f in conv/conv-*.tsv; do
+            n=$(basename $f .tsv); python3 tools/mine_mistakes.py sentences.tsv $f out/mistakes-$n.tsv > /dev/null
+          done
+          python3 - <<'PY' | tee out/summary.txt
+          import glob, os
+          kind = {}
+          for l in open(".github/break-probe.tsv", encoding="utf-8"):
+              if l.startswith("#"): continue
+              k, r, _ = l.rstrip("\n").split("\t"); kind[r] = k
+          nb = sum(v == "broke" for v in kind.values()); no = len(kind) - nb
+          print(f"崩れた文 {nb}、正しかった文 {no}")
+          print("止めた仕組み\t崩れが直った\t正しいのが崩れた")
+          base = None
+          rows = []
+          for p in sorted(glob.glob("out/mistakes-conv-*.tsv")):
+              wrong = {l.split("\t")[0] for l in open(p, encoding="utf-8")}
+              name = os.path.basename(p)[len("mistakes-conv-"):-4]
+              fixed = sum(1 for r, k in kind.items() if k == "broke" and r not in wrong)
+              lost = sum(1 for r, k in kind.items() if k == "ok" and r in wrong)
+              rows.append((name, fixed, lost))
+          for name, fixed, lost in sorted(rows, key=lambda x: x[0] != "base"):
+              print(f"{name}\t{fixed}\t{lost}")
+          # 文ごとに、どの仕組みを止めると正しくなったか（崩れた文だけ）
+          with open("out/fixed-by.tsv", "w", encoding="utf-8") as f:
+              for r, k in kind.items():
+                  if k != "broke": continue
+                  names = []
+                  for p in sorted(glob.glob("out/mistakes-conv-*.tsv")):
+                      wrong = {l.split("\t")[0] for l in open(p, encoding="utf-8")}
+                      if r not in wrong: names.append(os.path.basename(p)[len("mistakes-conv-"):-4])
+                  f.write(r + "\t" + ",".join(names) + "\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: break-probe
+          path: out/
