@@ -118,7 +118,7 @@ jobs:
           python3 repo/tools/mozkey_zenz_bridge.py --log out/bridge.log > out/bridge.out 2>&1 &
           sleep 2
           LIMIT=${{ inputs.limit || env.DEFAULT_LIMIT }}
-          if [ "$LIMIT" = "0" ]; then cut -f1 sentences/body.tsv > in.txt; else cut -f1 sentences/body.tsv | head -n $LIMIT > in.txt; fi
+          if [ "$LIMIT" = "0" ]; then cut -f1 sentences/body.tsv > in.txt; else head -n $LIMIT sentences/body.tsv | cut -f1 > in.txt; fi
           wc -l in.txt
           E=$GITHUB_WORKSPACE/mozkey/src/bazel-bin/session/mozkey_zenz_measure_main
           M=$(find -L $E.runfiles -path '*data_manager/oss/mozc.data' | head -1)
