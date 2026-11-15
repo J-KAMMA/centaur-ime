@@ -52,8 +52,12 @@ class Driver {
     command.mutable_input()->set_id(id_);
     const bool ok = handler_->EvalCommand(&command);
     *output = command.output();
+    // 確定した文字は、どの命令の答えに出ても集める
+    if (output->has_result()) committed_ += output->result().value();
     return ok;
   }
+
+  std::string TakeCommitted() { return std::exchange(committed_, ""); }
 
   void CreateSession() {
     commands::Input input;
@@ -107,6 +111,7 @@ class Driver {
  private:
   std::unique_ptr<SessionHandler> handler_;
   uint64_t id_ = 0;
+  std::string committed_;
 };
 
 }  // namespace
@@ -127,7 +132,8 @@ int main(int argc, char** argv) {
   driver.CreateSession();
 
   mozc::config::Config config;
-  mozc::config::ConfigHandler::GetDefaultConfig(&config);
+  // Mozkey の製品の既定（その場の変換・Zenz・句読点での確定などが入）。GetDefaultConfig は Mozc の既定
+  config = mozc::config::ConfigHandler::GetProductDefaultConfig();
   config.set_zenz_live_correction_timeout_msec(absl::GetFlag(FLAGS_timeout_msec));
   driver.SetConfig(config);
   std::cerr << "live_conversion=" << config.use_live_conversion()
@@ -143,27 +149,36 @@ int main(int argc, char** argv) {
   int n = 0;
   while (std::getline(in, romaji)) {
     if (romaji.empty()) continue;
+    const bool debug = n < 3;  // 最初の 3 文は中身を書き出して確かめる
     mozc::commands::Output output;
+    int zenz_applies = 0;
+    const int limit = absl::GetFlag(FLAGS_max_callbacks);
+    auto collect = [&](const char* label) {
+      if (debug) std::cerr << "== " << label << "\n" << mozc::protobuf::Utf8Format(output) << std::endl;
+    };
+    // Mozkey は「。」「、」（と ！？）を打つと、見えている変換をそのまま確定する（direct commit）。
+    // 人は手を止めて Zenz の結果を見てから句読点を打つ、として、句読点の前で callback を待つ。
     for (const char c : romaji) {
+      const bool punctuation = c == '.' || c == ',' || c == '!' || c == '?';
+      if (punctuation) {
+        driver.FollowCallbacks(&output, limit, &zenz_applies);
+        collect("before punctuation");
+      }
       mozc::commands::KeyEvent key;
       key.set_key_code(static_cast<unsigned char>(c));
       driver.SendKey(std::move(key), &output);
+      if (punctuation && debug) collect("after punctuation");
     }
-    const bool debug = n < 3;  // 最初の 3 文は中身を書き出して確かめる
-    if (debug) std::cerr << "== after keys\n" << mozc::protobuf::Utf8Format(output) << std::endl;
-    int zenz_applies = 0;
-    driver.FollowCallbacks(&output, absl::GetFlag(FLAGS_max_callbacks), &zenz_applies);
-    if (debug) std::cerr << "== after callbacks\n" << mozc::protobuf::Utf8Format(output) << std::endl;
+    // 句読点で終わらない文: 待ってから Enter で確定する
+    driver.FollowCallbacks(&output, limit, &zenz_applies);
+    collect("after callbacks");
     mozc::commands::KeyEvent enter;
     enter.set_special_key(mozc::commands::KeyEvent::ENTER);
     driver.SendKey(std::move(enter), &output);
-    std::string committed = output.has_result() ? output.result().value() : "";
-    if (debug) std::cerr << "== after enter\n" << mozc::protobuf::Utf8Format(output) << std::endl;
-    // Enter may leave a callback (e.g. after commit); follow it so the next
-    // sentence starts clean.
+    collect("after enter");
     int unused = 0;
     driver.FollowCallbacks(&output, 8, &unused);
-    if (committed.empty() && output.has_result()) committed = output.result().value();
+    const std::string committed = driver.TakeCommitted();
     out << romaji << "\t" << committed << "\t" << zenz_applies << "\n";
     out.flush();
     mozc::commands::SessionCommand reset;
