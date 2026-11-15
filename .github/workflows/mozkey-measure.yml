@@ -1,0 +1,84 @@
+# 一般的な IME との比べ: Mozkey（koyasi777/mozkey、Mozc の分かれ）を元のプログラムから組み立て、同じ文を変換する。
+# 測るだけで配らない。文は mine-mistakes.yml の成果物 mine-sentences（SENT_RUN の番号）を借りる。
+# 辞書は Mozkey の配布物と同じ daily の組（tools/dictionary/prepare_daily_dictionary.ps1）で作る。
+# 測るのは変換の本体（converter_main）。Zenz の書き換え（session の層、llama-server）は入らない。
+name: Mozkey measure
+
+on:
+  push:
+    branches: [work/compare-general]
+    paths: [.github/workflows/mozkey-measure.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MOZKEY_COMMIT: ceddae07e6e2220ba0776227dd75c6c2f83bebb9
+  SENT_RUN: "42984284534"
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - uses: actions/download-artifact@v4
+        with:
+          name: mine-sentences
+          path: sentences
+          run-id: ${{ env.SENT_RUN }}
+          github-token: ${{ github.token }}
+      - name: Mozkey を取ってくる
+        run: |
+          set -eo pipefail
+          git clone -q https://github.com/koyasi777/mozkey.git mozkey
+          git -C mozkey checkout -q $MOZKEY_COMMIT
+          git -C mozkey submodule update -q --init --recursive
+          cat mozkey/src/.bazelversion 2>/dev/null || true
+      - name: 辞書（daily の組）を作る
+        working-directory: mozkey
+        run: |
+          set -eo pipefail
+          pwsh -NoProfile -File tools/dictionary/prepare_daily_dictionary.ps1 -BashPath /bin/bash 2>&1 | tail -60
+          ls -la src/data/dictionary_koyasi/generated/profiled/ || true
+      - name: 組み立てる（converter_main）
+        run: |
+          set -eo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq clang lld > /dev/null
+          T=$HOME/tools; mkdir -p $T && ln -sf $(command -v ld.lld) $T/ld.lld
+          curl -fsSL -o $T/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-amd64
+          chmod +x $T/bazelisk
+          cd mozkey/src
+          $T/bazelisk build --config oss_linux -c opt \
+            --action_env=PATH=$T:/usr/bin:/bin --host_action_env=PATH=$T:/usr/bin:/bin \
+            --linkopt=-B$T --host_linkopt=-B$T //converter:converter_main > $GITHUB_WORKSPACE/bazel.log 2>&1 \
+            || { grep -B3 -A20 "ERROR\|error:" $GITHUB_WORKSPACE/bazel.log | head -120; exit 1; }
+          ls -la bazel-bin/converter/converter_main
+      - name: 変換
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          # converter_main は辞書（data_manager の .data）を今の場所から読むので、組み立ての付属の置き場で動かす
+          M=$(find -L mozkey/src/bazel-bin/converter/converter_main.runfiles -path '*data_manager/oss/mozc.data' | head -1)
+          echo "data: $M"; ls -la "$M"
+          D=$(dirname $(dirname $(dirname $M)))
+          E=$GITHUB_WORKSPACE/mozkey/src/bazel-bin/converter/converter_main
+          cd $D
+          python3 $GITHUB_WORKSPACE/repo/tools/mozc_plain_convert.py $E \
+            $GITHUB_WORKSPACE/sentences/body.tsv $GITHUB_WORKSPACE/out/conv-mozkey.tsv
+          wc -l $GITHUB_WORKSPACE/out/conv-mozkey.tsv
+      - name: まとめる
+        run: |
+          set -eo pipefail
+          python3 repo/tools/mine_mistakes.py sentences/body.tsv out/conv-mozkey.tsv out/mistakes-mozkey.tsv | tee out/summary.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mozkey-measure
+          path: |
+            out/
+            bazel.log
