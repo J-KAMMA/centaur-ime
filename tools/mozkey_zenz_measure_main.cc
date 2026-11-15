@@ -21,6 +21,8 @@
 #include <utility>
 
 #include "absl/flags/flag.h"
+#include "base/file_util.h"
+#include "base/protobuf/text_format.h"
 #include "base/init_mozc.h"
 #include "base/system_util.h"
 #include "config/config_handler.h"
@@ -112,6 +114,8 @@ class Driver {
 
 int main(int argc, char** argv) {
   mozc::InitMozc(argv[0], &argc, &argv);
+  // 利用者の置き場は作っておく（無いと設定・学習が書けない）
+  (void)mozc::FileUtil::CreateDirectory(absl::GetFlag(FLAGS_profile));
   mozc::SystemUtil::SetUserProfileDirectory(absl::GetFlag(FLAGS_profile));
   auto engine = mozc::Engine::CreateEngine(
       std::make_unique<const mozc::oss::OssDataManager>());
@@ -145,12 +149,16 @@ int main(int argc, char** argv) {
       key.set_key_code(static_cast<unsigned char>(c));
       driver.SendKey(std::move(key), &output);
     }
+    const bool debug = n < 3;  // 最初の 3 文は中身を書き出して確かめる
+    if (debug) std::cerr << "== after keys\n" << mozc::protobuf::Utf8Format(output) << std::endl;
     int zenz_applies = 0;
     driver.FollowCallbacks(&output, absl::GetFlag(FLAGS_max_callbacks), &zenz_applies);
+    if (debug) std::cerr << "== after callbacks\n" << mozc::protobuf::Utf8Format(output) << std::endl;
     mozc::commands::KeyEvent enter;
     enter.set_special_key(mozc::commands::KeyEvent::ENTER);
     driver.SendKey(std::move(enter), &output);
     std::string committed = output.has_result() ? output.result().value() : "";
+    if (debug) std::cerr << "== after enter\n" << mozc::protobuf::Utf8Format(output) << std::endl;
     // Enter may leave a callback (e.g. after commit); follow it so the next
     // sentence starts clean.
     int unused = 0;

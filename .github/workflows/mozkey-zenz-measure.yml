@@ -29,7 +29,7 @@ env:
   MODEL_SHA256: 29c223d4c23327b80fd13ebb5ab2555057a46317997d5da391584ffbef0db673
   SENT_RUN: "42984284534"
   # 送ったときに測る文の数（0 は全部）。まず 100 文で Zenz が使われるかを確かめる
-  DEFAULT_LIMIT: "100"
+  DEFAULT_LIMIT: "10"
 
 jobs:
   measure:
@@ -72,7 +72,9 @@ jobs:
               srcs = ["mozkey_zenz_measure_main.cc"],
               deps = [
                   ":session_handler",
+                  "//base:file_util",
                   "//base:init_mozc",
+                  "//base/protobuf:text_format",
                   "//base:system_util",
                   "//config:config_handler",
                   "//data_manager/oss:oss_data_manager",
@@ -115,6 +117,7 @@ jobs:
           ./llama/build/bin/llama-server -m model.gguf -c 256 -t 4 --cache-ram 0 --host 127.0.0.1 --port 18080 > out/llama-server.log 2>&1 &
           for i in $(seq 1 120); do curl -sf http://127.0.0.1:18080/health > /dev/null && break; sleep 1; done
           curl -sf http://127.0.0.1:18080/health
+          mkdir -p /tmp/mozkey_measure_profile
           python3 repo/tools/mozkey_zenz_bridge.py --log out/bridge.log > out/bridge.out 2>&1 &
           sleep 2
           LIMIT=${{ inputs.limit || env.DEFAULT_LIMIT }}
@@ -125,7 +128,7 @@ jobs:
           M=$(find -L $E.runfiles -path '*data_manager/oss/mozc.data' 2>/dev/null | head -1 || true)
           if [ -n "$M" ]; then D=$(dirname $(dirname $(dirname $M))); else D=$GITHUB_WORKSPACE; fi
           (cd $D && $E --input $GITHUB_WORKSPACE/in.txt --output $GITHUB_WORKSPACE/out/raw.tsv --timeout_msec 1000) 2> out/measure.err
-          tail -5 out/measure.err
+          grep -v "^[EWI]0000" out/measure.err | head -150
           wc -l out/raw.tsv
       - name: まとめる
         run: |
