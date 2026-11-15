@@ -9,6 +9,9 @@
 name: Mozkey Zenz measure
 
 on:
+  push:
+    branches: [work/compare-general]
+    paths: [.github/workflows/mozkey-zenz-measure.yml, tools/mozkey_zenz_bridge.py, tools/mozkey_zenz_measure_main.cc]
   workflow_dispatch:
     inputs:
       limit:
@@ -25,6 +28,8 @@ env:
   MODEL_URL: https://huggingface.co/Miwa-Keita/zenz-v3.2-small-gguf/resolve/c67e03e07d215c869f591b274c1631170d3e11fe/ggml-model-Q5_K_M.gguf
   MODEL_SHA256: 29c223d4c23327b80fd13ebb5ab2555057a46317997d5da391584ffbef0db673
   SENT_RUN: "42984284534"
+  # 送ったときに測る文の数（0 は全部）。まず 100 文で Zenz が使われるかを確かめる
+  DEFAULT_LIMIT: "100"
 
 jobs:
   measure:
@@ -112,7 +117,7 @@ jobs:
           curl -sf http://127.0.0.1:18080/health
           python3 repo/tools/mozkey_zenz_bridge.py --log out/bridge.log > out/bridge.out 2>&1 &
           sleep 2
-          LIMIT=${{ inputs.limit || '0' }}
+          LIMIT=${{ inputs.limit || env.DEFAULT_LIMIT }}
           if [ "$LIMIT" = "0" ]; then cut -f1 sentences/body.tsv > in.txt; else cut -f1 sentences/body.tsv | head -n $LIMIT > in.txt; fi
           wc -l in.txt
           E=$GITHUB_WORKSPACE/mozkey/src/bazel-bin/session/mozkey_zenz_measure_main
