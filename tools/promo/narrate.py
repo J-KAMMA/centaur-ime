@@ -1,19 +1,22 @@
-"""紹介動画の声を VOICEVOX（四国めたん、ノーマル）で作る。
+"""紹介動画の声を Kokoro（Kokoro-82M、声 jf_alpha、Apache-2.0）で作る。
 
-使う条件: VOICEVOX と四国めたんの規約により、動画の中と配布ページに「VOICEVOX:四国めたん」と書く。
-エンジンは GitHub の流れの中で docker で動かす（http://127.0.0.1:50021）。
+ぽるるの動画と同じ声（jf_alpha）。高さはぽるる（1.3 倍）と違い、元のまま。Kokoro の重みは Apache-2.0 で、作った声に
+表記の決まりは無い（VOICEVOX の四国めたんは「VOICEVOX:四国めたん」の表記が要った）。
+手元（C:\\models\\kokoro\\venv）でも GitHub の流れの中でも同じに動く。
 
   python narrate.py --out voice/      voice/line-<番号>.wav と voice/lines.json を書く
 """
 import argparse
 import json
-import urllib.parse
-import urllib.request
 import wave
 from pathlib import Path
 
-SPEAKER = 2  # 四国めたん ノーマル
-CREDIT = "VOICEVOX:四国めたん"
+import numpy as np
+import soundfile as sf
+from kokoro import KPipeline
+
+VOICE = "jf_alpha"
+CREDIT = ""  # 表記は要らない
 
 # (始まり秒, 読む文, 読ませる文)。読ませる文は読み違いを避けるためのかな書き
 LINES = [
@@ -21,42 +24,35 @@ LINES = [
     (6.0, "同じ読みでも、前後の言葉から、合う漢字を選びます。", "同じ読みでも、前後の言葉から、合う漢字を選びます。"),
     (11.3, "英単語は、入力を切り替えずに、そのまま打てます。", "英単語は、入力を切り替えずに、そのまま打てます。"),
     (19.3, "打ち間違いも、文の流れから直します。", "打ち間違いも、文の流れから直します。"),
-    (25.4, "漢字の取り違えは、ほかの IME のおよそ半分です。", "漢字の取り違えは、ほかのアイエムイーの、およそ半分です。"),
-    (30.9, "無料で、変換はすべてパソコンの中で行います。", "無料で、変換はすべてパソコンの中で行います。"),
+    (25.3, "手を止めると、変換の結果が先に出ます。", "手を止めると、変換の結果が先に出ます。"),
+    (31.4, "まるごと正しく変換できた文は、七十七パーセントです。", "まるごと正しく変換できた文は、七十七パーセントです。"),
+    (36.15, "漢字の取り違えは、ほかの IME の半分以下です。", "漢字の取り違えは、ほかのアイエムイーの、半分以下です。"),
+    (40.9, "無料で、変換はすべてパソコンの中で行います。", "無料で、変換はすべてパソコンの中で行います。"),
 ]
-
-
-def post(host, path, params, body=None):
-    url = f"{host}{path}?{urllib.parse.urlencode(params)}"
-    data = json.dumps(body).encode() if body is not None else b""
-    req = urllib.request.Request(url, data=data, method="POST", headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return r.read()
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--host", default="http://127.0.0.1:50021")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--speed", type=float, default=1.1)
+    ap.add_argument("--pitch", type=float, default=1.0, help="声の高さ（ぽるるは 1.3。紹介動画は元の高さ）")
+    ap.add_argument("--tempo", type=float, default=1.15, help="話す速さ（高さは変わらない）")
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
+    pipe = KPipeline(lang_code="j", repo_id="hexgrad/Kokoro-82M")
+    # 高さ: 1/p の速さで話させ、p 倍の標本の速さで書く（速さはそのまま、声だけ p 倍高い）
+    rate = int(24000 * a.pitch)
     meta = []
     for i, (at, shown, spoken) in enumerate(LINES):
-        q = json.loads(post(a.host, "/audio_query", {"text": spoken, "speaker": SPEAKER}))
-        q["speedScale"] = a.speed
-        q["prePhonemeLength"] = 0.05
-        q["postPhonemeLength"] = 0.1
-        wav = post(a.host, "/synthesis", {"speaker": SPEAKER}, q)
+        audio = np.concatenate([np.asarray(x) for _, _, x in pipe(spoken, voice=VOICE, speed=a.tempo / a.pitch)])
         p = out / f"line-{i}.wav"
-        p.write_bytes(wav)
+        sf.write(str(p), audio, rate, subtype="PCM_16")
         with wave.open(str(p)) as w:
             dur = w.getnframes() / w.getframerate()
         meta.append({"at": at, "text": shown, "file": p.name, "seconds": round(dur, 2)})
         print(f"{at:5.1f} 秒から {dur:4.2f} 秒: {shown}")
     # 次の文と重ならないか、終わりを越えないか
-    for m, n in zip(meta, meta[1:] + [{"at": 35.0}]):
+    for m, n in zip(meta, meta[1:] + [{"at": 45.0}]):
         if m["at"] + m["seconds"] > n["at"] - 0.1:
             raise SystemExit(f"声が長すぎる: {m['text']}（{m['seconds']} 秒）")
     (out / "lines.json").write_text(json.dumps({"credit": CREDIT, "lines": meta}, ensure_ascii=False, indent=1),
