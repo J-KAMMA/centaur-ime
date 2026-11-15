@@ -121,8 +121,9 @@ jobs:
           if [ "$LIMIT" = "0" ]; then cut -f1 sentences/body.tsv > in.txt; else head -n $LIMIT sentences/body.tsv | cut -f1 > in.txt; fi
           wc -l in.txt
           E=$GITHUB_WORKSPACE/mozkey/src/bazel-bin/session/mozkey_zenz_measure_main
-          M=$(find -L $E.runfiles -path '*data_manager/oss/mozc.data' | head -1)
-          D=$(dirname $(dirname $(dirname $M)))
+          # 辞書は道具の中に入っている（oss_data_manager）。runfiles に mozc.data があればそこで動かす
+          M=$(find -L $E.runfiles -path '*data_manager/oss/mozc.data' 2>/dev/null | head -1 || true)
+          if [ -n "$M" ]; then D=$(dirname $(dirname $(dirname $M))); else D=$GITHUB_WORKSPACE; fi
           (cd $D && $E --input $GITHUB_WORKSPACE/in.txt --output $GITHUB_WORKSPACE/out/raw.tsv --timeout_msec 1000) 2> out/measure.err
           tail -5 out/measure.err
           wc -l out/raw.tsv
