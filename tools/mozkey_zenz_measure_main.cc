@@ -7,7 +7,7 @@
 // が、手を止めたときと同じ順に進む。callback が出なくなったら Enter で確定し、確定した文を書く。
 // 文ごとに RESET_CONTEXT で前の文の続きにしない。設定は Mozkey の既定（ConfigHandler::GetDefaultConfig、
 // その場の変換と Zenz は入）で、Zenz の 1 回の問い合わせの待ち時間だけ --timeout_msec にする
-// （試験の機械は遅いので、既定の 180 ミリ秒だと間に合わずに Mozc の結果に戻ることがある）。
+// （0 は Mozkey の既定。試験の機械でも Zenz は 50 ミリ秒ほどで答え、既定の 180 ミリ秒に収まる）。
 //
 // 出力: ローマ字<TAB>確定した文<TAB>Zenz を取り込みに行った回数
 
@@ -35,7 +35,7 @@
 ABSL_FLAG(std::string, input, "", "1 行 1 文のローマ字");
 ABSL_FLAG(std::string, output, "", "結果の TSV");
 ABSL_FLAG(std::string, profile, "/tmp/mozkey_measure_profile", "利用者の置き場");
-ABSL_FLAG(int32_t, timeout_msec, 1000, "Zenz の 1 回の問い合わせの待ち時間");
+ABSL_FLAG(int32_t, timeout_msec, 0, "Zenz の 1 回の問い合わせの待ち時間（0 は Mozkey の既定）");
 ABSL_FLAG(int32_t, max_callbacks, 400, "1 文で送り返す callback の上限");
 
 namespace mozc {
@@ -134,7 +134,9 @@ int main(int argc, char** argv) {
   mozc::config::Config config;
   // Mozkey の製品の既定（その場の変換・Zenz・句読点での確定などが入）。GetDefaultConfig は Mozc の既定
   config = mozc::config::ConfigHandler::GetProductDefaultConfig();
-  config.set_zenz_live_correction_timeout_msec(absl::GetFlag(FLAGS_timeout_msec));
+  if (absl::GetFlag(FLAGS_timeout_msec) > 0) {
+    config.set_zenz_live_correction_timeout_msec(absl::GetFlag(FLAGS_timeout_msec));
+  }
   driver.SetConfig(config);
   std::cerr << "live_conversion=" << config.use_live_conversion()
             << " zenz=" << config.use_zenz_live_correction()

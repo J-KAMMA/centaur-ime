@@ -29,7 +29,7 @@ env:
   MODEL_SHA256: 29c223d4c23327b80fd13ebb5ab2555057a46317997d5da391584ffbef0db673
   SENT_RUN: "42984284534"
   # 送ったときに測る文の数（0 は全部）。まず 100 文で Zenz が使われるかを確かめる
-  DEFAULT_LIMIT: "10"
+  DEFAULT_LIMIT: "0"
 
 jobs:
   measure:
@@ -127,7 +127,7 @@ jobs:
           # 辞書は道具の中に入っている（oss_data_manager）。runfiles に mozc.data があればそこで動かす
           M=$(find -L $E.runfiles -path '*data_manager/oss/mozc.data' 2>/dev/null | head -1 || true)
           if [ -n "$M" ]; then D=$(dirname $(dirname $(dirname $M))); else D=$GITHUB_WORKSPACE; fi
-          (cd $D && $E --input $GITHUB_WORKSPACE/in.txt --output $GITHUB_WORKSPACE/out/raw.tsv --timeout_msec 1000) 2> out/measure.err
+          (cd $D && $E --input $GITHUB_WORKSPACE/in.txt --output $GITHUB_WORKSPACE/out/raw.tsv) 2> out/measure.err
           grep -v "^[EWI]0000" out/measure.err | head -150
           wc -l out/raw.tsv
       - name: まとめる
