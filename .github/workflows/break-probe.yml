@@ -24,17 +24,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # 1 回目（run 43766188405）は仕組みを 9 つ止めた。崩れの 106/120 は文全体の AI（MYIME_INTRA_CONTEXT）。
+        # 2 回目: 模型を Mozkey と同じ元の zenz-v3.2-small に替えると崩れが減るか
         variant:
           - "base"
-          - "MYIME_SELECTOR=0"
-          - "MYIME_HOMOPHONE_CUES=0"
-          - "MYIME_AI_RESEGMENT=0"
-          - "MYIME_CONTEXT_WORDS=off"
-          - "MYIME_JOINT_SCORE=off"
-          - "MYIME_TYPO=off"
-          - "MYIME_LOANWORD_KATAKANA=0"
-          - "MYIME_ENGLISH_CONTEXT=0"
-          - "MYIME_INTRA_CONTEXT=0"
+          - "ZENZ_MODEL=base"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,12 +44,18 @@ jobs:
           set -eo pipefail
           W=$GITHUB_WORKSPACE; E=$W/bin/engine
           chmod +x $E/session_handler_main
-          curl -fsSL -o $W/model.gguf \
-            https://github.com/J-KAMMA/compound-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
-          echo "2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff  $W/model.gguf" | sha256sum -c
-          export LD_LIBRARY_PATH="$E${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           V="${{ matrix.variant }}"
-          if [ "$V" != base ]; then export "$V"; fi
+          if [ "$V" = "ZENZ_MODEL=base" ]; then
+            curl -fsSL -o $W/model.gguf \
+              https://huggingface.co/Miwa-Keita/zenz-v3.2-small-gguf/resolve/c67e03e07d215c869f591b274c1631170d3e11fe/ggml-model-Q5_K_M.gguf
+            echo "29c223d4c23327b80fd13ebb5ab2555057a46317997d5da391584ffbef0db673  $W/model.gguf" | sha256sum -c
+          else
+            curl -fsSL -o $W/model.gguf \
+              https://github.com/J-KAMMA/compound-ime/releases/download/model-zenz-ft-v5/zenz-v3.2-small-ft-v5-mix-Q5_K_M.gguf
+            echo "2f9d9d9679dbd3b38ebd48f402369cc1c66f709bfcf83d70d87ca3353e541fff  $W/model.gguf" | sha256sum -c
+          fi
+          export LD_LIBRARY_PATH="$E${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          case "$V" in base|ZENZ_MODEL=*) ;; *) export "$V";; esac
           mkdir -p out
           grep -v '^#' repo/.github/break-probe.tsv | cut -f2 > in.txt
           N=$(echo "$V" | tr '=' '-')
