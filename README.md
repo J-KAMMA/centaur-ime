@@ -12,7 +12,7 @@ kyohaatsui（打ち間違い）           →  今日は暑い
 denwabangouhazerokyuuzero        →  電話番号は090
 ```
 
-https://github.com/user-attachments/assets/bafb62a8-8035-4117-8f43-28fafa2a3885
+https://github.com/user-attachments/assets/986b8249-0725-46e9-8344-e0e68702b003
 
 紹介動画（45 秒）。数字は、Tatoeba の日本語の例文 2,988 文を打って、元の文と同じになった文と、漢字を取り違えた文の割合を数えたものです（2026年11月、1.172。MS-IME は Windows 11 の Microsoft IME）。音声: Kokoro（Kokoro-82M、Apache-2.0）
 
