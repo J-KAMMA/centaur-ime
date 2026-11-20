@@ -3502,6 +3502,9 @@ edit("prediction/dictionary_predictor.cc", """bool IsDebug(const ConversionReque
 import subprocess  # noqa: E402
 subprocess.run([sys.executable, str(REPO / "tools/apply_loanword_katakana.py"), str(src)], check=True)
 
+# 変換キーで入、無変換キーで切（何も打っていないときだけ。data/keymap/ms-ime.tsv、別の script）
+subprocess.run([sys.executable, str(REPO / "tools/apply_henkan_onoff.py"), str(src)], check=True)
+
 # Product identity: CentaurIME (separate script, last).
 subprocess.run([sys.executable, str(REPO / "tools/apply_compound_branding.py"), str(src)], check=True)
 

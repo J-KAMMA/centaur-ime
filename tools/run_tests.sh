@@ -478,6 +478,12 @@ q)
     printf 'SEND_KEY\tON\nSEND_KEYS\t%s\nSHOW_OUTPUT\nSEND_KEY\tSpace\nSEND_KEY\tEnter\nSHOW_OUTPUT\n' "$r" > $W/key.tsv
     echo "$r: $(run_one $W/key.tsv | awk '/^preedit \{/{p=1;s=""} p&&/^    value:/{v=$0; sub(/.*value: "/,"",v); sub(/"$/,"",v); s=s v "|"} p&&/^}/{p=0; printf "preedit=%s ", s} /^result \{/{r=1} r&&/^  value:/{v=$0; sub(/.*value: "/,"",v); sub(/"$/,"",v); print "result=" v; r=0}' || true)"
   done | tee $OUT/mm-keys.txt
+  # 変換キーで入、無変換キーで切（tools/apply_henkan_onoff.py）: 打つ前の無変換で切、切のときの変換で入、
+  # 打っている途中の無変換は切にせずカタカナに替える（今のまま）。違えば落とす
+  printf 'SEND_KEY\tON\nSEND_KEY\tMuhenkan\nSHOW_OUTPUT\nSEND_KEY\tHenkan\nSHOW_OUTPUT\nSEND_KEYS\tka\nSEND_KEY\tMuhenkan\nSHOW_OUTPUT\n' > $W/key.tsv
+  got=$(run_one $W/key.tsv | awk '/^status \{/{s=1} s&&/activated:/{print $2; s=0}' | tr '\n' ' ')
+  echo "henkan-onoff: $got" | tee $OUT/henkan-onoff.txt
+  [ "$got" = "false true true " ] || { echo "変換・無変換キーの入・切が違う（期待: false true true）"; exit 1; }
   ;;
 h)
   # 話し言葉の文（終助詞・縮約・くだけた言い方・疑問・感嘆、300 文ほど）をローマ字で打つ。! と ? は半角で打つ。
