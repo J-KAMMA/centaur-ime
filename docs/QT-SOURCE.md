@@ -1,6 +1,6 @@
 # Qt source code offer (LGPL v3)
 
-CompoundIME (複合IME) uses the Qt toolkit, version 6.9.1, as dynamic libraries:
+Centaur IME uses the Qt toolkit, version 6.9.1, as dynamic libraries:
 
 - `Qt6Core.dll`, `Qt6Gui.dll`, `Qt6Widgets.dll`
 - `platforms\qwindows.dll`
@@ -15,10 +15,10 @@ The Qt libraries were built, unmodified, from:
 |---|---|
 | Archive | `qtbase-everywhere-src-6.9.1.tar.xz` (Qt Base 6.9.1, from the Qt Project, https://download.qt.io/archive/qt/6.9/6.9.1/submodules/) |
 | SHA-256 | `40caedbf83cc9a1959610830563565889878bc95f115868bbf545d1914acf28e` |
-| Build script | `src/build_tools/build_qt.py` of Mozc (the version in the CompoundIME source, see below) |
+| Build script | `src/build_tools/build_qt.py` of Mozc (the version in the Centaur IME source, see below) |
 | Compiler | Microsoft Visual C++ (MSVC 19.51.36257.0), target x64, Windows |
 
-**The same source archive is published next to each release of CompoundIME** (same download page as the installer), so that anyone who has received the installer can get the matching source from the same place. This offer is valid for at least three years after the release of each version, and applies to anyone who has received the binaries.
+**The same source archive is published next to each release of Centaur IME** (same download page as the installer), so that anyone who has received the installer can get the matching source from the same place. This offer is valid for at least three years after the release of each version, and applies to anyone who has received the binaries.
 
 No patches were applied to the Qt source. (Mozc's `build_qt.py` unpacks the archive and runs `configure`; it does not patch it.)
 
@@ -62,14 +62,14 @@ Note: although `-no-freetype -no-harfbuzz` is given (as in Mozc), the resulting 
 
 ## Replacing the Qt libraries
 
-The Qt libraries are used as DLLs. You may build Qt 6.9.1 yourself from the source above (or take a compatible Qt 6.9.x build) and replace the files listed at the top in the installation folder (`Qt6*.dll` and `platforms\qwindows.dll`). CompoundIME's terms do not forbid this, nor reverse engineering for debugging such replacements.
+The Qt libraries are used as DLLs. You may build Qt 6.9.1 yourself from the source above (or take a compatible Qt 6.9.x build) and replace the files listed at the top in the installation folder (`Qt6*.dll` and `platforms\qwindows.dll`). Centaur IME's terms do not forbid this, nor reverse engineering for debugging such replacements.
 
-## Source of the rest of CompoundIME
+## Source of the rest of Centaur IME
 
-CompoundIME is based on Mozc (https://github.com/google/mozc, BSD-3-Clause) and MyIME (https://github.com/unok/myime, MIT). Their licenses do not require the publication of source code; sources are available from those projects.
+Centaur IME is based on Mozc (https://github.com/google/mozc, BSD-3-Clause) and MyIME (https://github.com/unok/myime, MIT). Their licenses do not require the publication of source code; sources are available from those projects.
 
 ## Contact
 
-For a copy of the Qt source on physical media or for any question about this offer: please open an issue at https://github.com/J-KAMMA/compound-ime/issues.
+For a copy of the Qt source on physical media or for any question about this offer: please open an issue at https://github.com/J-KAMMA/centaur-ime/issues.
 
-Qt is a trademark of The Qt Company Ltd. CompoundIME is not affiliated with or endorsed by The Qt Company.
+Qt is a trademark of The Qt Company Ltd. Centaur IME is not affiliated with or endorsed by The Qt Company.

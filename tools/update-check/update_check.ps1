@@ -1,13 +1,13 @@
-﻿# 複合IME 新版のお知らせ（ウィンドウズ用）
+﻿# Centaur IME 新版のお知らせ（ウィンドウズ用）
 # PowerShell 5.1 で動く。失敗したときは黙って終わる。
 # 外部に送るのは GitHub の releases API への GET だけ。
 
 $ErrorActionPreference = 'Stop'
 
-$UserAgent = 'CompoundIME-update-check'
-$ApiUrl    = 'https://api.github.com/repos/J-KAMMA/compound-ime/releases?per_page=5'
-$ExePath   = 'C:\Program Files (x86)\CompoundIME\mozc_server.exe'
-$StateDir  = Join-Path $env:USERPROFILE 'AppData\LocalLow\CompoundIME'
+$UserAgent = 'CentaurIME-update-check'
+$ApiUrl    = 'https://api.github.com/repos/J-KAMMA/centaur-ime/releases?per_page=5'
+$ExePath   = 'C:\Program Files (x86)\CentaurIME\mozc_server.exe'
+$StateDir  = Join-Path $env:USERPROFILE 'AppData\LocalLow\CentaurIME'
 $StateFile = Join-Path $StateDir 'update_check.txt'
 # 通知の押下で起動する PowerShell のアプリID（一般的な方法）
 $ToastAppId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
@@ -63,7 +63,7 @@ function Show-Toast([string]$text, [string]$url) {
 function Main {
     # 止める設定
     try {
-        $flag = (Get-ItemProperty -Path 'HKCU:\Software\CompoundIME' -Name 'UpdateCheck' -ErrorAction Stop).UpdateCheck
+        $flag = (Get-ItemProperty -Path 'HKCU:\Software\CentaurIME' -Name 'UpdateCheck' -ErrorAction Stop).UpdateCheck
         if ($null -ne $flag -and [int]$flag -eq 0) { return }
     } catch { }
 
@@ -100,8 +100,8 @@ function Main {
     # 同じ版は1回だけ
     if ($state.notified -eq $bestTag) { return }
 
-    $url = 'https://github.com/J-KAMMA/compound-ime/releases/tag/' + $bestTag
-    $msg = '複合IMEの新しい版（' + $bestVer.ToString() + '）があります。押すと配布ページを開きます。'
+    $url = 'https://github.com/J-KAMMA/centaur-ime/releases/tag/' + $bestTag
+    $msg = 'Centaur IME の新しい版（' + $bestVer.ToString() + '）があります。押すと配布ページを開きます。'
     if (Show-Toast $msg $url) {
         Write-State $now $bestTag
     }

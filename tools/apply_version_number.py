@@ -2,7 +2,7 @@
 
   python tools/apply_version_number.py <mozc/src> 3.34.6239.N
 ウィンドウズ版は windows.yml が同じ事を直接している。ここは同じ考えをマック・リナックス用にしたもの。
-設定の画面や「このソフトについて」に出す版の名前（コンパウンドIME 1.N）は、この N から作る。
+設定の画面や「このソフトについて」に出す版の名前（CentaurIME 1.N）は、この N から作る。
 
 - version.bzl の BUILD_OSS と REVISION を入力の番号にする。
 - 開発版の枝は REVISION が 100 に決まってしまうので、version.bzl の値を使うようにする。

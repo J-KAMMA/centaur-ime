@@ -29,7 +29,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-UA = "compound-ime-dictionary/1.0 (https://github.com/J-KAMMA/compound-ime)"
+UA = "centaur-ime-dictionary/1.0 (https://github.com/J-KAMMA/centaur-ime)"
 ENDPOINT = "https://query.wikidata.org/sparql"
 
 # (file name, Wikidata class, minimum sitelinks, include subclasses)

@@ -1,4 +1,4 @@
-"""ウィンドウズの Microsoft IME の変換（IFELanguage、MSIME.Japan）で試験の文を変換し、コンパウンドIME と比べる。
+"""ウィンドウズの Microsoft IME の変換（IFELanguage、MSIME.Japan）で試験の文を変換し、CentaurIME と比べる。
 
 キーを送らずに変換の中身を直接呼ぶので、画面やキーボードは使わない。ウィンドウズでだけ動く。
   py tools/msime_compare.py tests/conversion/ja400.json --out ms-ja400.tsv [--compound results/ja400.tsv] [--limit 10]
@@ -109,7 +109,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("tests")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--compound", help="同じ試験のコンパウンドIME の結果（ローマ字<TAB>…<TAB>結果）")
+    ap.add_argument("--compound", help="同じ試験のCentaurIME の結果（ローマ字<TAB>…<TAB>結果）")
     ap.add_argument("--limit", type=int, default=0)
     a = ap.parse_args()
 
@@ -147,7 +147,7 @@ def main():
             continue
         line = f"{name} {len(its)} 文: Microsoft IME {sum(ok(it, ms[it['romaji']]) for it in its)}"
         if compound:
-            line += f"、コンパウンドIME {sum(ok(it, compound.get(it['romaji'], '')) for it in its)}"
+            line += f"、CentaurIME {sum(ok(it, compound.get(it['romaji'], '')) for it in its)}"
         print(line)
     unread = sum(1 for k in kana if not k)
     if unread:

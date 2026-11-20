@@ -32,7 +32,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-UA = "compound-ime-dictionary/1.0 (https://github.com/J-KAMMA/compound-ime)"
+UA = "centaur-ime-dictionary/1.0 (https://github.com/J-KAMMA/centaur-ime)"
 URLS = [
     ("https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip", "utf-8"),
     ("https://www.post.japanpost.jp/zipcode/dl/kogaki/zip/ken_all.zip", "cp932"),

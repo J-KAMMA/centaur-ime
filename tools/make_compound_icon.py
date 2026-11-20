@@ -1,4 +1,4 @@
-"""Make the CompoundIME icons from the centaur archer drawing (tools/data/compound-icon.png).
+"""Make the CentaurIME icons from the centaur archer drawing (tools/data/compound-icon.png).
 
   python tools/make_compound_icon.py <out-dir>
 Writes

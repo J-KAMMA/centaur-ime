@@ -617,12 +617,12 @@ def llama_simple_answer(binary, model_path, prompt: str, n_predict: int = 48) ->
 
 MODEL_CARD = """# {name}
 
-コンパウンドIME の試験用に、zenz-v3.2-small を追加学習したかな漢字変換の模型です（試作品）。
+CentaurIME の試験用に、zenz-v3.2-small を追加学習したかな漢字変換の模型です（試作品）。
 
 - 元の模型: Miwa-Keita/zenz-v3.2-small-gguf（{base_url}）。zenz は ku-nlp/gpt2-small-japanese-char
   （CC BY-SA 4.0）をもとに Miwa Keita さん（azooKey の作者）が学習した模型です。
 - 学習の材料: ウィキペディア日本語版（CC BY-SA。記事の著者に帰属。データセット wikimedia/wikipedia
-  20231101.ja）、コンパウンドIME のリポジトリの一覧（MIT）。読みは SudachiPy・SudachiDict（Apache-2.0）で付けました。
+  20231101.ja）、CentaurIME のリポジトリの一覧（MIT）。読みは SudachiPy・SudachiDict（Apache-2.0）で付けました。
   試験の文（tests/conversion/）は学習に入れていません。詳しくは manifest.json。
 - 利用条件: CC BY-SA 4.0（https://creativecommons.org/licenses/by-sa/4.0/deed.ja）。配るときは、
   この説明（出典の表示）を付け、同じ条件で配ってください。元の模型の配布ページは Apache-2.0 と表示していますが、

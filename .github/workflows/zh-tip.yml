@@ -1,0 +1,196 @@
+name: Chinese TIP
+
+# Centaur IME Chinese（ウィンドウズの TSF の部品）の土台: Rime（librime 1.17.0、BSD-3-Clause）のウィンドウズ版と、
+# 拼音の辞書（rime-luna-pinyin・rime-essay・rime-prelude、LGPL-3.0）を、版と SHA-256 を固定して取り、
+# 辞書を組み立て済み（build）にして、ウィンドウズの上で拼音を変換できるかを確かめる。
+
+on:
+  workflow_dispatch:
+    inputs:
+      dict:
+        description: 土台の辞書（luna = rime-luna-pinyin、wanxiang = 万象拼音＋語法の模型）
+        default: wanxiang
+  push:
+    branches: [work/zh-tip]
+    paths: ['models/zh/**', 'native/centaur_core/**', 'native/centaur_tip/**', 'native/centaur_tip_zh/**', 'tools/zh_ime/**', 'tools/models/**',
+            '.github/workflows/zh-tip.yml']
+
+permissions:
+  contents: read
+
+env:
+  PYTHONIOENCODING: utf-8
+  DICT: ${{ inputs.dict || 'wanxiang' }}
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rime と辞書を取る
+        shell: pwsh
+        run: |
+          $base = 'https://github.com/rime/librime/releases/download/1.17.0'
+          curl.exe -fsSL --retry 3 -o rime64.7z "$base/rime-33e7814-Windows-msvc-x64.7z"
+          curl.exe -fsSL --retry 3 -o rime32.7z "$base/rime-33e7814-Windows-msvc-x86.7z"
+          if ((Get-FileHash rime64.7z -Algorithm SHA256).Hash -ne '7478C7CAA4FF6B37DE86DABA1F7CE4A994A4F5BA24872A820FB2B3A9B01FED15') { throw 'rime64 が違う' }
+          if ((Get-FileHash rime32.7z -Algorithm SHA256).Hash -ne 'AF235C26C06152CE09CEB8FE9D9AB9FBA7AB43CE30AA952B40174D806F5CC3D9') { throw 'rime32 が違う' }
+          7z x -y -orime64 rime64.7z | Out-Null
+          7z x -y -orime32 rime32.7z | Out-Null
+          # 簡体字に直す OpenCC の辞書は依存物の側にあるかを見る
+          curl.exe -fsSL --retry 3 -o deps64.7z "$base/rime-deps-33e7814-Windows-msvc-x64.7z"
+          if ((Get-FileHash deps64.7z -Algorithm SHA256).Hash -ne '9EF5608D8A54FF52BBAD7A9B4128DE42B232F8E3DD1F5FD3BFF42A0B1BACD7E8') { throw 'deps64 が違う' }
+          7z x -y -odeps64 deps64.7z | Out-Null
+          Get-ChildItem -Recurse deps64 -Include *.json, *.ocd2, *.txt | Select-Object -First 60 | Format-Table FullName, Length
+          Get-ChildItem -Recurse rime64 | Select-Object -First 80 | Format-Table FullName, Length
+          New-Item -ItemType Directory -Force data | Out-Null
+          foreach ($r in @(@('rime-prelude', '082425ea0684bca36474415d4a0e8db9b016487e'),
+                           @('rime-essay', '054920de4f54c9e5994276a96a4fc2a35cb51aa3'),
+                           @('rime-luna-pinyin', '56b934b099dfbeab842320f13aa8b461a6ab3e42'))) {
+            git clone -q "https://github.com/rime/$($r[0])" "src-$($r[0])"
+            git -C "src-$($r[0])" checkout -q $r[1]
+            Copy-Item "src-$($r[0])/*.yaml", "src-$($r[0])/*.txt" data/ -ErrorAction SilentlyContinue
+            Copy-Item "src-$($r[0])/LICENSE*" "data/LICENSE-$($r[0]).txt" -ErrorAction SilentlyContinue
+          }
+          if ($env:DICT -eq 'wanxiang') {
+            # 万象拼音（CC BY 4.0）と語法の模型（RIME-LMDG、CC BY 4.0）。luna の辞書は使わない
+            Remove-Item data -Recurse -Force
+            git clone -q https://github.com/amzxyz/rime_wanxiang data
+            git -C data checkout -q 880ac18dd08ecc1c64f59c35aa5b8920593c7496
+            Remove-Item data/.git -Recurse -Force
+            # 足りない共通の設定だけ足す（万象のものは上書きしない）
+            Get-ChildItem src-rime-prelude/*.yaml | Where-Object { -not (Test-Path (Join-Path data $_.Name)) } | Copy-Item -Destination data/
+            curl.exe -fsSL --retry 3 -o data/wanxiang-lts-zh-hans.gram https://github.com/amzxyz/RIME-LMDG/releases/download/LTS/wanxiang-lts-zh-hans.gram
+            if ((Get-FileHash data/wanxiang-lts-zh-hans.gram -Algorithm SHA256).Hash -ne '769854C83F6C914A05A1E1ABB67C31C00F1AE622A41878E05957BCDEE3DBDA9A') { throw 'gram が違う' }
+            "patch:`n  schema_list:`n    - schema: wanxiang`n  menu/page_size: 9`n" | Set-Content data/centaur-default.custom.yaml -Encoding utf8NoBOM
+          }
+          Get-ChildItem data | Format-Table Name, Length
+      - name: ウィンドウズ版の Rime に入っている部品（万象の語法の模型は octagram、追加機能は lua が要る）
+        shell: pwsh
+        run: |
+          $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
+          $text = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($dll))
+          foreach ($w in 'octagram', 'grammar', 'lua_translator', 'lua_processor', 'lua_filter', 'predictor', 'charcode') {
+            Write-Output ("{0}: {1}" -f $w, $text.Contains($w))
+          }
+          Get-ChildItem -Recurse rime64, deps64 -Include *.dll | Format-Table FullName, Length
+      - name: 辞書を組み立て済みにして、拼音を変換してみる
+        shell: pwsh
+        run: |
+          $bin = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).DirectoryName
+          $env:PATH = "$bin;$env:PATH"  # rime_deployer.exe（bin）が rime.dll（lib）を見つけられるように
+          $oc = Get-ChildItem -Recurse deps64 -Filter t2s.json | Select-Object -First 1
+          if ($oc) { New-Item -ItemType Directory -Force data/opencc | Out-Null; Copy-Item "$($oc.DirectoryName)/*" data/opencc/ }
+          Write-Output "rime.dll: $bin"
+          Get-ChildItem $bin | Format-Table Name, Length
+          $dep = Get-ChildItem -Recurse rime64 -Filter rime_deployer.exe | Select-Object -First 1
+          $console = Get-ChildItem -Recurse rime64 -Filter rime_api_console.exe | Select-Object -First 1
+          Write-Output "deployer: $($dep.FullName) console: $($console.FullName)"
+          # 使う方式を簡体字の全拼だけにする
+          if ($env:DICT -eq 'wanxiang') {
+            Copy-Item data/centaur-default.custom.yaml data/default.custom.yaml
+          } else {
+            "patch:`n  schema_list:`n    - schema: luna_pinyin_simp`n  menu/page_size: 9`n" | Set-Content data/default.custom.yaml -Encoding utf8NoBOM
+          }
+          New-Item -ItemType Directory -Force user | Out-Null
+          Copy-Item data/default.custom.yaml user/
+          & $dep.FullName --build user data (Join-Path (Resolve-Path data) 'build')
+          Write-Output "deployer exit $LASTEXITCODE"
+          Get-ChildItem -Recurse data/build, user -ErrorAction SilentlyContinue | Format-Table FullName, Length
+      - name: 組み立て（64 ビットと 32 ビット）
+        shell: pwsh
+        run: |
+          $inc = (Get-ChildItem -Recurse rime64 -Filter rime_api.h | Select-Object -First 1).DirectoryName
+          cmake -S native/centaur_tip_zh -B build64 -A x64 "-DRIME_INCLUDE=$inc"
+          cmake --build build64 --config Release
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          cmake -S native/centaur_tip_zh -B build32 -A Win32 "-DRIME_INCLUDE=$inc"
+          cmake --build build32 --config Release
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # rime.dll が頼るほかの DLL（ウィンドウズに無いものがあれば一式に入れる必要がある）
+          $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
+          try {
+            $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+            $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe | Where-Object FullName -like '*Hostx64\x64*' | Select-Object -First 1
+            & $dumpbin.FullName /dependents $dll | Select-String '\.dll'
+          } catch { Write-Output "dumpbin: $_" }
+      - name: 拼音を打ってみる（窓なし）
+        shell: pwsh
+        run: |
+          $dll = (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName
+          ./build64/Release/zh_probe.exe $dll (Resolve-Path data).Path (Join-Path $env:RUNNER_TEMP 'rime-user-probe')
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: 英単語まじりの表と、Python の決まりと同じ答えか
+        shell: pwsh
+        run: |
+          python -m pip install -q pypinyin==0.53.0 'opencc>=1.1,<2'
+          curl.exe -fsSL --retry 3 -o cmn_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/cmn/cmn_sentences.tsv.bz2
+          curl.exe -fsSL --retry 3 -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          Get-FileHash cmn_sentences.tsv.bz2, eng_sentences.tsv.bz2 -Algorithm SHA256 | Format-Table Hash, Path
+          python tools/zh_ime/export_mixed.py --tatoeba cmn_sentences.tsv.bz2 --eng eng_sentences.tsv.bz2 --out data/zh-mixed.tsv --check zh-mixed-check.tsv
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # ブランド名の書き方: Wikidata の表のあとに手で作った表を足す（後の行が勝つので、手の表が優先）
+          Get-Content tools/data/brand-casing-wikidata.tsv, tools/data/brand-casing.tsv -Encoding utf8 | Set-Content data/casing.tsv -Encoding utf8NoBOM
+          ./build64/Release/zh_mixed_cli.exe data/zh-mixed.tsv zh-mixed-check.tsv
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: 字の模型の C++ の計算が Python と同じ答えか（でたらめな重みで、計算の形だけを確かめる）
+        shell: pwsh
+        run: |
+          python -m pip install -q torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          python tools/models/export_tiny.py --random --out lm-random.bin --check lm-random-check.tsv --tatoeba cmn_sentences.tsv.bz2
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          ./build64/Release/tiny_lm_cli.exe lm-random.bin lm-random-check.tsv
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: 試用の一式
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg/x64, pkg/x86 | Out-Null
+          Copy-Item build64/Release/centaur_tip_zh.dll pkg/x64/
+          Copy-Item build32/Release/centaur_tip_zh.dll pkg/x86/
+          Copy-Item (Get-ChildItem -Recurse rime64 -Filter rime.dll | Select-Object -First 1).FullName pkg/x64/
+          Copy-Item (Get-ChildItem -Recurse rime32 -Filter rime.dll | Select-Object -First 1).FullName pkg/x86/
+          Copy-Item data pkg/ -Recurse
+          # AI の模型（models/zh）。読み込めて Python と同じ答えになることは下の段で確かめる
+          if ((Get-FileHash models/zh/zh-lm.bin -Algorithm SHA256).Hash -ne '9B07A33178762A501AF074C56CA2363B100B46014D2EB1419DE7BB66586333FF') { throw 'zh-lm.bin が違う' }
+          # 万象拼音＋語法の模型の上では、この模型は答えを良くしない（dev で重み 1e9 = Rime だけが一番）ので入れない
+          if ($env:DICT -ne 'wanxiang') { Copy-Item models/zh/zh-lm.bin, models/zh/zh-lm-beta.txt, models/zh/README.txt pkg/data/ }
+          if ($env:DICT -ne 'wanxiang') { Rename-Item pkg/data/README.txt README-zh-lm.txt }
+          Remove-Item pkg/data/default.custom.yaml -ErrorAction SilentlyContinue  # 利用者の置き場に作る
+          Copy-Item native/centaur_tip_zh/package/* pkg/
+          Get-ChildItem -Recurse pkg | Measure-Object Length -Sum | Format-Table Count, Sum
+      - name: 登録・取り消しと、実際に打つ試験（自分の窓に本物のキーを送り、出た文字を期待した文字と比べる）
+        # 言語の一覧の命令（Get-WinUserLanguageList）は PowerShell 7 では動かないので、ウィンドウズ付属の PowerShell で
+        shell: powershell
+        run: |
+          # 入れたときと同じ並び（DLL の隣に x64\rime.dll と data）
+          New-Item -ItemType Directory -Force stage\x64 | Out-Null
+          Copy-Item pkg\x64\centaur_tip_zh.dll stage\
+          Copy-Item pkg\x64\rime.dll stage\x64\
+          Copy-Item pkg\data stage\ -Recurse
+          $dll = (Resolve-Path stage\centaur_tip_zh.dll).Path
+          .\build64\Release\tip_check_zh.exe register $dll
+          if ($LASTEXITCODE -ne 0) { throw 'register failed' }
+          .\build64\Release\tip_check_zh.exe present
+          if ($LASTEXITCODE -ne 0) { throw 'not present' }
+          $l = Get-WinUserLanguageList
+          $l.Add('zh-CN')
+          $zh = $l | Where-Object LanguageTag -eq 'zh-Hans-CN'
+          if (-not $zh) { $zh = $l | Where-Object LanguageTag -like 'zh*' | Select-Object -First 1 }
+          $zh.InputMethodTips.Clear()
+          $zh.InputMethodTips.Add('0804:{5412FEA3-DEE9-4701-9963-05908DFACDCE}{0C0FE2DD-9BCE-4D62-B6F8-77EB885D4387}')
+          Set-WinUserLanguageList $l -Force
+          (Get-WinUserLanguageList | Where-Object LanguageTag -like 'zh*').InputMethodTips
+          .\build64\Release\zh_e2e.exe | Tee-Object e2e.txt
+          $code = $LASTEXITCODE
+          Write-Output "zh_e2e exit $code"
+          .\build64\Release\tip_check_zh.exe unregister $dll
+          .\build64\Release\tip_check_zh.exe absent
+          if ($LASTEXITCODE -ne 0) { throw 'still registered' }
+          if ($code -ne 0) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: centaur-ime-chinese
+          path: pkg/
+          retention-days: 14

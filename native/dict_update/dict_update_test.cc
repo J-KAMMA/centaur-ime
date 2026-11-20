@@ -506,30 +506,30 @@ static void TestSettingsAndConfig(const fs::path& fx) {
   setenv("XDG_DATA_HOME", "/tmp/xdg-data-for-test", 1);
   CHECK(ReadSettings().enabled);
   BakedValues baked;
-  baked.manifest_url = "https://github.com/J-KAMMA/compound-ime/releases/download/dict-latest/manifest.txt";
-  baked.url_prefix = "https://github.com/J-KAMMA/compound-ime/releases/download/";
+  baked.manifest_url = "https://github.com/J-KAMMA/centaur-ime/releases/download/dict-latest/manifest.txt";
+  baked.url_prefix = "https://github.com/J-KAMMA/centaur-ime/releases/download/";
   baked.public_key_hex = "UNSET";
   baked.pos_table_sha256 = std::string(64, 'b');
   Config c;
   CHECK(MakeConfig(baked, &c));
   CHECK_EQ(c.manifest_url, baked.manifest_url);
-  CHECK_EQ(c.root, std::string("/tmp/xdg-data-for-test/compound-ime/dict"));
+  CHECK_EQ(c.root, std::string("/tmp/xdg-data-for-test/centaur-ime/dict"));
   CHECK(c.public_key.empty());  // 公開鍵が入っていなければ更新しない
   CHECK(!c.allow_test_transport);
   baked.public_key_hex = std::string(64, 'c');
   CHECK(MakeConfig(baked, &c));
   CHECK_EQ(c.public_key.size(), size_t{32});
   // 設定ファイル（Linux・マック）で止める
-  fs::create_directories("/tmp/dict-update-settings-test/compound-ime");
+  fs::create_directories("/tmp/dict-update-settings-test/centaur-ime");
   setenv("XDG_CONFIG_HOME", "/tmp/dict-update-settings-test", 1);
   {
-    std::ofstream("/tmp/dict-update-settings-test/compound-ime/settings") << "ZenzaiEnabled=1\nDictUpdate=0\nDictUpdateIntervalHours=48\n";
+    std::ofstream("/tmp/dict-update-settings-test/centaur-ime/settings") << "ZenzaiEnabled=1\nDictUpdate=0\nDictUpdateIntervalHours=48\n";
   }
 #ifndef _WIN32
   CHECK(!ReadSettings().enabled);
   CHECK_EQ(ReadSettings().interval_hours, 48);
   {
-    std::ofstream("/tmp/dict-update-settings-test/compound-ime/settings") << "DictUpdate=1\n";
+    std::ofstream("/tmp/dict-update-settings-test/centaur-ime/settings") << "DictUpdate=1\n";
   }
   CHECK(ReadSettings().enabled);
 #endif

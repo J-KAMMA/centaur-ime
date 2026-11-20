@@ -1,0 +1,75 @@
+name: English TIP
+
+# Centaur IME English（ウィンドウズの TSF の部品）を組み立て、入力方式として登録・取り消しできるかを確かめ、
+# 試用の一式（64 ビットと 32 ビットの DLL、組み立て済みの語の表、入れる・外す台本）を成果物に残す。
+# 語の表は Tatoeba の英語の文（CC BY 2.0 FR、一部は CC0。表示: Tatoeba の投稿者）。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/en-measure]
+    paths: ['native/**', 'tools/en_ime/**', '.github/workflows/en-tip.yml']
+
+permissions:
+  contents: read
+
+env:
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 組み立て（64 ビットと 32 ビット）
+        shell: pwsh
+        run: |
+          cmake -S native/centaur_tip -B build64 -A x64
+          cmake --build build64 --config Release
+          cmake -S native/centaur_tip -B build32 -A Win32
+          cmake --build build32 --config Release
+      - name: 今の語の切り出しの試験
+        shell: pwsh
+        run: |
+          ./build64/Release/parse_test.exe
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: 語の表（Tatoeba は毎日書き出し直されるので SHA-256 を記録に残す）
+        shell: pwsh
+        run: |
+          curl.exe -fsSL --retry 3 -o eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
+          (Get-FileHash eng_sentences.tsv.bz2 -Algorithm SHA256).Hash
+          python tools/en_ime/export_table.py --tatoeba eng_sentences.tsv.bz2 --out table.tsv
+          ./build64/Release/centaur_core_cli.exe --save table.tsv table.bin
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-Item table.tsv, table.bin | Format-Table Name, Length
+      - name: 入力方式として登録・取り消しできるか（この機械の中だけ）
+        shell: pwsh
+        run: |
+          $dll = (Resolve-Path build64/Release/centaur_tip_en.dll).Path
+          ./build64/Release/tip_check.exe register $dll
+          if ($LASTEXITCODE -ne 0) { throw '登録に失敗' }
+          ./build64/Release/tip_check.exe present
+          if ($LASTEXITCODE -ne 0) { throw '登録したのに見つからない' }
+          ./build64/Release/tip_check.exe unregister $dll
+          ./build64/Release/tip_check.exe absent
+          if ($LASTEXITCODE -ne 0) { throw '取り消したのに残っている' }
+      - name: 試用の一式
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg/x64, pkg/x86 | Out-Null
+          Copy-Item build64/Release/centaur_tip_en.dll pkg/x64/
+          Copy-Item build32/Release/centaur_tip_en.dll pkg/x86/
+          Copy-Item table.bin, native/centaur_tip/package/* pkg/
+          # ブランド名の書き方: Wikidata の表（5,500 語）のあとに手で作った表を足す（後の行が勝つので、手の表が優先）
+          Get-Content tools/data/brand-casing-wikidata.tsv, tools/data/brand-casing.tsv -Encoding utf8 | Set-Content pkg/casing.tsv -Encoding utf8NoBOM
+          (Get-Content pkg/casing.tsv).Count
+          Get-ChildItem -Recurse pkg | Format-Table FullName, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: centaur-ime-english
+          path: pkg/
+          retention-days: 14

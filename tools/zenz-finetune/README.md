@@ -1,6 +1,6 @@
 # zenz の追加学習（試作）
 
-コンパウンドIME が変換に使う小さな人工知能 **zenz-v3.2-small** に、文の意味を見て選ぶ練習を
+Centaur IME が変換に使う小さな人工知能 **zenz-v3.2-small** に、文の意味を見て選ぶ練習を
 追加でさせ、試験用の新しい模型（GGUF ファイル）を作るための道具です。Google Colab で動かします。
 
 ねらいは、今の変換で残っている次のような間違いです。
@@ -26,7 +26,7 @@
 1. この3つのファイルが GitHub の `main` に入っていることを確かめます（まだなら、Google ドライブに
    `zenz-finetune/kit` というフォルダを作り、`build_dataset.py` と `zenz_tune.py` を入れておきます）。
 2. `finetune.ipynb` を Colab で開きます（GitHub の画面から「Open in Colab」、または Colab の
-   「ファイル」→「ノートブックを開く」→「GitHub」で `J-KAMMA/compound-ime` を選ぶ）。
+   「ファイル」→「ノートブックを開く」→「GitHub」で `J-KAMMA/centaur-ime` を選ぶ）。
 3. メニューの「ランタイム」→「ランタイムのタイプを変更」で **L4 GPU** を選び、「保存」を押します。
 4. セルの左の ▶ を、①から順に1つずつ押します。②で Google ドライブへの接続の許可を求められたら、
    自分のアカウントを選んで許可します。③で時間とコンピューティング ユニットの見積りが出ます。
@@ -73,7 +73,7 @@ Google ドライブの `マイドライブ/zenz-finetune/v1/`（`v1` は①の `
 
 ### zenz への問いの形
 
-コンパウンドIME（中で使う AzooKeyKanaKanjiConverter）は、zenz-v3.2 に次の形で問い合わせます。
+Centaur IME（中で使う AzooKeyKanaKanjiConverter）は、zenz-v3.2 に次の形で問い合わせます。
 練習問題も同じ形で作ります。
 
 ```
@@ -81,7 +81,7 @@ Google ドライブの `マイドライブ/zenz-finetune/v1/`（`v1` は①の `
 ```
 
 - U+EE00 は読みの始まり、U+EE01 は答えの始まり、U+EE02 は左の文脈、U+EE07 は右の文脈（v3.2 から）。
-  U+EE03〜EE06 はプロフィール・話題・文体・好み（v3 から。コンパウンドIME は使っていない）。
+  U+EE03〜EE06 はプロフィール・話題・文体・好み（v3 から。Centaur IME は使っていない）。
   根拠: AzooKeyKanaKanjiConverter の `Docs/zenzai.md` と
   `Sources/KanaKanjiConverterModule/ConversionAlgorithms/Zenzai/Zenz/ZenzPromptBuilder.swift`
   （MyIME a8486ec に同梱の版も同じ）。
@@ -107,7 +107,7 @@ zenz-v3.2-small は GGUF（量子化済み）でしか配られていません�
 
 ### GGUF にする道具
 
-コンパウンドIME が動かすときと同じ llama.cpp（fkunn1326/llama.cpp、`10131b23ee0dbd9d03dfc618cec9fe3402919277`）の
+Centaur IME が動かすときと同じ llama.cpp（fkunn1326/llama.cpp、`10131b23ee0dbd9d03dfc618cec9fe3402919277`）の
 `convert_hf_to_gguf.py` で GGUF にし、`llama-quantize` で Q5_K_M にします。この版の変換スクリプトは
 zenz の分かち方（`gpt2-small-japanese-char`）を知っていて、手元の小さな模型で、元の v3.2 と同じ語彙の
 設定ができること、GGUF から戻した重みが元と完全に同じになることを確かめました。⑫で、元の GGUF との
@@ -252,7 +252,7 @@ CC BY-SA 4.0 なので、表示が食い違っています。安全な側に倒�
    ⑬が作る `MODEL_CARD.md` に書いてあるので、模型と一緒に置きます。
 2. 変更したことを示す（追加学習したこと。MODEL_CARD.md に書いてあります）。
 3. 同じ CC BY-SA 4.0 で配り、それ以上の制限を付けない。
-4. コンパウンドIME の `credits_en.html`（第三者の表示）にもこの模型の表示を足す。
+4. Centaur IME の `credits_en.html`（第三者の表示）にもこの模型の表示を足す。
 
 なお、Apache-2.0 の表示が正しい（作者が意図した）のかを、作者に確かめておくと安心です。
 

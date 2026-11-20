@@ -1359,6 +1359,8 @@ jupyternotebook	Jupyter Notebook
 ipython	IPython
 colab	Colab
 googlecolab	Google Colab
+colabpro	Colab Pro
+colabenterprise	Colab Enterprise
 kaggle	Kaggle
 anacondanavigator	Anaconda Navigator
 spyder	Spyder

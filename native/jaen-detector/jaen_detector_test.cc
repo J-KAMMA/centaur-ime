@@ -751,6 +751,16 @@ int main() {
     for (const char* letter : {"cwomotto", "bgaii", "ynoatai", "kokohaqdeii", "fnikaeru", "pkarahajimeru"}) {
       Expect(jaen::UnreadTypoEdits(letter, Parse, jaen::KanaModel({})).empty(), letter);
     }
+    {
+      // Mozc waits on "xw" (ゎ) and leaves it unread before "o": the x is the letter before を.
+      const auto mozc_like = [](std::string_view raw) {
+        if (!raw.starts_with("xw")) return Parse(raw);
+        std::vector<Chunk> chunks = {{"xw", "", "xw"}};
+        for (Chunk& c : Parse(raw.substr(2))) chunks.push_back(std::move(c));
+        return chunks;
+      };
+      Expect(jaen::UnreadTypoEdits("xwomotomeru", mozc_like, jaen::KanaModel({})).empty(), "xwomotomeru");
+    }
     Expect(jaen::DropLoneLetters("道bの端") == "道の端" && jaen::DropLoneLetters("自己の損f害") == "自己の損害" &&
                jaen::DropLoneLetters("cをもっと") == "をもっと" && jaen::DropLoneLetters("PCを買う") == "PCを買う" &&
                jaen::DropLoneLetters("pcを買う") == "pcを買う" && jaen::DropLoneLetters("寝るz") == "寝るz",
