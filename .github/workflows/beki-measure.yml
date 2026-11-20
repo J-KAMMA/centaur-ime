@@ -23,8 +23,8 @@ env:
   BEKI_URL: https://nyk2.sakura.ne.jp/download_a.php?file=files/BekiIME-0.61.0.805-setup.exe
   BEKI_SHA256: 1714D35523C26FB5D4EA3BA05E7CC05568757D8DADA6722F3CAA0DA65C6C1510
   BEKI_TIP: "0411:{2F677219-B03B-4F12-975D-1B74EFA24FB5}{42CF9977-9B77-45D0-BD23-04C3A688F6B7}"
-  # 送ったときに測る文の数（0 は全部）。まず 50 文でキーが届くかを確かめる
-  DEFAULT_LIMIT: "20"
+  # 送ったときに測る文の数（0 は全部）。20 文の試し（run 44662142548）で変換できると確かめた
+  DEFAULT_LIMIT: "0"
 
 jobs:
   measure:
