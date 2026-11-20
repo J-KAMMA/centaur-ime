@@ -76,6 +76,17 @@ public class TypingForm : Form {
     t.Start();
     if (!ready.WaitOne(30000)) throw new Exception("window did not show");
   }
+  // 窓の入力言語を日本語に（日本語の入力方法は BekiIME だけなので、それが働く）。入っている言語を返す
+  public static string UseJapanese() {
+    return (string)form.Invoke((Func<string>)(() => {
+      var names = new System.Text.StringBuilder();
+      foreach (InputLanguage l in InputLanguage.InstalledInputLanguages) {
+        names.Append(l.Culture.Name + "/" + l.LayoutName + "; ");
+        if (l.Culture.Name.StartsWith("ja")) InputLanguage.CurrentInputLanguage = l;
+      }
+      return names + " -> " + InputLanguage.CurrentInputLanguage.Culture.Name + "/" + InputLanguage.CurrentInputLanguage.LayoutName;
+    }));
+  }
   public static void ClearAndFocus() {
     form.Invoke((MethodInvoker)(() => { form.Activate(); form.Box.Clear(); form.Box.Focus(); }));
     KeySender.SetForegroundWindow(form.Handle);
@@ -86,6 +97,8 @@ public class TypingForm : Form {
 '@ -ReferencedAssemblies System.Windows.Forms, System.Drawing
 
 [TypingForm]::Start()
+[TypingForm]::ClearAndFocus()
+Write-Host ("input languages: " + [TypingForm]::UseJapanese())
 
 $lines = Get-Content -LiteralPath $In -Encoding utf8 | Where-Object { $_ -ne '' }
 if ($Limit -gt 0) { $lines = $lines | Select-Object -First $Limit }
