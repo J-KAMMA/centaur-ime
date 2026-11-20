@@ -56,7 +56,7 @@ jobs:
           $limit = '${{ inputs.limit }}'; if (-not $limit) { $limit = $env:DEFAULT_LIMIT }
           New-Item -ItemType Directory -Force out | Out-Null
           Get-Content .github/beki-in.txt -Encoding utf8 | Where-Object { $_ -notmatch '^#' } | Set-Content in.txt -Encoding utf8
-          pwsh -NoProfile -File tools/beki_type.ps1 -In in.txt -Out out/raw-beki.tsv -Limit ([int]$limit)
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools/beki_type.ps1 -In in.txt -Out out/raw-beki.tsv -Limit ([int]$limit)
           (Get-Content out/raw-beki.tsv -Encoding utf8).Count
       - name: 画面を残す
         if: always()

@@ -1,4 +1,4 @@
-# 一般的な IME との比べ: 入っている IME（BekiIME）に、本物のキーを送って文を打ち込み、確定した文を読む（測るだけ）。
+﻿# 一般的な IME との比べ: 入っている IME（BekiIME）に、本物のキーを送って文を打ち込み、確定した文を読む（測るだけ）。
 #   pwsh tools/beki_type.ps1 -In in.txt -Out raw.tsv [-KeyMs 15] [-SettleMs 400]
 # 入力は 1 行 1 文のローマ字（小文字、数字、. , ! ? -）。窓の上の 1 行の入力欄に、1 文ずつ
 #   変換キー（IME 入）→ ローマ字のキー → 空白（変換）→ Enter（確定）
@@ -65,33 +65,34 @@ public class TypingForm : Form {
     Box.Dock = DockStyle.Fill; Box.Font = new System.Drawing.Font("Yu Gothic UI", 14);
     Controls.Add(Box);
   }
+
+  // 窓は別の糸（STA）で動かし、PowerShell の糸からは下の関数で触る（PowerShell の台本は別の糸で動かせない）
+  static TypingForm form;
+  public static void Start() {
+    var ready = new ManualResetEvent(false);
+    var t = new Thread(() => { form = new TypingForm(); form.Shown += (s, e) => ready.Set(); Application.Run(form); });
+    t.SetApartmentState(ApartmentState.STA);
+    t.IsBackground = true;
+    t.Start();
+    if (!ready.WaitOne(30000)) throw new Exception("window did not show");
+  }
+  public static void ClearAndFocus() {
+    form.Invoke((MethodInvoker)(() => { form.Activate(); form.Box.Clear(); form.Box.Focus(); }));
+    KeySender.SetForegroundWindow(form.Handle);
+  }
+  public static string Read() { return (string)form.Invoke((Func<string>)(() => form.Box.Text)); }
+  public static void Stop() { form.Invoke((MethodInvoker)(() => form.Close())); }
 }
 '@ -ReferencedAssemblies System.Windows.Forms, System.Drawing
 
-$form = New-Object TypingForm
-$ready = New-Object System.Threading.ManualResetEvent $false
-$form.Add_Shown({ $ready.Set() | Out-Null })
-# 窓は別の糸で動かし、この糸からキーを送る
-$thread = [System.Threading.Thread]::new([System.Threading.ThreadStart]{ [System.Windows.Forms.Application]::Run($form) })
-$thread.SetApartmentState('STA')
-$thread.Start()
-$ready.WaitOne(30000) | Out-Null
-
-function Invoke-Ui([scriptblock]$f) { $form.Invoke([Func[object]]$f) }
-function Get-BoxText { Invoke-Ui { $form.Box.Text } }
-function Clear-Box { Invoke-Ui { $form.Box.Clear(); $form.Box.Focus() | Out-Null; $null } | Out-Null }
-function Focus-Box {
-  Invoke-Ui { $form.Activate(); $form.Box.Focus() | Out-Null; $null } | Out-Null
-  [KeySender]::SetForegroundWindow($form.Handle) | Out-Null
-}
+[TypingForm]::Start()
 
 $lines = Get-Content -LiteralPath $In -Encoding utf8 | Where-Object { $_ -ne '' }
 if ($Limit -gt 0) { $lines = $lines | Select-Object -First $Limit }
 $writer = [IO.StreamWriter]::new($Out, $false, [Text.UTF8Encoding]::new($false))
 $n = 0
 foreach ($r in $lines) {
-  Focus-Box
-  Clear-Box
+  [TypingForm]::ClearAndFocus()
   Start-Sleep -Milliseconds 50
   [KeySender]::Tap(0x1C, $false, 80)   # VK_CONVERT（変換キー）: BekiIME では IME 入（「あ」）
   foreach ($c in $r.ToCharArray()) {
@@ -101,11 +102,11 @@ foreach ($r in $lines) {
   Start-Sleep -Milliseconds $SettleMs
   [KeySender]::Tap(0x20, $false, $SettleMs)   # 空白: 変換
   [KeySender]::Tap(0x0D, $false, 150)         # Enter: 確定
-  $text = (Get-BoxText) -replace "[`r`n]", ''
+  $text = ([TypingForm]::Read()) -replace "[`r`n]", ''
   $writer.WriteLine("$r`t$text")
   $writer.Flush()
   $n++
   if ($n -le 3 -or $n % 100 -eq 0) { Write-Host "$n`t$r`t$text" }
 }
 $writer.Close()
-Invoke-Ui { $form.Close(); $null } | Out-Null
+[TypingForm]::Stop()
