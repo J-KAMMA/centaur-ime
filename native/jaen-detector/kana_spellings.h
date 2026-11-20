@@ -173,11 +173,18 @@ class KanaSpellings {
   }
 
   // The words with a known kanji spelling, as (kana, kanji), for ReplaceKanaSpellings.
+  // A word may keep several kanji spellings separated by '|' (はじめて: 初めて|始めて),
+  // one pair each.
   std::vector<std::pair<std::string, std::string>> Spellings() const {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<std::pair<std::string, std::string>> out;
     for (const auto& [key, word] : words_) {
-      if (!word.kanji.empty()) out.emplace_back(key, word.kanji);
+      for (size_t b = 0; b < word.kanji.size();) {
+        size_t e = word.kanji.find('|', b);
+        if (e == std::string::npos) e = word.kanji.size();
+        if (e > b) out.emplace_back(key, word.kanji.substr(b, e - b));
+        b = e + 1;
+      }
     }
     return out;
   }

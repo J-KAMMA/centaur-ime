@@ -53,6 +53,13 @@ int main() {
     Expect(spellings.size() == 2 && spellings[0] == std::make_pair(std::string("ぜんぶ"), std::string("全部")),
            "the kanji spellings are read back (v2)");
     words.Clear();
+    Expect(words.Add("はじめて", 1851, "初めて|始めて"), "a word with two kanji spellings");
+    const auto two = words.Spellings();
+    Expect(two.size() == 2 && two[0].second == "初めて" && two[1].second == "始めて",
+           "each kanji spelling is its own pair");
+    Expect(jaen::ReplaceKanaSpellings("はじめてみた", "始めてみた", two) == "はじめてみた",
+           "the second kanji spelling is put back too");
+    words.Clear();
   }
   {
     // A v1 file (no kanji) is still read; such words are not replaced in text.

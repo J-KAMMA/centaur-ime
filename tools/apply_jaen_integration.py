@@ -5996,7 +5996,21 @@ edit("converter/converter.cc", """    if (choice != jaen::Choice::kNone) English
     if (picked.value == picked.key && Util::GetScriptType(picked.value) == Util::HIRAGANA) {
       if (second.key == picked.key && second.content_key == second.key &&
           Util::ContainsScriptType(second.value, Util::KANJI)) {
-        kana_changed |= KanaSpellingStore().Add(picked.key, second.lid, second.value);
+        // Keep every kanji spelling offered for the reading (はじめて: 初めて and
+        // 始めて), so that the one a later conversion writes is put back too.
+        std::string kanji = second.value;
+        for (size_t c = 2, kept = 1; c < segment.candidates_size() && c < 8 && kept < 3; ++c) {
+          const Candidate& other = segment.candidate(c);
+          if (other.key != picked.key || other.content_key != other.key || other.value == second.value ||
+              !Util::ContainsScriptType(other.value, Util::KANJI) ||
+              other.value.find('|') != std::string::npos ||
+              kanji.find(other.value) != std::string::npos) {
+            continue;
+          }
+          kanji += "|" + other.value;
+          ++kept;
+        }
+        kana_changed |= KanaSpellingStore().Add(picked.key, second.lid, kanji);
       }
     } else if (Util::ContainsScriptType(picked.value, Util::KANJI) && second.key == picked.key &&
                second.value == second.key && Util::GetScriptType(second.value) == Util::HIRAGANA) {
