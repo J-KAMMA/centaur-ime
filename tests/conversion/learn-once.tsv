@@ -1,0 +1,22 @@
+# 1回選んだだけで次から効くかの試験（組 l、LEARN_ONCE=1）。列は learn-sticky.tsv と同じ。かなで書きたい語を1回だけ選び、
+# 別の文で先頭に来るか。学習の前から望みの書き方の行は数えない。
+kana	dekiru	できる	korehadekiru	できる
+kana	toki	とき	sonotokiha	とき
+kana	tame	ため	kenkounotameni	ため
+kana	mono	もの	taisetsunamono	もの
+kana	itadaku	いただく	okashiwoitadaku	いただく
+kana	itashimasu	いたします	oneigaiitashimasu	いたします
+kana	iu	いう	souiukoto	いう
+kana	hodo	ほど	sorehodo	ほど
+kana	yoroshiku	よろしく	yoroshikuonegaishimasu	よろしく
+kana	koto	こと	sonnakotomoaru	こと
+kana	kudasai	ください	mitekudasai	ください
+kana	zenbu	ぜんぶ	zenbutabeta	ぜんぶ
+kana	yahari	やはり	yaharisouda	やはり
+kana	tokoro	ところ	itatokorode	ところ
+kana	nado	など	ringonado	など
+kana	subete	すべて	subetewakatta	すべて
+kana	mada	まだ	madakonai	まだ
+kana	hajimete	はじめて	hajimetemita	はじめて
+kana	chotto	ちょっと	chottomatte	ちょっと
+kana	sugu	すぐ	suguiku	すぐ
