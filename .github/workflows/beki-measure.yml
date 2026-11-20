@@ -1,13 +1,19 @@
 # 一般的な IME との比べ: BekiIME（nyk2、Windows 用、元のプログラムは非公開）を使い捨ての Windows の機械に入れて、
 # 同じ文をキーで打ち込んで測る。測るだけで配らない。許諾（LICENSE.txt）は「インストールして使う」ことを認めている。
-# 1 段目: 入れ方と登録のされ方を調べる（入れる道具の種類、黙って入れる引数、TSF の登録）。
+# 調べ（run 44659796301）: Inno Setup。/VERYSILENT で入り、TSF に登録され、日本語の入力方法にも足される。
+# ただし最後の知らせの窓（OK）は /SUPPRESSMSGBOXES でも出て待ち続けるので、登録を確かめたら入れる道具を止める。
+# 設定は BekiIME の既定のまま（AI 変換は既定で切）。
 name: BekiIME measure
 
 on:
   push:
     branches: [work/compare-general]
-    paths: [.github/workflows/beki-measure.yml, tools/beki_type.ps1]
+    paths: [.github/workflows/beki-measure.yml, tools/beki_type.ps1, .github/beki-in.txt]
   workflow_dispatch:
+    inputs:
+      limit:
+        description: "測る文の数（0 は全部）"
+        default: "50"
 
 permissions:
   contents: read
@@ -15,60 +21,55 @@ permissions:
 
 env:
   BEKI_URL: https://nyk2.sakura.ne.jp/download_a.php?file=files/BekiIME-0.61.0.805-setup.exe
+  BEKI_SHA256: 1714D35523C26FB5D4EA3BA05E7CC05568757D8DADA6722F3CAA0DA65C6C1510
+  BEKI_TIP: "0411:{2F677219-B03B-4F12-975D-1B74EFA24FB5}{42CF9977-9B77-45D0-BD23-04C3A688F6B7}"
+  # 送ったときに測る文の数（0 は全部）。まず 50 文でキーが届くかを確かめる
+  DEFAULT_LIMIT: "50"
 
 jobs:
-  probe:
+  measure:
     runs-on: windows-2025
-    timeout-minutes: 60
+    timeout-minutes: 360
     defaults:
       run:
         shell: pwsh
     steps:
-      - name: 取ってきて種類を見る
+      - uses: actions/checkout@v4
+      - name: 取ってきて入れる
         run: |
           $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest -Uri $env:BEKI_URL -OutFile beki-setup.exe -UserAgent 'Mozilla/5.0'
-          Get-Item beki-setup.exe | Select-Object Name, Length
-          (Get-FileHash beki-setup.exe -Algorithm SHA256).Hash
-          (Get-AuthenticodeSignature beki-setup.exe | Select-Object Status, StatusMessage | Format-List | Out-String)
-          (Get-Item beki-setup.exe).VersionInfo | Format-List | Out-String
-          $b = [IO.File]::ReadAllBytes("$PWD\beki-setup.exe")
-          $s = [Text.Encoding]::ASCII.GetString($b, 0, [Math]::Min($b.Length, 4MB))
-          foreach ($k in 'Inno Setup', 'Nullsoft', 'NSIS', 'WiX', 'InstallShield', 'Advanced Installer', 'Squirrel', 'MSI') {
-            if ($s.Contains($k)) { "見つかった: $k" }
+          Invoke-WebRequest -Uri $env:BEKI_URL -OutFile $env:RUNNER_TEMP\beki-setup.exe -UserAgent 'Mozilla/5.0'
+          if ((Get-FileHash $env:RUNNER_TEMP\beki-setup.exe -Algorithm SHA256).Hash -ne $env:BEKI_SHA256) { throw "SHA256 が違う" }
+          $p = Start-Process $env:RUNNER_TEMP\beki-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',"/LOG=$env:RUNNER_TEMP\beki-install.log" -PassThru
+          for ($i = 0; $i -lt 120 -and -not $p.HasExited; $i++) {
+            Start-Sleep 5
+            if ((Test-Path $env:RUNNER_TEMP\beki-install.log) -and (Select-String -Path $env:RUNNER_TEMP\beki-install.log -Pattern 'Message box' -Quiet)) { break }
           }
-      - name: 黙って入れる（Inno Setup。1 回目は待ったまま終わらなかったので、待ちを区切って様子を見る）
+          Start-Sleep 5
+          Get-Process | Where-Object { $_.Path -like "$env:RUNNER_TEMP*" -or $_.ProcessName -like 'beki-setup*' -or $_.ProcessName -like 'is-*' } | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-Content $env:RUNNER_TEMP\beki-install.log -Tail 8
+          (Get-WinUserLanguageList | Where-Object LanguageTag -eq 'ja').InputMethodTips
+          Set-WinDefaultInputMethodOverride -InputTip $env:BEKI_TIP
+          Get-WinDefaultInputMethodOverride
+      - name: 打ち込む
         run: |
-          $p = Start-Process .\beki-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/LOG=beki-install.log' -PassThru
-          $p.WaitForExit(600000) | Out-Null
-          "終わった: $($p.HasExited) 終了: $(if ($p.HasExited) { $p.ExitCode })"
-          if (Test-Path beki-install.log) { Get-Content beki-install.log -Tail 60 }
-          Get-Process | Where-Object { $_.MainWindowTitle -or $_.ProcessName -match 'beki|setup|is-|tmp' } |
-            Select-Object Id, ProcessName, MainWindowTitle, Path | Format-Table -AutoSize | Out-String -Width 250
+          $limit = '${{ inputs.limit }}'; if (-not $limit) { $limit = $env:DEFAULT_LIMIT }
+          New-Item -ItemType Directory -Force out | Out-Null
+          Get-Content .github/beki-in.txt -Encoding utf8 | Where-Object { $_ -notmatch '^#' } | Set-Content in.txt -Encoding utf8
+          pwsh -NoProfile -File tools/beki_type.ps1 -In in.txt -Out out/raw-beki.tsv -Limit ([int]$limit)
+          (Get-Content out/raw-beki.tsv -Encoding utf8).Count
+      - name: 画面を残す
+        if: always()
+        run: |
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
           [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-          $bmp.Save("$PWD\screen-after-install.png")
-      - name: 入った所と TSF の登録
-        run: |
-          Get-ChildItem 'C:\Program Files', 'C:\Program Files (x86)', "$env:LOCALAPPDATA\Programs" -Directory -ErrorAction SilentlyContinue |
-            Where-Object Name -match 'Beki' | ForEach-Object { $_.FullName; Get-ChildItem $_.FullName -Recurse -File | Select-Object -First 40 FullName, Length | Format-Table -AutoSize | Out-String -Width 200 }
-          foreach ($root in 'HKLM:\SOFTWARE\Microsoft\CTF\TIP', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\CTF\TIP') {
-            Get-ChildItem $root -ErrorAction SilentlyContinue | ForEach-Object {
-              $clsid = $_.PSChildName
-              Get-ChildItem "$($_.PSPath)\LanguageProfile" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-                $d = (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).Description
-                if ($d) { "$root $clsid $($_.PSChildName) $d" }
-              }
-            }
-          }
-          Get-WinUserLanguageList | Format-List | Out-String
+          New-Item -ItemType Directory -Force out | Out-Null
+          $bmp.Save("$PWD\out\screen.png")
+          Copy-Item $env:RUNNER_TEMP\beki-install.log out\ -ErrorAction SilentlyContinue
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: beki-probe
-          path: |
-            beki-install.log
-            screen-after-install.png
-          if-no-files-found: ignore
+          name: beki-measure
+          path: out/
