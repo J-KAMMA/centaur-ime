@@ -37,11 +37,19 @@ jobs:
           foreach ($k in 'Inno Setup', 'Nullsoft', 'NSIS', 'WiX', 'InstallShield', 'Advanced Installer', 'Squirrel', 'MSI') {
             if ($s.Contains($k)) { "見つかった: $k" }
           }
-      - name: 黙って入れる（Inno Setup の引数、だめなら NSIS）
+      - name: 黙って入れる（Inno Setup。1 回目は待ったまま終わらなかったので、待ちを区切って様子を見る）
         run: |
-          $p = Start-Process .\beki-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/LOG=beki-install.log' -PassThru -Wait
-          "終了: $($p.ExitCode)"
-          if (Test-Path beki-install.log) { Get-Content beki-install.log -Tail 40 }
+          $p = Start-Process .\beki-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/LOG=beki-install.log' -PassThru
+          $p.WaitForExit(600000) | Out-Null
+          "終わった: $($p.HasExited) 終了: $(if ($p.HasExited) { $p.ExitCode })"
+          if (Test-Path beki-install.log) { Get-Content beki-install.log -Tail 60 }
+          Get-Process | Where-Object { $_.MainWindowTitle -or $_.ProcessName -match 'beki|setup|is-|tmp' } |
+            Select-Object Id, ProcessName, MainWindowTitle, Path | Format-Table -AutoSize | Out-String -Width 250
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD\screen-after-install.png")
       - name: 入った所と TSF の登録
         run: |
           Get-ChildItem 'C:\Program Files', 'C:\Program Files (x86)', "$env:LOCALAPPDATA\Programs" -Directory -ErrorAction SilentlyContinue |
@@ -60,5 +68,7 @@ jobs:
         if: always()
         with:
           name: beki-probe
-          path: beki-install.log
+          path: |
+            beki-install.log
+            screen-after-install.png
           if-no-files-found: ignore
