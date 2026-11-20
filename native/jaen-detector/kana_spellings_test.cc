@@ -3,7 +3,11 @@
 #include "kana_spellings.h"
 
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 int failures = 0;
@@ -40,6 +44,58 @@ int main() {
                words.Contains("w2004"),
            "the oldest words go first when the list is full");
     words.Clear();
+  }
+  {
+    jaen::KanaSpellings words(path);
+    Expect(words.Add("ぜんぶ", 1851, "全部") && words.Add("とき", 1852, "時"), "words with their kanji");
+    jaen::KanaSpellings again(path);
+    const auto spellings = again.Spellings();
+    Expect(spellings.size() == 2 && spellings[0] == std::make_pair(std::string("ぜんぶ"), std::string("全部")),
+           "the kanji spellings are read back (v2)");
+    words.Clear();
+  }
+  {
+    // A v1 file (no kanji) is still read; such words are not replaced in text.
+    { std::ofstream out(path, std::ios::binary); out << "# v1\nぜんぶ\t1851\n"; }
+    jaen::KanaSpellings words(path);
+    Expect(words.Contains("ぜんぶ") && words.Spellings().empty(), "v1 files are read, without kanji");
+    words.Clear();
+  }
+  // ReplaceKanaSpellings: (reading, converted, expected)
+  const std::vector<std::pair<std::string, std::string>> learned = {
+      {"ぜんぶ", "全部"}, {"とき", "時"}, {"はじめて", "初めて"}, {"すべて", "全て"}, {"こと", "事"}};
+  const struct { const char* key; const char* value; const char* want; } cases[] = {
+      // put back
+      {"ぜんぶたべた", "全部食べた", "ぜんぶ食べた"},
+      {"ぜんぶたべた。", "全部食べた。", "ぜんぶ食べた。"},
+      {"そのときは", "その時は", "そのときは"},
+      {"そのときに", "その時に", "そのときに"},
+      {"はじめてみた", "初めて見た", "はじめて見た"},
+      {"すべてわかった", "全てわかった", "すべてわかった"},
+      {"ぜんぶわかった", "全部分かった", "ぜんぶ分かった"},
+      {"ぜんぶ", "全部", "ぜんぶ"},
+      {"ときどき", "時々", "時々"},
+      // left alone: the kanji is part of another word or does not line up
+      {"とけい", "時計", "時計"},
+      {"ときおり", "時折", "時折"},
+      {"ぜんぶぶん", "全部分", "全部分"},
+      {"ぜんぶひん", "全部品", "全部品"},
+      {"じかん", "時間", "時間"},
+      {"そのじだいに", "その時代に", "その時代に"},
+      {"きょうぜんぶたべた", "今日全部食べた", "今日全部食べた"},
+      {"ことしは", "今年は", "今年は"},
+      {"ことば", "言葉", "言葉"},
+      {"こと", "古都", "古都"},
+      {"ぜんぶちょう", "全部長", "全部長"},
+      {"いっかげつ", "一ヶ月", "一ヶ月"},
+      {"とき", "時", "とき"},
+      {"ときの", "時の", "ときの"},
+      {"とくに", "特に", "特に"},
+  };
+  for (const auto& c : cases) {
+    const std::string got = jaen::ReplaceKanaSpellings(c.key, c.value, learned);
+    if (got != c.want) std::cout << "  " << c.key << " " << c.value << " -> " << got << " (want " << c.want << ")\n";
+    Expect(got == c.want, c.value);
   }
   std::cout << "SUMMARY\t" << failures << '\n';
   return failures == 0 ? 0 : 1;

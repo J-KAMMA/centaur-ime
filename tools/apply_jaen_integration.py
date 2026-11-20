@@ -5996,7 +5996,7 @@ edit("converter/converter.cc", """    if (choice != jaen::Choice::kNone) English
     if (picked.value == picked.key && Util::GetScriptType(picked.value) == Util::HIRAGANA) {
       if (second.key == picked.key && second.content_key == second.key &&
           Util::ContainsScriptType(second.value, Util::KANJI)) {
-        kana_changed |= KanaSpellingStore().Add(picked.key, second.lid);
+        kana_changed |= KanaSpellingStore().Add(picked.key, second.lid, second.value);
       }
     } else if (Util::ContainsScriptType(picked.value, Util::KANJI) && second.key == picked.key &&
                second.value == second.key && Util::GetScriptType(second.value) == Util::HIRAGANA) {
@@ -6005,6 +6005,47 @@ edit("converter/converter.cc", """    if (choice != jaen::Choice::kNone) English
   }
   if (kana_changed) NotifyKanaSpellings();
 }""")
+# かなで書く語を、変換のあとで文節の中にも戻す（全部食べた -> ぜんぶ食べた、その時は -> そのときは）。
+# 単語登録の語は文の中の変換でほぼ選ばれない（AzooKey が中心）ので、変換の最後（ApplyPostProcessing）で
+# 先頭の候補の文字を見て置き換えた候補を先頭に足す（元の候補は2番目に残る）。並びが合う所だけ
+# （native/jaen-detector/kana_spellings.h の ReplaceKanaSpellings、単体試験 kana_spellings_test.cc）。
+edit("converter/converter.cc", "void Converter::ApplyPostProcessing(", """// myime: the words the user writes in kana (KanaSpellingStore) go back in where
+// the conversion wrote their kanji inside a longer segment. The new candidate
+// goes first and the converted one stays second.
+static void PreferKanaSpellings(Segments* segments) {
+  const std::vector<std::pair<std::string, std::string>> words = KanaSpellingStore().Spellings();
+  if (words.empty()) return;
+  for (Segment& segment : segments->conversion_segments()) {
+    if (segment.candidates_size() == 0) continue;
+    const Candidate top = segment.candidate(0);
+    const std::string value = jaen::ReplaceKanaSpellings(top.key, top.value, words);
+    if (value == top.value) continue;
+    if (std::getenv("MYIME_HISTORY_TRACE") != nullptr) {
+      std::fprintf(stderr, "history kana replace: key=%s %s -> %s\\n", top.key.c_str(), top.value.c_str(),
+                   value.c_str());
+    }
+    bool moved = false;
+    for (size_t i = 1; i < segment.candidates_size(); ++i) {
+      if (segment.candidate(i).value == value) {
+        segment.move_candidate(static_cast<int>(i), 0);
+        moved = true;
+        break;
+      }
+    }
+    if (moved) continue;
+    Candidate* candidate = segment.insert_candidate(0);
+    *candidate = top;
+    candidate->value = value;
+    candidate->content_value = jaen::ReplaceKanaSpellings(top.content_key, top.content_value, words);
+    if (candidate->value.rfind(candidate->content_value, 0) != 0) {
+      candidate->content_key = candidate->key;
+      candidate->content_value = candidate->value;
+    }
+  }
+}
+
+void Converter::ApplyPostProcessing(""")
+edit("converter/converter.cc", "  PreferTypedDigits(segments);\n", "  PreferTypedDigits(segments);\n  PreferKanaSpellings(segments);\n")
 edit("engine/engine.cc", """  converter::EnglishChoices().Clear();
 """, """  converter::EnglishChoices().Clear();
   converter::KanaSpellingStore().Clear();
