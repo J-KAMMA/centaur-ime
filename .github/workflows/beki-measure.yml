@@ -8,7 +8,7 @@ name: BekiIME measure
 on:
   push:
     branches: [work/compare-general]
-    paths: [.github/workflows/beki-measure.yml, tools/beki_type.ps1, .github/beki-in.txt]
+    paths: [.github/workflows/beki-measure.yml, tools/beki_type.ps1, .github/beki-in.txt, .github/beki-in-retry.txt]
   workflow_dispatch:
     inputs:
       limit:
@@ -25,6 +25,9 @@ env:
   BEKI_TIP: "0411:{2F677219-B03B-4F12-975D-1B74EFA24FB5}{42CF9977-9B77-45D0-BD23-04C3A688F6B7}"
   # 送ったときに測る文の数（0 は全部）。20 文の試し（run 44662142548）で変換できると確かめた
   DEFAULT_LIMIT: "0"
+  # 打つ文の一覧と待ち。全部（run 44662447123）では後半に入力欄が空の文が 523 出たので、それだけ待ちを長くして打ち直す
+  IN_FILE: .github/beki-in-retry.txt
+  SETTLE_MS: "1000"
 
 jobs:
   measure:
@@ -55,8 +58,8 @@ jobs:
         run: |
           $limit = '${{ inputs.limit }}'; if (-not $limit) { $limit = $env:DEFAULT_LIMIT }
           New-Item -ItemType Directory -Force out | Out-Null
-          Get-Content .github/beki-in.txt -Encoding utf8 | Where-Object { $_ -notmatch '^#' } | Set-Content in.txt -Encoding utf8
-          powershell -NoProfile -ExecutionPolicy Bypass -File tools/beki_type.ps1 -In in.txt -Out out/raw-beki.tsv -Limit ([int]$limit)
+          Get-Content $env:IN_FILE -Encoding utf8 | Where-Object { $_ -notmatch '^#' } | Set-Content in.txt -Encoding utf8
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools/beki_type.ps1 -In in.txt -Out out/raw-beki.tsv -Limit ([int]$limit) -SettleMs ([int]$env:SETTLE_MS) -KeyMs 25
           (Get-Content out/raw-beki.tsv -Encoding utf8).Count
       - name: 画面を残す
         if: always()
