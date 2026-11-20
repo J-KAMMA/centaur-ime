@@ -1,0 +1,64 @@
+# 一般的な IME との比べ: BekiIME（nyk2、Windows 用、元のプログラムは非公開）を使い捨ての Windows の機械に入れて、
+# 同じ文をキーで打ち込んで測る。測るだけで配らない。許諾（LICENSE.txt）は「インストールして使う」ことを認めている。
+# 1 段目: 入れ方と登録のされ方を調べる（入れる道具の種類、黙って入れる引数、TSF の登録）。
+name: BekiIME measure
+
+on:
+  push:
+    branches: [work/compare-general]
+    paths: [.github/workflows/beki-measure.yml, tools/beki_type.ps1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  BEKI_URL: https://nyk2.sakura.ne.jp/download_a.php?file=files/BekiIME-0.61.0.805-setup.exe
+
+jobs:
+  probe:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: 取ってきて種類を見る
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri $env:BEKI_URL -OutFile beki-setup.exe -UserAgent 'Mozilla/5.0'
+          Get-Item beki-setup.exe | Select-Object Name, Length
+          (Get-FileHash beki-setup.exe -Algorithm SHA256).Hash
+          (Get-AuthenticodeSignature beki-setup.exe | Select-Object Status, StatusMessage | Format-List | Out-String)
+          (Get-Item beki-setup.exe).VersionInfo | Format-List | Out-String
+          $b = [IO.File]::ReadAllBytes("$PWD\beki-setup.exe")
+          $s = [Text.Encoding]::ASCII.GetString($b, 0, [Math]::Min($b.Length, 4MB))
+          foreach ($k in 'Inno Setup', 'Nullsoft', 'NSIS', 'WiX', 'InstallShield', 'Advanced Installer', 'Squirrel', 'MSI') {
+            if ($s.Contains($k)) { "見つかった: $k" }
+          }
+      - name: 黙って入れる（Inno Setup の引数、だめなら NSIS）
+        run: |
+          $p = Start-Process .\beki-setup.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/LOG=beki-install.log' -PassThru -Wait
+          "終了: $($p.ExitCode)"
+          if (Test-Path beki-install.log) { Get-Content beki-install.log -Tail 40 }
+      - name: 入った所と TSF の登録
+        run: |
+          Get-ChildItem 'C:\Program Files', 'C:\Program Files (x86)', "$env:LOCALAPPDATA\Programs" -Directory -ErrorAction SilentlyContinue |
+            Where-Object Name -match 'Beki' | ForEach-Object { $_.FullName; Get-ChildItem $_.FullName -Recurse -File | Select-Object -First 40 FullName, Length | Format-Table -AutoSize | Out-String -Width 200 }
+          foreach ($root in 'HKLM:\SOFTWARE\Microsoft\CTF\TIP', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\CTF\TIP') {
+            Get-ChildItem $root -ErrorAction SilentlyContinue | ForEach-Object {
+              $clsid = $_.PSChildName
+              Get-ChildItem "$($_.PSPath)\LanguageProfile" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+                $d = (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).Description
+                if ($d) { "$root $clsid $($_.PSChildName) $d" }
+              }
+            }
+          }
+          Get-WinUserLanguageList | Format-List | Out-String
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: beki-probe
+          path: beki-install.log
+          if-no-files-found: ignore
