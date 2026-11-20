@@ -5981,6 +5981,9 @@ edit("converter/converter.cc", """    if (choice != jaen::Choice::kNone) English
                    picked.key.c_str(), picked.value.c_str(), picked.content_key.c_str(),
                    picked.content_value.c_str(), (picked.attributes & Attribute::RERANKED) != 0,
                    static_cast<size_t>(segment.candidates_size()));
+      for (size_t c = 0; c < segment.candidates_size() && c < 6; ++c) {
+        std::fprintf(stderr, "history kana candidate %zu: %s\\n", c, segment.candidate(c).value.c_str());
+      }
     }
     // The chosen candidate is first at commit and the one it displaced second
     // (a pick does not always mark RERANKED): kana first and a kanji spelling
@@ -6030,6 +6033,12 @@ edit("engine/engine.cc", """  async_user_dictionary_importer_ =
                                    ? nullptr
                                    : "名詞";
             if (name != nullptr) tsv += key + "\\t" + key + "\\t" + name + "\\n";
+            // A noun that also works as an adverb (全部, 時: 名詞・副詞可能) goes in as
+            // 副詞 too: 名詞 alone does not join a following verb (ぜんぶ|食べた stayed
+            // 全部食べた), and the lattice picks whichever fits the sentence.
+            if (name != nullptr && std::string_view(name) == "名詞") {
+              tsv += key + "\\t" + key + "\\t副詞\\n";
+            }
           }
           if (std::getenv("MYIME_HISTORY_TRACE") != nullptr) {
             std::fprintf(stderr, "history kana words: %zu, dictionary lines %zu\\n", words.size(),
